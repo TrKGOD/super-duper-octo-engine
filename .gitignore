@@ -35,4 +35,5 @@ secrets/
 
 # Local engagement authorization metadata (keep only the sanitized example)
 config/engagement.*.json
+config/engagement.json
 !config/engagement.example.json
