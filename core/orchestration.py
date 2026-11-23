@@ -123,7 +123,11 @@ class Workflow:
             status = "blocked"
         self.store.update_task(task_id,status,handoff)
         self.store.finish_agent_run_for_task(task_id,status)
-    def status(self,eid):
+    def record_finding(self,eid,finding):
+  if finding.get('engagement_id')!=eid: raise WorkflowError('Finding engagement_id does not match requested engagement')
+  if not self.store.connection.execute('SELECT 1 FROM engagements WHERE engagement_id=?',(eid,)).fetchone(): raise WorkflowError('Unknown engagement: '+eid)
+  self.store.record_finding(finding)
+ def status(self,eid):
         eng = self.store.connection.execute("SELECT engagement_id,status FROM engagements WHERE engagement_id=?",(eid,)).fetchone()
         if not eng:
             raise WorkflowError("Unknown engagement: " + eid)
