@@ -3,11 +3,14 @@
 This module stores operator-supplied bytes only. It does not collect data from targets
 or perform automatic redaction.
 """
+import base64
 import hashlib
 import os
 import re
 import tempfile
 from pathlib import Path
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from core.store import StateStore
 
@@ -23,13 +26,26 @@ _ALLOWED_SUFFIXES = {
 
 
 class EvidenceVault:
-    def __init__(self, store: StateStore, project_root, max_bytes=25 * 1024 * 1024):
+    MAGIC = b"PTEV1"
+    ENCRYPTION_ALGORITHM = "AES-256-GCM"
+
+    def __init__(self, store: StateStore, project_root, max_bytes=25 * 1024 * 1024,
+                 encryption_key=None):
         self.store = store
         self.project_root = Path(project_root).resolve()
         self.root = self.project_root / ".local" / "evidence"
         self.max_bytes = int(max_bytes)
         if self.max_bytes <= 0:
             raise ValueError("max_bytes must be positive")
+        encoded_key = os.environ.get("PENTEST_EVIDENCE_KEY")
+        if encryption_key is None and encoded_key:
+            try:
+                encryption_key = base64.b64decode(encoded_key, validate=True)
+            except ValueError as exc:
+                raise EvidenceError("PENTEST_EVIDENCE_KEY must be valid base64") from exc
+        if encryption_key is not None and len(encryption_key) != 32:
+            raise EvidenceError("Evidence encryption key must be exactly 32 bytes")
+        self.encryption_key = bytes(encryption_key) if encryption_key is not None else None
 
     @staticmethod
     def _safe_component(value, label):
@@ -79,7 +95,15 @@ class EvidenceVault:
         if engagement_dir.is_symlink() or not engagement_dir.resolve().is_relative_to(self.root.resolve()):
             raise EvidenceError("Engagement evidence directory escapes the vault")
 
-        digest = hashlib.sha256(payload).hexdigest()
+        encryption_algorithm = "none"
+        stored_payload = payload
+        if self.encryption_key is not None:
+            nonce = os.urandom(12)
+            stored_payload = self.MAGIC + nonce + AESGCM(self.encryption_key).encrypt(
+                nonce, payload, engagement_id.encode("utf-8")
+            )
+            encryption_algorithm = self.ENCRYPTION_ALGORITHM
+        digest = hashlib.sha256(stored_payload).hexdigest()
         fd, temporary_name = tempfile.mkstemp(prefix=".capture-", dir=str(engagement_dir))
         temporary_path = Path(temporary_name)
         final_path = engagement_dir / (digest + suffix)
@@ -87,7 +111,7 @@ class EvidenceVault:
         try:
             os.fchmod(fd, 0o600)
             with os.fdopen(fd, "wb") as stream:
-                stream.write(payload)
+                stream.write(stored_payload)
                 stream.flush()
                 os.fsync(stream.fileno())
             if final_path.exists() and final_path.is_symlink():
@@ -96,12 +120,15 @@ class EvidenceVault:
             evidence_id = self.store.record_evidence(
                 engagement_id, evidence_type, relative_path, captured_by,
                 sha256=digest, redacted=redacted,
+                encryption_algorithm=encryption_algorithm,
             )
             return {
                 "evidence_id": evidence_id,
                 "local_path": relative_path,
                 "sha256": digest,
-                "size_bytes": len(payload),
+                "size_bytes": len(stored_payload),
+                "plaintext_size_bytes": len(payload),
+                "encryption_algorithm": encryption_algorithm,
                 "redacted": redacted,
             }
         except Exception:
@@ -119,7 +146,7 @@ class EvidenceVault:
 
     def verify(self, evidence_id):
         row = self.store.connection.execute(
-            """SELECT engagement_id,local_path,sha256 FROM evidence
+            """SELECT engagement_id,local_path,sha256,encryption_algorithm FROM evidence
                WHERE evidence_id=?""",
             (evidence_id,),
         ).fetchone()
@@ -137,10 +164,44 @@ class EvidenceVault:
             raise EvidenceError("Evidence artifact is outside the vault or is not a file")
         actual = hashlib.sha256(resolved.read_bytes()).hexdigest()
         expected = row["sha256"]
+        if row["encryption_algorithm"] == self.ENCRYPTION_ALGORITHM and not resolved.read_bytes().startswith(self.MAGIC):
+            raise EvidenceError("Encrypted evidence header is invalid")
         return {
             "evidence_id": evidence_id,
+            "encryption_algorithm": row["encryption_algorithm"],
             "valid": bool(expected and actual == expected),
             "expected_sha256": expected,
             "actual_sha256": actual,
             "size_bytes": resolved.stat().st_size,
         }
+
+
+    def read(self, evidence_id):
+        """Return verified plaintext bytes; encrypted artifacts require the external key."""
+        row = self.store.connection.execute(
+            """SELECT engagement_id,local_path,encryption_algorithm FROM evidence
+               WHERE evidence_id=?""", (evidence_id,)
+        ).fetchone()
+        if row is None:
+            raise EvidenceError("Unknown evidence ID: " + str(evidence_id))
+        integrity = self.verify(evidence_id)
+        if not integrity["valid"]:
+            raise EvidenceError("Evidence SHA-256 verification failed")
+        raw = (self.project_root / row["local_path"]).read_bytes()
+        if row["encryption_algorithm"] == "none":
+            return raw
+        if row["encryption_algorithm"] != self.ENCRYPTION_ALGORITHM:
+            raise EvidenceError("Unsupported evidence encryption algorithm")
+        if self.encryption_key is None:
+            raise EvidenceError("Evidence encryption key is required to decrypt this artifact")
+        if not raw.startswith(self.MAGIC) or len(raw) < len(self.MAGIC) + 12 + 16:
+            raise EvidenceError("Encrypted evidence payload is malformed")
+        nonce_start = len(self.MAGIC)
+        nonce = raw[nonce_start:nonce_start + 12]
+        ciphertext = raw[nonce_start + 12:]
+        try:
+            return AESGCM(self.encryption_key).decrypt(
+                nonce, ciphertext, row["engagement_id"].encode("utf-8")
+            )
+        except Exception as exc:
+            raise EvidenceError("Evidence decryption failed; key or ciphertext is invalid") from exc

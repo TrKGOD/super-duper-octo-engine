@@ -38,6 +38,9 @@ jobs:
       - name: Validate agent tool declarations
         run: python scripts/validate_agent_tools.py
 
+      - name: Compile Python sources
+        run: python -m compileall -q core scripts tests
+
       - name: Run unit and security regression tests
         run: python -m unittest discover -s tests -v
 

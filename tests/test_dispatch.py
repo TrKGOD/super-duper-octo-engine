@@ -1,0 +1,165 @@
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+from core.dispatch import DispatchError, dispatch_plan, dispatch_task
+from core.orchestration import Workflow
+from scripts.migrate import migrate
+
+
+class DispatchTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.db = str(self.root / "state.sqlite")
+        migrate(self.db)
+        self.workflow = Workflow(self.db)
+        self.workflow.initialize({
+            "engagement_id": "eng-dispatch-test",
+            "authorization_reference": "AUTH-SYNTHETIC-TEST",
+            "scope": {"allowed_domains": ["app.example.test"]},
+            "rules_of_engagement": {"execution_enabled": False},
+        })
+        created = self.workflow.create_plan("eng-dispatch-test", {"tasks": [{
+            "task_key": "analyze-ssrf",
+            "agent": "vulnerability-agent",
+            "objective": "Analyze supplied synthetic SSRF evidence only",
+            "completion_criteria": ["Return a structured evidence-based handoff"],
+            "scope_subset": ["app.example.test"],
+            "domain": "web",
+            "skill_tags": ["ssrf"],
+            "evidence_refs": [],
+        }]})
+        self.task_id = created[0]["task_id"]
+
+    def tearDown(self):
+        self.workflow.close()
+        self.tmp.cleanup()
+
+    def _fake_cli(self, invented_evidence=False):
+        fake = self.root / "claude-fake"
+        evidence_refs = ["evidence_fabricated"] if invented_evidence else []
+        handoff = {
+            "task_id": self.task_id,
+            "engagement_id": "eng-dispatch-test",
+            "agent": "vulnerability-agent",
+            "status": "completed",
+            "scope_subset": ["app.example.test"],
+            "summary": "Reviewed only the supplied synthetic fixture.",
+            "observations": [],
+            "hypotheses": [],
+            "evidence_refs": evidence_refs,
+            "limitations": ["No network or target interaction was performed."],
+            "next_steps": [],
+        }
+        script = (
+            "#!" + sys.executable + "\n"
+            "import json, sys\n"
+            "prompt = sys.stdin.read()\n"
+            "assert 'selected_methodology' in prompt\n"
+            "handoff = " + repr(handoff) + "\n"
+            "print(json.dumps({'result': json.dumps(handoff), 'total_cost_usd': 0.02,"
+            " 'usage': {'input_tokens': 200, 'output_tokens': 80}}))\n"
+        )
+        fake.write_text(script, encoding="utf-8")
+        fake.chmod(0o755)
+        return str(fake)
+
+    def test_dispatch_selects_skill_invokes_agent_and_persists_handoff(self):
+        result = dispatch_task(
+            self.workflow, self.task_id, "pinned-model",
+            claude_bin=self._fake_cli(), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["selected_skills"], ["web-ssrf"])
+        status = self.workflow.status("eng-dispatch-test")
+        self.assertEqual(status["tasks"][0]["status"], "completed")
+        run = self.workflow.store.connection.execute(
+            "SELECT status,input_tokens,output_tokens,cost_usd FROM agent_runs WHERE run_id=?",
+            (result["run_id"],),
+        ).fetchone()
+        self.assertEqual(run["status"], "completed")
+        self.assertEqual(run["input_tokens"], 200)
+        self.assertEqual(run["output_tokens"], 80)
+        self.assertEqual(run["cost_usd"], 0.02)
+
+    def test_dispatch_rejects_fabricated_evidence_and_fails_task_closed(self):
+        with self.assertRaisesRegex(DispatchError, "not supplied"):
+            dispatch_task(
+                self.workflow, self.task_id, "pinned-model",
+                claude_bin=self._fake_cli(invented_evidence=True), timeout_seconds=30,
+            )
+        status = self.workflow.status("eng-dispatch-test")
+        self.assertEqual(status["tasks"][0]["status"], "failed")
+        run = self.workflow.store.connection.execute(
+            "SELECT status FROM agent_runs WHERE task_id=?", (self.task_id,)
+        ).fetchone()
+        self.assertEqual(run["status"], "failed")
+
+    def test_dispatch_plan_runs_specialists_in_dependency_order(self):
+        # Complete the setup task so the plan runner only sees the two test tasks.
+        self.workflow.start_task(self.task_id)
+        self.workflow.accept_handoff(self.task_id, {
+            "task_id": self.task_id,
+            "engagement_id": "eng-dispatch-test",
+            "agent": "vulnerability-agent",
+            "status": "completed",
+            "scope_subset": ["app.example.test"],
+            "summary": "Setup task completed.",
+            "observations": [], "hypotheses": [], "evidence_refs": [],
+            "limitations": [],
+        })
+        self.workflow.create_plan("eng-dispatch-test", {"tasks": [
+            {"task_key": "recon", "agent": "recon-agent",
+             "objective": "Review supplied passive inventory",
+             "completion_criteria": ["Return handoff"],
+             "scope_subset": ["app.example.test"], "domain": "web"},
+            {"task_key": "enum", "agent": "enumeration-agent",
+             "objective": "Normalize supplied routes",
+             "completion_criteria": ["Return handoff"],
+             "scope_subset": ["app.example.test"], "domain": "web",
+             "depends_on": ["recon"]}
+        ]})
+        fake = self.root / "claude-dynamic-fake"
+        fake.write_text(
+            "#!" + sys.executable + "\n"
+            "import json, sys\n"
+            "prompt = sys.stdin.read()\n"
+            "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\n"
+            "task = context['task']\n"
+            "if task['agent'] == 'enumeration-agent': assert len(context['prior_handoffs']) == 1\n"
+            "handoff = {'task_id': task['task_id'], 'engagement_id': task['engagement_id'],"
+            " 'agent': task['agent'], 'status': 'completed',"
+            " 'scope_subset': task['scope_subset'], 'summary': 'Synthetic task completed',"
+            " 'observations': [], 'hypotheses': [], 'evidence_refs': [], 'limitations': []}\n"
+            "print(json.dumps({'result': json.dumps(handoff)}))\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        result = dispatch_plan(
+            self.workflow, "eng-dispatch-test", "pinned-model",
+            claude_bin=str(fake), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(len(result["results"]), 2)
+        self.assertEqual(
+            [task["status"] for task in self.workflow.status("eng-dispatch-test")["tasks"]],
+            ["completed", "completed", "completed"],
+        )
+    def test_dispatch_requires_execution_disabled(self):
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET rules_json=? WHERE engagement_id=?",
+            (json.dumps({"execution_enabled": True}), "eng-dispatch-test"),
+        )
+        self.workflow.store.connection.commit()
+        with self.assertRaisesRegex(DispatchError, "execution_enabled=false"):
+            dispatch_task(
+                self.workflow, self.task_id, "pinned-model",
+                claude_bin=self._fake_cli(), timeout_seconds=30,
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

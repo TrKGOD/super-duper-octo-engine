@@ -1,0 +1,215 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Review operator-confirmed API scope and exclusions",
+      "depends_on": [],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "recon",
+      "agent": "recon-agent",
+      "objective": "Review supplied API host inventory and provenance",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "passive-recon"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Normalize supplied OpenAPI, route captures, parameters and role contexts",
+      "depends_on": [
+        "recon"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "routes",
+        "parameters"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Analyze supplied API evidence for BOLA, function authorization, mass assignment, OAuth/JWT and injection hypotheses",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "object-authorization",
+        "oauth2",
+        "jwt",
+        "authentication"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently review candidate API findings and authentic evidence",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "independent-review",
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "impact",
+      "agent": "impact-analyst",
+      "objective": "Assess impact and preconditions for independently supported API findings",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "impact"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "dedupe",
+      "agent": "duplicate-checker",
+      "objective": "Identify possible duplicates without merging records",
+      "depends_on": [
+        "impact"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "deduplication"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "report",
+      "agent": "reporting-agent",
+      "objective": "Prepare output from persisted validated API findings",
+      "depends_on": [
+        "dedupe"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "api",
+      "skill_tags": [
+        "reporting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    }
+  ]
+}

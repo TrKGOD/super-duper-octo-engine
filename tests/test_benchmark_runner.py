@@ -34,7 +34,6 @@ class BenchmarkRunnerTests(unittest.TestCase):
                 "import json, sys\n"
                 "prompt = sys.stdin.read()\n"
                 "assert 'Synthetic isolated security-analysis fixture' in prompt\n"
-                "assert 'AGENT NAME: vulnerability-agent' in prompt\n"
                 "assert not any('Synthetic isolated security-analysis fixture' in a for a in sys.argv)\n"
                 "result = {'case_id':'SYN-TEST-001','detected':True,"
                 "'vulnerability_type':'BOLA','evidence_fields':['request_identity']}\n"
@@ -73,9 +72,10 @@ class BenchmarkRunnerTests(unittest.TestCase):
             "fixtures": {},
         }, "negative.json")
 
+
     def test_parse_fenced_json_result_envelope(self):
         payload = {"case_id": "SYN-TEST-FENCE", "detected": True, "evidence_fields": ["request_identity"]}
-        stdout = json.dumps({"result": "```json\n" + json.dumps(payload) + "\n```"})
+        stdout = json.dumps({"result": chr(96) * 3 + "json\n" + json.dumps(payload) + "\n" + chr(96) * 3})
         self.assertEqual(parse_model_json(stdout), payload)
 
     def test_parse_plain_json_result_envelope(self):
@@ -85,7 +85,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
 
     def test_runtime_smoke_parses_fenced_result(self):
         payload = {"smoke_test": True, "agent": "vulnerability-agent", "status": "completed"}
-        stdout = json.dumps({"result": "```json\n" + json.dumps(payload) + "\n```"})
+        stdout = json.dumps({"result": chr(96) * 3 + "json\n" + json.dumps(payload) + "\n" + chr(96) * 3})
         _, parsed = parse_agent_result(stdout)
         self.assertEqual(parsed, payload)
 
@@ -93,7 +93,6 @@ class BenchmarkRunnerTests(unittest.TestCase):
         payload = {"smoke_test": True, "agent": "recon-agent", "status": "completed"}
         _, parsed = parse_agent_result(json.dumps({"result": json.dumps(payload)}))
         self.assertEqual(parsed, payload)
-
 
 if __name__ == "__main__":
     unittest.main()

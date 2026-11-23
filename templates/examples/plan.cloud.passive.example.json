@@ -1,0 +1,161 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Review operator-confirmed cloud account, project and resource scope",
+      "depends_on": [],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "profile",
+      "agent": "technology-profiler",
+      "objective": "Profile supplied cloud architecture and configuration exports",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "configuration"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Inventory IAM principals, storage, network boundaries and audit settings from supplied exports",
+      "depends_on": [
+        "profile"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "iam",
+        "storage"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Develop cloud misconfiguration hypotheses from supplied evidence",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "iam",
+        "network-controls"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently review policy/configuration evidence and alternative explanations",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "independent-review",
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "report",
+      "agent": "reporting-agent",
+      "objective": "Prepare report content from persisted validated cloud findings",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "cloud",
+      "skill_tags": [
+        "reporting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    }
+  ]
+}

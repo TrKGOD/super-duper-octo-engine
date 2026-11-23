@@ -51,7 +51,7 @@ python scripts/skill_registry.py select --tag oauth2 --tag jwt
 
 ## Safety and runtime boundaries
 
-The initial status is `catalogue_only`. The registry does **not** dispatch agents, inject Skills into prompts, grant tools, authorize targets, enable active testing, or override `CLAUDE.md`, engagement scope, hooks, or human approval. Compatibility is a documented recommendation, not a capability or permission.
+The status is `runtime_context_selection`. The bounded dispatcher reads this registry to select methodology files by task domain, compatible agent, and optional tags, then injects their text as untrusted context into the specialist prompt. This is context selection only: it does **not** grant tools, authorize targets, enable active testing, or override `CLAUDE.md`, engagement scope, hooks, or human approval. The dispatcher currently runs with tools disabled.
 
 All current entries use `catalogued_unverified`: metadata and file references are checked locally, but the Skills have not yet been verified through a real Claude Code runtime integration test. Do not promote an entry to `runtime_verified` based only on this static validator.
 
@@ -65,6 +65,6 @@ When adding or renaming a Skill:
 2. Add/update the corresponding registry entry.
 3. Use only existing agent IDs from `.claude/agents/*.md`.
 4. Run `python scripts/skill_registry.py validate` and `python -m unittest tests.test_skill_registry -v`.
-5. Verify the Skill in Claude Code before changing its status to `runtime_verified`.
+5. Verify the Skill in a controlled Claude Code session before changing its status to `runtime_verified`.
 
 Keep Skill instructions concise and reusable. Put long references or supporting scripts alongside the Skill only when they materially improve the methodology.

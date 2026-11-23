@@ -61,3 +61,21 @@ No live-target testing is part of these benchmark commands. A real assessment re
 ## Interpreting results
 
 Precision, recall, F1, false-positive rate, and evidence completeness describe performance against the supplied synthetic corpus only. Report corpus size, positive/negative balance, model identifier, repeated runs, time, and cost alongside metrics. Small fixture sets do not establish production reliability.
+
+
+## Model 1 versus hybrid pipeline simulation
+
+The repository preserves separate fixed specialist sequences:
+
+- Model 1: Recon → Enumeration → Vulnerability Discovery → Exploitation Analysis → Validation → Reporting.
+- Hybrid: Scope → Recon → Technology Profiling → Enumeration → Vulnerability Analysis → Validation → Impact → Deduplication → Reporting.
+
+Run each plan against the same corpus and model:
+
+```bash
+python scripts/run_architecture_benchmark.py --architecture model1 --plan templates/examples/plan.model1.passive.example.json --model MODEL_NAME --predictions-out .local/model1-predictions.json --manifest-out .local/model1-manifest.json
+python scripts/run_architecture_benchmark.py --architecture hybrid --plan templates/examples/plan.hybrid.passive.example.json --model MODEL_NAME --predictions-out .local/hybrid-predictions.json --manifest-out .local/hybrid-manifest.json
+python scripts/compare_architecture_results.py --model1-predictions .local/model1-predictions.json --model1-manifest .local/model1-manifest.json --hybrid-predictions .local/hybrid-predictions.json --hybrid-manifest .local/hybrid-manifest.json
+```
+
+The runner enforces the exact sequence associated with each architecture label. The comparator verifies the same model identifier and exact current corpus hash before computing deltas. This measures fixed sequential pipeline simulations, not autonomous Orchestrator planning or Task-tool behavior. Run multiple repetitions and report variance before drawing conclusions.

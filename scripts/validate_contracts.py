@@ -7,11 +7,12 @@ ROOT=Path(__file__).resolve().parents[1]
 checks=[
 ("templates/finding.schema.json",[]),
 ("templates/handoff.schema.json",["templates/examples/handoff.completed.example.json"]),
-("templates/plan.schema.json",["templates/examples/plan.passive.example.json"]),
+("templates/plan.schema.json",["templates/examples/plan.passive.example.json","templates/examples/plan.hybrid.passive.example.json","templates/examples/plan.model1.passive.example.json","templates/examples/plan.api.hybrid.passive.example.json","templates/examples/plan.mobile.passive.example.json","templates/examples/plan.cloud.passive.example.json","templates/examples/plan.active-directory.passive.example.json"]),
 ("templates/evidence-manifest.schema.json",["templates/examples/evidence-manifest.example.json"]),
 ("templates/knowledge-document.schema.json",[]),
 ("templates/knowledge-pattern.schema.json",["templates/examples/knowledge-pattern.example.json"]),
-("templates/prediction.schema.json",["benchmarks/predictions.example.json"])
+("templates/prediction.schema.json",["benchmarks/predictions.example.json"]),
+("templates/program-scope.schema.json",[])
 ]
 for schema_name,examples in checks:
  schema=json.loads((ROOT/schema_name).read_text(encoding="utf-8")); Draft202012Validator.check_schema(schema)

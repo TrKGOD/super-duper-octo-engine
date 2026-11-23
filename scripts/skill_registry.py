@@ -40,7 +40,7 @@ def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RegistryError(f"Cannot read registry {path}: {exc}") from exc
-    if data.get("schema_version") != 1 or data.get("registry_status") != "catalogue_only":
+    if data.get("schema_version") != 1 or data.get("registry_status") != "runtime_context_selection":
         raise RegistryError("Unsupported schema_version or registry_status")
     if not isinstance(data.get("skills"), list) or not data["skills"]:
         raise RegistryError("Registry must contain a non-empty skills array")

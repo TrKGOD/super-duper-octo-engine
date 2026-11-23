@@ -2,7 +2,7 @@
 
 A Claude Code–first scaffold for an evidence-driven assistant supporting authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> **Current status: early pre-alpha implementation.** The repository contains agent/skill prompt contracts, configuration validation, a deny-by-default Bash hook, a local public-research knowledge-base utility, a synthetic benchmark evaluator, SQLite persistence and migrations, deterministic task/finding lifecycle controls, an operator-driven local evidence vault with SHA-256 integrity verification, audit events, and a passive-only workflow coordinator. It is **not** a production autonomous pentest framework and does not autonomously dispatch Claude agents or execute active tests.
+> **Current status: early pre-alpha implementation.** The repository contains a bounded Claude Code specialist dispatcher for passive analysis of supplied artifacts, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, and an operator-driven evidence vault with optional AES-256-GCM encryption. It is **not** a production autonomous pentest framework: tools are disabled in dispatched specialist runs, active tests are rejected, and no sandbox or live-target execution broker is implemented.
 
 ## What is implemented
 
@@ -14,9 +14,15 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 - `scripts/evaluate_benchmark.py`: computes metrics from supplied predictions against synthetic fixtures and rejects positive cases with incomplete fixture payloads; metrics are not a real-world pentest-effectiveness claim.
 - `core/store.py`: SQLite persistence for engagements, tasks, agent runs, findings, evidence metadata, and audit events. Finding transitions are transactional and evidence references must resolve to records in the same engagement.
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
-- `core/orchestration.py`: deterministic passive workflow coordinator with plan, dependency, scope-subset, and handoff checks. Handoffs must reference persisted evidence records.
+- `scripts/redact_text_evidence.py`: creates a separate best-effort redacted copy of text evidence; manual review remains mandatory.
+- `core/orchestration.py`: workflow coordinator with schema-validated plans, dependency gates, scope-subset enforcement and handoff persistence. Collected artifact claims must match registered evidence metadata.
+- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke allowlisted Claude Code specialists sequentially with tools disabled, select methodology context from the Skill Registry, verify supplied evidence, validate structured handoffs, and persist run telemetry.
+- `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a passive plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
+- `scripts/parse_program_policy.py`: extract a draft scope profile from operator-supplied bug bounty policy text, preserving source quotes and ambiguities. It does not browse program sites or approve authorization.
+- `core/evidence_scoring.py`, `scripts/dedupe_findings.py` and `scripts/render_report.py`: score evidence readiness, identify possible duplicates without mutation, and render reports from independently validated findings with re-verified evidence.
+- `scripts/run_architecture_benchmark.py` and `scripts/compare_architecture_results.py`: run fixed Model 1 and hybrid specialist sequences against the same synthetic corpus and compare metrics only when model and corpus hashes match.
 - `.claude/agents/`: differentiated specialist contracts for scope, recon, technology profiling, enumeration, vulnerability hypotheses, reproduction planning, independent validation, impact, deduplication, and reporting.
-- `.claude/skills/`: reusable methodology packages; `.claude/skills/registry.json` catalogues domains, tags, compatible agents, prerequisites and metadata validation status. The registry is catalogue-only and does not grant permissions or dispatch agents.
+- `.claude/skills/`: reusable methodology packages; `.claude/skills/registry.json` selects methodology context by domain, compatible agent and optional tags. Selected Skill text is injected into a specialist prompt as untrusted context; it does not grant permissions.
 - `scripts/skill_registry.py`: validates Skill paths/frontmatter/agent references and supports deterministic local selection.
 - `docs/SKILL_REGISTRY.md`: Skill Registry contract, commands, safety boundaries and maintenance workflow.
 - `docs/AGENT_SPECIALIZATION.md`: specialist boundaries, task contract, handoff expectations, and lifecycle separation.
@@ -30,6 +36,7 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_config.py
 python scripts/skill_registry.py validate
 python scripts/validate_agent_tools.py
+python -m compileall -q core scripts tests
 python -m unittest discover -s tests -v
 python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
 pre-commit run --all-files
@@ -49,7 +56,7 @@ Never commit authorization references, client names, scope, contacts, credential
 
 ## Evidence handling
 
-See [docs/EVIDENCE.md](docs/EVIDENCE.md) for the operator-driven artifact vault, hash verification, usage, and limitations. The `redacted` flag is an operator assertion; there is no automated redaction engine yet.
+See [docs/EVIDENCE.md](docs/EVIDENCE.md) for the operator-driven artifact vault, hash verification, usage, and limitations. See [docs/FINDING_LIFECYCLE.md](docs/FINDING_LIFECYCLE.md) for evidence scoring, duplicate triage and validated-only report generation. The `redacted` flag is an operator assertion; the text redaction helper is best-effort and cannot guarantee that an artifact contains no secrets or personal data.
 
 ## Knowledge base
 
@@ -58,9 +65,43 @@ See [docs/EVIDENCE.md](docs/EVIDENCE.md) for the operator-driven artifact vault,
 - `knowledge-base/seed/` contains original analyst-authored patterns for Web, API, Mobile, Cloud, and Active Directory.
 - See `docs/KNOWLEDGE_BASE.md` for disclosure, licensing, ingestion, and retrieval rules.
 
-Initialize/import the starter corpus with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 import-seed`, then query it with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "object authorization" --domain api`. Import is idempotent. The current runtime still requires an operator to select results and pass them into agent context; autonomous agent dispatch/retrieval is not implemented.
+Initialize/import the starter corpus with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 import-seed`, then query it with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "object authorization" --domain api`. Import is idempotent. KB retrieval remains operator-driven; the dispatcher does not automatically ingest or retrieve KB reports.
 
 Only explicitly public material with a documented rights basis may be ingested. Platform-specific reports require confirmation of the exact report's disclosure status and permitted use. The adapters do not access private APIs or bypass disclosure controls.
+
+## Program policy reader
+
+Supply a local Markdown/text copy of the program policy:
+
+```bash
+python scripts/parse_program_policy.py --input .local/program-policy.md --output .local/program-scope-draft.json
+```
+
+The output is always `draft_unverified`, includes source SHA-256, quoted line evidence, and ambiguities, and requires operator confirmation. Missing scope, exclusions, prohibited methods, or rate limits are treated conservatively. It is not proof of authorization and does not automatically configure an engagement.
+
+## Specialist dispatch
+
+Choose a passive plan template under `templates/examples/` (Model 1, hybrid Web, API, Mobile, Cloud, or Active Directory). Copy the chosen template to `.local/plan.json`, replace every `REPLACE-WITH-EXACT-IN-SCOPE-ASSET` placeholder with an exact asset from the engagement allowlist, then persist and run it:
+
+```bash
+python scripts/workflow.py --db .local/state.sqlite3 plan --engagement-id ENG-ID --file .local/plan.json
+python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
+python scripts/workflow.py --db .local/state.sqlite3 status --engagement-id ENG-ID
+```
+
+The dispatcher invokes one allowlisted custom agent through the Claude Code CLI with tools disabled, injects Skills selected from task `domain`/`skill_tags`, verifies and inlines redacted evidence, and validates/persists the returned handoff. To ask the LLM orchestrator to generate a passive plan and run it, use `python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME`. For an existing operator-authored plan, use `python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME`. It does not invoke pentest tools or access targets. See [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
+
+## Architecture comparison benchmark
+
+Run both fixed specialist sequences against the exact same synthetic corpus and model identifier:
+
+```bash
+python scripts/run_architecture_benchmark.py --architecture model1 --plan templates/examples/plan.model1.passive.example.json --model MODEL_NAME --predictions-out .local/model1-predictions.json --manifest-out .local/model1-manifest.json
+python scripts/run_architecture_benchmark.py --architecture hybrid --plan templates/examples/plan.hybrid.passive.example.json --model MODEL_NAME --predictions-out .local/hybrid-predictions.json --manifest-out .local/hybrid-manifest.json
+python scripts/compare_architecture_results.py --model1-predictions .local/model1-predictions.json --model1-manifest .local/model1-manifest.json --hybrid-predictions .local/hybrid-predictions.json --hybrid-manifest .local/hybrid-manifest.json
+```
+
+This is a fixed sequential specialist-pipeline simulation, not autonomous Orchestrator/Task dispatch. Repeat runs to estimate variance before comparing results.
 
 ## Synthetic benchmark and runtime smoke
 
@@ -74,14 +115,12 @@ Only explicitly public material with a documented rights basis may be ingested. 
 
 ## Planned / not yet implemented
 
-- Automated redaction and sensitive-content detection.
-- Encryption at rest, retention/deletion controls, and immutable evidence storage.
+- Orchestrator-level autonomous planning and native Task-tool delegation; current multi-specialist plan execution is sequential and operator-authored.
+- Isolated execution container, network egress allowlisting, and runtime per-tool approval broker.
+- Managed KMS integration, key rotation/multi-key support, automated redaction review, retention/deletion and immutable evidence storage.
 - Hardened multi-user filesystem isolation and crash/recovery reconciliation between filesystem and SQLite.
-- Claude Code agent dispatch and least-privilege tool separation.
-- Handoff generation by live agents (the current coordinator validates submitted handoffs but does not generate them).
-- Evidence file ingestion, content hashing at capture time, redaction pipeline, and artifact retention controls.
-- Crash recovery and robust concurrent multi-process orchestration.
-- Automated Model 1 versus hybrid agent benchmark runs; the current runner evaluates a configured specialist prompt and does not prove end-to-end orchestration.
+- Robust concurrent multi-process orchestration and resource budgets.
+- Repeated authenticated Model 1/hybrid pipeline runs and a variance-aware benchmark report; the current comparison harness is implemented but has not been executed against a live Claude CLI in this session.
 
 ## Safety and limitations
 

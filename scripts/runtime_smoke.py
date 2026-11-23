@@ -20,7 +20,7 @@ def parse_agent_result(stdout):
         result = result_text
     elif isinstance(result_text, str):
         text = result_text.strip()
-        text = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text, flags=re.I)
+        text = re.sub(r"^\s*[`]{3}(?:json)?\s*|\s*[`]{3}\s*$", "", text, flags=re.I)
         result = json.loads(text)
     else:
         raise ValueError("Claude Code result field is not JSON text or an object")
@@ -47,7 +47,7 @@ def main():
         "This is synthetic data only; do not use tools or network. "
         "Return JSON with keys smoke_test, agent, status, summary. "
         "Set smoke_test to true, agent to the requested agent name, status to "
-        '"completed" only if you can follow this instruction, and summary to a '
+        "\"completed\" only if you can follow this instruction, and summary to a "
         "short description. Do not claim any target was tested."
     )
     command = [
@@ -70,7 +70,7 @@ def main():
         return 2
     try:
         envelope, result = parse_agent_result(proc.stdout)
-    except (json.JSONDecodeError, ValueError, TypeError):
+    except (json.JSONDecodeError, AttributeError, TypeError):
         print("Claude Code did not return a parseable JSON result", file=sys.stderr)
         return 2
     if not isinstance(result, dict) or result.get("smoke_test") is not True:
