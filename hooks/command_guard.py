@@ -65,7 +65,8 @@ def safe_db_argument(value):
     local = ROOT / ".local"
     engagements = local / "engagements"
     engagement_dir = db_path.parent
-    if local.is_symlink() or (value != DB and (engagements.is_symlink() or engagement_dir.is_symlink())):
+    config_dir = ROOT / "config"
+    if local.is_symlink() or config_dir.is_symlink() or (value != DB and (engagements.is_symlink() or engagement_dir.is_symlink())):
         return False
     if config_path.is_symlink() or db_path.is_symlink():
         return False
@@ -269,6 +270,8 @@ def main():
         engagement = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
         deny("Invalid local engagement config.")
+    if orchestration_args and engagement.get("engagement_id") != orchestration_args["engagement_id"]:
+        deny("Orchestrator engagement ID does not match the selected isolated database/config pair.")
     if active_args:
         if not _active_request_is_approved(active_args, engagement):
             deny("Active HTTP request is not authorized by the approved engagement, running task, and pinned manifest.")
