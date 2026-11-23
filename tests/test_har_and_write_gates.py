@@ -49,7 +49,8 @@ class HarImporterTests(unittest.TestCase):
         endpoints = json.loads((out / "endpoint-inventory.json").read_text())
         self.assertEqual(endpoints["endpoints"][0]["path"], "/api/users/{id}")
         self.assertIn("cookie", endpoints["endpoints"][0]["secret_header_names"])
-        self.assertNotIn("sid=secret", (out / "endpoint-inventory.json").read_text())\n        self.assertNotIn("private@example.test", (out / "endpoint-inventory.json").read_text())
+        self.assertNotIn("sid=secret", (out / "endpoint-inventory.json").read_text())
+        self.assertNotIn("private@example.test", (out / "endpoint-inventory.json").read_text())
         self.assertTrue((out / "id-inventory.json").is_file())
 
     def test_numeric_and_guid_path_segments_are_normalized(self):
