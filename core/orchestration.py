@@ -144,10 +144,10 @@ class Workflow:
             ).fetchone()
             if not dependency or dependency["status"] != "completed":
                 raise WorkflowError("Dependency is not completed: " + dependency_key)
-        self.store.update_task(task_id, "running")
-        return self.store.start_agent_run(
-            row["engagement_id"], row["agent"], model=model, task_id=task_id
-        )
+        try:
+            return self.store.start_task_with_run(task_id, model=model)
+        except ValueError as exc:
+            raise WorkflowError(str(exc)) from exc
 
     def accept_handoff(self, task_id, handoff):
         errors = list(HANDOFF_VALIDATOR.iter_errors(handoff))
@@ -175,8 +175,10 @@ class Workflow:
         if any(asset not in assigned_scope for asset in handoff["scope_subset"]):
             raise WorkflowError("Handoff scope exceeds task scope")
         status = "blocked" if handoff["status"] == "partial" else handoff["status"]
-        self.store.update_task(task_id, status, handoff)
-        self.store.finish_agent_run_for_task(task_id, status)
+        try:
+            self.store.accept_task_handoff(task_id, status, handoff)
+        except (ValueError, KeyError) as exc:
+            raise WorkflowError(str(exc)) from exc
 
     def record_finding(self, engagement_id, finding):
         if finding.get("engagement_id") != engagement_id:
