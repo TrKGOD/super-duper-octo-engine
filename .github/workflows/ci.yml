@@ -32,6 +32,9 @@ jobs:
       - name: Validate JSON contracts
         run: python scripts/validate_contracts.py
 
+      - name: Validate Claude Code Skill Registry
+        run: python scripts/skill_registry.py validate
+
       - name: Run unit and security regression tests
         run: python -m unittest discover -s tests -v
 
