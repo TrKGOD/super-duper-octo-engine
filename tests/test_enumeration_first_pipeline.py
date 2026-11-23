@@ -138,10 +138,13 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             [item[0] for item in tasks],
         )
         self.assertTrue(all(item["selected_skills"] for item in result["results"]))
+        expected_agents = [item[1] for item in tasks]
+        self.assertEqual(
+            [item["prior_handoffs"][0]["agent"] if item["prior_handoffs"] else None for item in result["results"]],
+            [None] + expected_agents[:-1],
+        )
         self.assertEqual(result["results"][4]["selected_skills"], ["active-http-testing"])
-        self.assertEqual(result["results"][5]["prior_handoffs"][0]["agent"], "active-testing-agent")
-        self.assertTrue(result["results"][5]["inherited_evidence_refs"])
-        self.assertEqual(result["results"][6]["prior_handoffs"][0]["agent"], "validation-agent")
+        self.assertTrue(all(item["inherited_evidence_refs"] for item in result["results"][5:]))
         self.assertEqual(
             [item["status"] for item in result["workflow_status"]["tasks"]],
             ["completed"] * 9,
