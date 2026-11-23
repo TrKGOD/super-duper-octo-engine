@@ -5,6 +5,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator,FormatChecker
 ROOT=Path(__file__).resolve().parents[1]
 checks=[
+("templates/active-http-request.schema.json",[]),
 ("templates/finding.schema.json",[]),
 ("templates/handoff.schema.json",["templates/examples/handoff.completed.example.json"]),
 ("templates/plan.schema.json",["templates/examples/plan.passive.example.json","templates/examples/plan.hybrid.passive.example.json","templates/examples/plan.model1.passive.example.json","templates/examples/plan.api.hybrid.passive.example.json","templates/examples/plan.mobile.passive.example.json","templates/examples/plan.cloud.passive.example.json","templates/examples/plan.active-directory.passive.example.json"]),

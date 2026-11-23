@@ -19,7 +19,12 @@
 - Excessive request volume or operational impact
 
 ## Controls
-- Default-deny execution configuration
+- Default-deny execution configuration with explicit operator approval before active engagement activation
+- Broker-only Bash exception for active-testing-agent; arbitrary shell and raw network clients remain denied
+- SHA-256-pinned request manifests checked at plan creation and execution time
+- Exact engagement and task scope checks, DNS/IP pinning, private-address restrictions, redirect revalidation, one-request concurrency, and per-engagement rate limiting
+- Request/response evidence capture with best-effort secret redaction and audit records
+- Engagement pause command as active-execution kill switch
 - Explicit asset allowlist and exclusions
 - External network egress controls and disposable test environment
 - Least-privilege tools
@@ -36,7 +41,7 @@ Prompt instructions and Claude Code hooks cannot guarantee containment of arbitr
 
 ## Additional runtime controls added in the bounded dispatcher
 
-- **LLM-generated scope expansion:** planner output is validated against the plan schema and exact engagement asset allowlist; execution_enabled must remain false.
+- **LLM-generated scope expansion:** planner output is validated against the plan schema and exact engagement asset allowlist. Active plans require an already approved engagement and pinned request manifests.
 - **Untrusted evidence/Skill prompt injection:** evidence and Skill contents are explicitly delimited as data; specialist invocations have tools disabled; handoffs are schema- and identity-validated.
 - **Fabricated evidence references:** handoffs may reference only evidence IDs supplied by the task or completed dependencies; each reference is checked against the same engagement and on-disk SHA-256.
 - **False collected-artifact claims:** collected/redacted-copy claims must match a registered evidence record by path and digest, and the file is reverified.
@@ -44,4 +49,4 @@ Prompt instructions and Claude Code hooks cannot guarantee containment of arbitr
 - **Sensitive content in model context:** only operator-asserted redacted text files are inlined, with a 64 KiB per-artifact cap; binary and unredacted artifacts are not inlined.
 - **Orchestrator overreach:** plan generation runs with tools disabled; Python, not the model, persists and executes the plan.
 
-These controls reduce risk but do not provide a process sandbox, egress isolation, encryption at rest, complete PII/secret detection, or protection against a compromised model provider/runtime. Human review and external isolation remain required.
+These controls reduce risk but do not provide a process sandbox, egress isolation, complete PII/secret detection, or protection against a compromised model provider/runtime. Authorization approval is an operator attestation, not document verification. The broker supports HTTP only; scanner and non-HTTP tool integrations are not implemented. Human review and external isolation remain required.

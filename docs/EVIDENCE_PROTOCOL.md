@@ -51,8 +51,10 @@ The validation-agent checks the evidence independently:
 - Flag missing context, altered/cropped images, unsupported claims, unredacted secrets, and contradictory artifacts.
 - A request template without authentic execution evidence cannot validate a finding.
 
-## Current runtime limitation
-This repository bootstrap runs with `execution_enabled=false` and rejects active-testing tasks. Agents can draft curl/Burp request files and specify screenshot capture requirements, but they cannot send requests or automatically capture browser screenshots. Authentic artifacts must be supplied from an explicitly authorized lab workflow. Automated browser/network evidence capture is a separate future implementation and must include operator approval, scope enforcement, isolation, secret redaction, and audit logging.
+## Active HTTP capture
+The active-testing-agent can execute only operator-reviewed JSON request manifests pinned by SHA-256 in an active task. The HTTP broker validates engagement and task scope, resolves and pins destination IPs, rejects out-of-scope/private destinations unless explicitly listed, revalidates redirects, enforces one concurrent request and at most one request per second, caps timeouts and response size, and stores best-effort redacted request/response evidence in the local vault. It supports GET, HEAD, OPTIONS, and POST only when the request manifest carries timestamped operator approval and the engagement explicitly permits `state-changing-http`. Other write methods, uploads, scanners, and browser automation are not implemented.
+
+The broker is not a sandbox and does not verify the legal authorization document itself. The operator must attest to written authorization, exact scope, and rules using the approval command. Run the framework in an isolated environment with outbound network policy. Screenshots remain a manual capture step.
 
 ## Report requirements
 The reporting-agent includes only approved evidence references, labels unexecuted request templates, adds screenshot captions, and discloses evidence gaps. Keep evidence and manifests in `.local/`, which is ignored by Git.

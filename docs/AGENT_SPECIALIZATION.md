@@ -12,6 +12,7 @@ This directory defines distinct responsibilities, not interchangeable personas. 
 | enumeration-agent | Routes, API operations, parameters, auth context from supplied captures/specs | Vulnerability severity or exploitation |
 | vulnerability-agent | Evidence-backed candidate hypotheses and safe validation requirements | Mark findings validated or reported |
 | exploitation-agent | Non-destructive reproduction package drafts | Execute requests, exploit targets, fabricate results |
+| active-testing-agent | Executes SHA-256-pinned, operator-reviewed HTTP request manifests through the broker | General shell/network access, unpinned requests, scope expansion, destructive testing |
 | validation-agent | Independent review of current-engagement evidence | Validate own candidate or fill evidence gaps |
 | impact-analyst | Demonstrated versus conditional technical/business impact | Validate, change severity, or invent business context |
 | duplicate-checker | Finding correlation and duplicate likelihood | Merge/reject records or discard provenance |
@@ -19,7 +20,7 @@ This directory defines distinct responsibilities, not interchangeable personas. 
 
 ## Common task contract
 
-Every task should carry: engagement ID, task ID/key, assigned agent, objective, exact scope subset, dependencies, supplied evidence IDs, expected outputs, completion criteria, prohibited actions, and explicit execution mode. The current runtime remains passive-only.
+Every task should carry: engagement ID, task ID/key, assigned agent, objective, exact scope subset, dependencies, supplied evidence IDs, expected outputs, completion criteria, prohibited actions, and explicit execution mode. The active-testing-agent is the only specialist with a broker-backed active capability. All other specialists remain tool-disabled.
 
 Every handoff should include:
 - task and engagement identity;

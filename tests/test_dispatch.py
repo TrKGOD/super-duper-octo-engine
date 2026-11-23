@@ -15,7 +15,7 @@ class DispatchTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.db = str(self.root / "state.sqlite")
         migrate(self.db)
-        self.workflow = Workflow(self.db)
+        self.workflow = Workflow(self.db, project_root=self.root)
         self.workflow.initialize({
             "engagement_id": "eng-dispatch-test",
             "authorization_reference": "AUTH-SYNTHETIC-TEST",
@@ -59,6 +59,7 @@ class DispatchTests(unittest.TestCase):
             "import json, sys\n"
             "prompt = sys.stdin.read()\n"
             "assert 'selected_methodology' in prompt\n"
+            "assert sys.argv[sys.argv.index('--tools') + 1] == ''\n"
             "handoff = " + repr(handoff) + "\n"
             "print(json.dumps({'result': json.dumps(handoff), 'total_cost_usd': 0.02,"
             " 'usage': {'input_tokens': 200, 'output_tokens': 80}}))\n"
@@ -148,17 +149,76 @@ class DispatchTests(unittest.TestCase):
             [task["status"] for task in self.workflow.status("eng-dispatch-test")["tasks"]],
             ["completed", "completed", "completed"],
         )
-    def test_dispatch_requires_execution_disabled(self):
+    def test_active_dispatch_grants_only_broker_tool_and_requires_operator_manifests(self):
         self.workflow.store.connection.execute(
-            "UPDATE engagements SET rules_json=? WHERE engagement_id=?",
-            (json.dumps({"execution_enabled": True}), "eng-dispatch-test"),
+            "UPDATE engagements SET status='active',rules_json=? WHERE engagement_id=?",
+            (json.dumps({
+                "execution_enabled": True, "authorization_verified": True,
+                "allowed_test_classes": ["http-read-only"], "max_concurrency": 1,
+                "requests_per_second": 1,
+            }), "eng-dispatch-test"),
         )
         self.workflow.store.connection.commit()
-        with self.assertRaisesRegex(DispatchError, "execution_enabled=false"):
-            dispatch_task(
-                self.workflow, self.task_id, "pinned-model",
-                claude_bin=self._fake_cli(), timeout_seconds=30,
-            )
+        requests_dir = self.root / ".local" / "requests"
+        requests_dir.mkdir(parents=True, exist_ok=True)
+        request = {
+            "request_id": "dispatch-active-001",
+            "method": "GET",
+            "url": "https://app.example.test/health",
+            "purpose": "Read the authorized health endpoint response",
+        }
+        raw = json.dumps(request, sort_keys=True).encode()
+        (requests_dir / "dispatch-active-001.json").write_bytes(raw)
+        created = self.workflow.create_plan("eng-dispatch-test", {"tasks": [{
+            "task_key": "active-http",
+            "agent": "active-testing-agent",
+            "objective": "Run one pinned request manifest",
+            "completion_criteria": ["Return a broker execution result or a blocker"],
+            "scope_subset": ["app.example.test"],
+            "domain": "web",
+            "active_testing": True,
+            "request_files": [{
+                "path": ".local/requests/dispatch-active-001.json",
+                "sha256": __import__("hashlib").sha256(raw).hexdigest(),
+            }],
+        }]})
+        active_task_id = created[0]["task_id"]
+        fake = self.root / "claude-active-fake"
+        fake.write_text(
+            "#!" + sys.executable + "\n"
+            "import json, sys\n"
+            "assert sys.argv[sys.argv.index('--tools') + 1] == 'Bash'\n"
+            "assert sys.argv[sys.argv.index('--max-turns') + 1] == '8'\n"
+            "prompt = sys.stdin.read()\n"
+            "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\n"
+            "task = context['task']\n"
+            "handoff = {'task_id': task['task_id'], 'engagement_id': task['engagement_id'],"
+            " 'agent': task['agent'], 'status': 'needs_operator',"
+            " 'scope_subset': task['scope_subset'], 'summary': 'Fake CLI did not execute a request',"
+            " 'observations': [], 'hypotheses': [], 'evidence_refs': [],"
+            " 'limitations': ['Synthetic dispatch test only'], 'next_steps': []}\n"
+            "print(json.dumps({'result': json.dumps(handoff)}))\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        result = dispatch_task(
+            self.workflow, active_task_id, "pinned-model",
+            claude_bin=str(fake), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "needs_operator")
+
+    def test_passive_dispatch_stays_tool_disabled_in_active_engagement(self):
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET status='active',rules_json=? WHERE engagement_id=?",
+            (json.dumps({"execution_enabled": True, "authorization_verified": True}),
+             "eng-dispatch-test"),
+        )
+        self.workflow.store.connection.commit()
+        result = dispatch_task(
+            self.workflow, self.task_id, "pinned-model",
+            claude_bin=self._fake_cli(), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "completed")
 
 
 if __name__ == "__main__":

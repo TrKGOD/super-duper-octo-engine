@@ -2,7 +2,7 @@
 
 A Claude Code–first scaffold for an evidence-driven assistant supporting authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> **Current status: early pre-alpha implementation.** The repository contains a bounded Claude Code specialist dispatcher for passive analysis of supplied artifacts, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, and an operator-driven evidence vault with optional AES-256-GCM encryption. It is **not** a production autonomous pentest framework: tools are disabled in dispatched specialist runs, active tests are rejected, and no sandbox or live-target execution broker is implemented.
+> **Current status: early pre-alpha implementation.** The repository includes a bounded Claude Code specialist dispatcher, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, an operator-driven evidence vault, and a scope-enforcing active HTTP broker. Only `active-testing-agent` can invoke the broker, and only for SHA-256-pinned request manifests in an explicitly approved engagement. This is not a general-purpose scanner or a sandbox; Nmap/Nuclei execution, browser automation, and isolated network execution remain unimplemented.
 
 ## What is implemented
 
@@ -16,8 +16,9 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
 - `scripts/redact_text_evidence.py`: creates a separate best-effort redacted copy of text evidence; manual review remains mandatory.
 - `core/orchestration.py`: workflow coordinator with schema-validated plans, dependency gates, scope-subset enforcement and handoff persistence. Collected artifact claims must match registered evidence metadata.
-- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke allowlisted Claude Code specialists sequentially with tools disabled, select methodology context from the Skill Registry, verify supplied evidence, validate structured handoffs, and persist run telemetry.
-- `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a passive plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
+- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and the dedicated active-testing-agent with broker-only Bash access; select methodology context, verify evidence, validate handoffs, and persist run telemetry.
+- `core/active_executor.py` and `scripts/active_http.py`: enforce exact engagement/task scope, DNS/IP checks, redirect validation, rate/response limits, request-manifest pinning, evidence capture, and audit logging for active HTTP requests.
+- `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
 - `scripts/parse_program_policy.py`: extract a draft scope profile from operator-supplied bug bounty policy text, preserving source quotes and ambiguities. It does not browse program sites or approve authorization.
 - `core/evidence_scoring.py`, `scripts/dedupe_findings.py` and `scripts/render_report.py`: score evidence readiness, identify possible duplicates without mutation, and render reports from independently validated findings with re-verified evidence.
 - `scripts/run_architecture_benchmark.py` and `scripts/compare_architecture_results.py`: run fixed Model 1 and hybrid specialist sequences against the same synthetic corpus and compare metrics only when model and corpus hashes match.
@@ -81,7 +82,7 @@ The output is always `draft_unverified`, includes source SHA-256, quoted line ev
 
 ## Specialist dispatch
 
-Choose a passive plan template under `templates/examples/` (Model 1, hybrid Web, API, Mobile, Cloud, or Active Directory). Copy the chosen template to `.local/plan.json`, replace every `REPLACE-WITH-EXACT-IN-SCOPE-ASSET` placeholder with an exact asset from the engagement allowlist, then persist and run it:
+Choose a plan template under `templates/examples/` (Model 1, hybrid Web, API, Mobile, Cloud, or Active Directory). Copy the chosen template to `.local/plan.json`, replace every `REPLACE-WITH-EXACT-IN-SCOPE-ASSET` placeholder with an exact asset from the engagement allowlist, then persist and run it:
 
 ```bash
 python scripts/workflow.py --db .local/state.sqlite3 plan --engagement-id ENG-ID --file .local/plan.json
@@ -89,7 +90,21 @@ python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --mo
 python scripts/workflow.py --db .local/state.sqlite3 status --engagement-id ENG-ID
 ```
 
-The dispatcher invokes one allowlisted custom agent through the Claude Code CLI with tools disabled, injects Skills selected from task `domain`/`skill_tags`, verifies and inlines redacted evidence, and validates/persists the returned handoff. To ask the LLM orchestrator to generate a passive plan and run it, use `python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME`. For an existing operator-authored plan, use `python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME`. It does not invoke pentest tools or access targets. See [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
+The dispatcher invokes passive specialists with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access and executes operator-reviewed request manifests pinned by SHA-256. Initialize with `execution_enabled=false`, then explicitly approve the engagement before creating active tasks:
+
+```bash
+python scripts/workflow.py --db .local/state.sqlite3 approve --engagement-id ENG-ID --operator "YOUR NAME" --authorization-reference "WRITTEN-AUTH-REF" --confirm-written-authorization --confirm-scope --confirm-rules
+```
+
+Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Request manifests live under `.local/requests/`; their SHA-256 must be included in an active task's `request_files`. The initial broker supports bounded HTTP(S) GET/HEAD/OPTIONS and individually approved POST. It does not run arbitrary scanners, Nmap, Nuclei, or browser automation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
+
+After approval, place operator-reviewed request manifests in `.local/requests/` and run the LLM planner/dispatcher:
+
+```bash
+python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
+```
+
+In active mode, the planner receives only sanitized manifest metadata and their SHA-256 pins; it cannot read credentials or execute requests. Python validates each manifest against engagement and task scope before dispatch.
 
 ## Architecture comparison benchmark
 
@@ -115,8 +130,8 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 
 ## Planned / not yet implemented
 
-- Orchestrator-level autonomous planning and native Task-tool delegation; current multi-specialist plan execution is sequential and operator-authored.
-- Isolated execution container, network egress allowlisting, and runtime per-tool approval broker.
+- Native Claude Task-tool delegation; the LLM planner creates validated plans and Python dispatches specialists sequentially.
+- Isolated execution container and network egress allowlisting; broker integrations for scanners and non-HTTP tools.
 - Managed KMS integration, key rotation/multi-key support, automated redaction review, retention/deletion and immutable evidence storage.
 - Hardened multi-user filesystem isolation and crash/recovery reconciliation between filesystem and SQLite.
 - Robust concurrent multi-process orchestration and resource budgets.
@@ -124,4 +139,4 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 
 ## Safety and limitations
 
-The scaffold does not verify authorization documents, make network requests for pentest activity, execute scanners, or autonomously spawn agents. Active testing must remain disabled until authorization, scope enforcement, execution isolation, auditability and human approval controls are implemented and independently tested.
+The scaffold does not independently verify authorization documents, execute general-purpose scanners, or autonomously spawn agents. Active HTTP requests are supported only through the scope-enforcing broker after operator attestation, task-level scope checks, and request-manifest pinning. This pre-alpha broker is not a sandbox; use external process isolation and outbound network controls. Other active tool integrations remain disabled.

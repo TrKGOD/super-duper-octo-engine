@@ -19,6 +19,8 @@ def main():
     x=sub.add_parser("handoff"); x.add_argument("--task-id",required=True); x.add_argument("--file",required=True)
     x=sub.add_parser("finding"); x.add_argument("--file",required=True); x.add_argument("--engagement-id",required=True)
     x=sub.add_parser("status"); x.add_argument("--engagement-id",required=True)
+    x=sub.add_parser("approve"); x.add_argument("--engagement-id",required=True); x.add_argument("--operator",required=True); x.add_argument("--authorization-reference",required=True); x.add_argument("--confirm-written-authorization",action="store_true"); x.add_argument("--confirm-scope",action="store_true"); x.add_argument("--confirm-rules",action="store_true")
+    x=sub.add_parser("pause"); x.add_argument("--engagement-id",required=True); x.add_argument("--operator",required=True); x.add_argument("--reason",required=True)
     a=p.parse_args()
     Path(a.db).parent.mkdir(parents=True,exist_ok=True)
     with Workflow(a.db) as w:
@@ -28,6 +30,10 @@ def main():
         elif a.command=="handoff": w.accept_handoff(a.task_id,read_json(a.file)); out={"task_id":a.task_id,"accepted":True}
         elif a.command=="finding":
             f=read_json(a.file); w.record_finding(a.engagement_id,f); out={"finding_id":f["finding_id"],"accepted":True}
+        elif a.command=="approve":
+            out=w.approve_engagement(a.engagement_id,a.operator,a.authorization_reference,a.confirm_written_authorization,a.confirm_scope,a.confirm_rules)
+        elif a.command=="pause":
+            out=w.pause_engagement(a.engagement_id,a.operator,a.reason)
         else: out=w.status(a.engagement_id)
     print(json.dumps(out,indent=2,ensure_ascii=False))
 

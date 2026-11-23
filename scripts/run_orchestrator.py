@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a passive plan with the LLM orchestrator and optionally dispatch it."""
+"""Generate a validated engagement plan with the LLM orchestrator and optionally dispatch it."""
 import argparse
 import json
 import sys

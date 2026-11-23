@@ -1,5 +1,8 @@
 import ast
 import io
+import json
+import sqlite3
+import tempfile
 import unittest
 from pathlib import Path
 from contextlib import redirect_stdout
@@ -14,10 +17,47 @@ class CommandGuardTests(unittest.TestCase):
         self.assertTrue(allowed_argv(["python3", "scripts/workflow.py", "--db", ".local/state.sqlite3", "start", "--task-id", "task_1"]))
         self.assertTrue(allowed_argv(["python3", "scripts/workflow.py", "--db", ".local/state.sqlite3", "handoff", "--task-id", "task_1", "--file", ".local/handoff.json"]))
 
+    def test_active_http_broker_is_the_only_network_command(self):
+        valid = ["python3", "scripts/active_http.py", "--db", ".local/state.sqlite3",
+                 "--engagement-id", "eng-1", "--task-id", "task-1",
+                 "--request-file", ".local/requests/request-1.json"]
+        self.assertTrue(allowed_argv(valid))
+        self.assertFalse(allowed_argv(valid[:-1] + [".local/other/request.json"]))
+        self.assertFalse(allowed_argv(valid + ["--extra", "value"]))
+
     def test_rejects_arbitrary_commands(self):
         self.assertFalse(allowed_argv(["python3", "-c", "import os"]))
         self.assertFalse(allowed_argv(["nmap", "app.example.test"]))
         self.assertFalse(allowed_argv(["python3", "scripts/workflow.py", "--db", "/tmp/db", "status", "--engagement-id", "e"]))
+
+    def test_active_database_state_blocks_workflow_mutations_even_if_local_config_is_false(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".local").mkdir()
+            config = root / "engagement.local.json"
+            config.write_text(json.dumps({
+                "engagement_id": "eng-active",
+                "rules_of_engagement": {"execution_enabled": False},
+            }), encoding="utf-8")
+            with sqlite3.connect(root / ".local" / "state.sqlite3") as connection:
+                connection.execute(
+                    "CREATE TABLE engagements (engagement_id TEXT PRIMARY KEY, status TEXT)"
+                )
+                connection.execute(
+                    "INSERT INTO engagements VALUES (?, ?)", ("eng-active", "active")
+                )
+            payload = {"tool_input": {
+                "command": "python3 scripts/workflow.py --db .local/state.sqlite3 start --task-id task_1"
+            }}
+            output = io.StringIO()
+            with patch("hooks.command_guard.ROOT", root), \
+                 patch("hooks.command_guard.CONFIG", config), \
+                 patch("hooks.command_guard.DB", ".local/state.sqlite3"), \
+                 patch("sys.stdin", io.StringIO(json.dumps(payload))):
+                with redirect_stdout(output):
+                    with self.assertRaises(SystemExit):
+                        main()
+            self.assertIn('"permissionDecision": "deny"', output.getvalue())
 
     def test_hook_defaults_to_deny_on_unparseable_input(self):
         output = io.StringIO()
