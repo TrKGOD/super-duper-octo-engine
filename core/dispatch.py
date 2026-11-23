@@ -187,6 +187,20 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             raise DispatchError("Active execution requires an explicitly approved engagement")
         if not task_input.get("request_files"):
             raise DispatchError("Active task has no pinned request manifests")
+        request_root = (workflow.project_root / ".local" / "requests").resolve(strict=True)
+        for manifest in task_input["request_files"]:
+            candidate = workflow.project_root / manifest["path"]
+            if candidate.is_symlink():
+                raise DispatchError("Active request manifests must not be symlinks")
+            resolved = candidate.resolve(strict=True)
+            if not resolved.is_relative_to(request_root) or not resolved.is_file():
+                raise DispatchError("Active request manifest escaped .local/requests")
+            raw_manifest = resolved.read_bytes()
+            if hashlib.sha256(raw_manifest).hexdigest() != manifest["sha256"]:
+                raise DispatchError("Active request manifest SHA-256 changed after plan creation")
+            request_data = json.loads(raw_manifest)
+            if request_data.get("method") not in {"GET", "HEAD", "OPTIONS"}:
+                raise DispatchError("Enumeration-First active testing permits only GET, HEAD and OPTIONS")
     elif row["agent"] == "active-testing-agent":
         raise DispatchError("active-testing-agent requires an active task")
     task = {
@@ -276,6 +290,18 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
         if proc.returncode != 0:
             raise DispatchError("Claude Code failed: " + proc.stderr[-2000:])
         handoff, envelope = _parse_cli_output(proc.stdout)
+        if task_input.get("task_key") == "active-testing-preflight":
+            current = workflow.store.connection.execute(
+                "SELECT status,rules_json FROM engagements WHERE engagement_id=?",
+                (row["engagement_id"],),
+            ).fetchone()
+            current_rules = json.loads(current["rules_json"]) if current else {}
+            if not current or current["status"] != "active" or current_rules.get("execution_enabled") is not True or current_rules.get("authorization_verified") is not True:
+                handoff["status"] = "needs_operator"
+                handoff["summary"] = "Active testing is blocked pending explicit operator authorization and activation."
+                handoff.setdefault("limitations", []).append(
+                    "Deterministic gate: active-testing-preflight cannot complete before the engagement is explicitly approved."
+                )
         if handoff.get("task_id") != task_id or handoff.get("engagement_id") != row["engagement_id"] or handoff.get("agent") != row["agent"]:
             raise DispatchError("Specialist handoff identity does not match task")
         if active_task:
