@@ -7,6 +7,7 @@ from core.store import StateStore, utc_now
 from core.evidence import EvidenceVault, EvidenceError
 from core.active_executor import _validate_request, _validate_request_scope
 from core.execution_policy import validate_execution_limits
+from scripts.skill_registry import load_registry, select_skills
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -371,6 +372,103 @@ class Workflow:
             self.store.accept_task_handoff(task_id, status, handoff)
         except (ValueError, KeyError) as exc:
             raise WorkflowError(str(exc)) from exc
+        # Adaptive planning is deliberately passive-only. LLM proposals cannot
+        # authorize active testing, change scope, or bypass the request-manifest gate.
+        self._enqueue_passive_followups(task_id, task_input, handoff)
+
+
+    def _enqueue_passive_followups(self, parent_task_id, parent_input, handoff):
+        proposals = handoff.get("follow_up_tasks", [])
+        if not proposals:
+            return []
+        engagement_id = handoff["engagement_id"]
+        engagement = self.store.connection.execute(
+            "SELECT scope_json,rules_json FROM engagements WHERE engagement_id=?",
+            (engagement_id,),
+        ).fetchone()
+        if engagement is None:
+            return []
+        scope = json.loads(engagement["scope_json"])
+        rules = json.loads(engagement["rules_json"])
+        max_total = min(int(rules.get("max_adaptive_followups", 20)), 25)
+        max_depth = min(int(rules.get("max_adaptive_followup_depth", 2)), 3)
+        parent_depth = int(parent_input.get("followup_depth", 0))
+        if parent_depth >= max_depth:
+            self.store.append_audit(engagement_id, "orchestrator",
+                "followup.rejected", {"parent_task_id": parent_task_id, "reason": "maximum_depth"})
+            return []
+        existing_rows = self.store.connection.execute(
+            "SELECT input_json FROM tasks WHERE engagement_id=?", (engagement_id,)
+        ).fetchall()
+        existing = [json.loads(row["input_json"]) for row in existing_rows]
+        existing_keys = {item.get("task_key") for item in existing}
+        followup_count = sum(1 for item in existing if item.get("origin") == "adaptive_followup")
+        remaining = max(0, max_total - followup_count)
+        if remaining == 0:
+            self.store.append_audit(engagement_id, "orchestrator",
+                "followup.rejected", {"parent_task_id": parent_task_id, "reason": "engagement_limit"})
+            return []
+        try:
+            registry = load_registry()
+        except Exception as exc:
+            self.store.append_audit(engagement_id, "orchestrator",
+                "followup.rejected", {"parent_task_id": parent_task_id, "reason": "skill_registry_unavailable", "detail": str(exc)})
+            return []
+        allowed_scope = _scope_assets(scope)
+        parent_key = parent_input.get("task_key")
+        queued = []
+        seen = set()
+        for proposal in proposals[:min(3, remaining)]:
+            reason = None
+            key = proposal.get("task_key")
+            if not isinstance(key, str) or not key.strip() or key in existing_keys or key in seen:
+                reason = "duplicate_or_invalid_task_key"
+            elif proposal.get("agent") not in ALLOWED_AGENTS or proposal.get("agent") == "active-testing-agent":
+                reason = "agent_not_allowed_for_adaptive_followup"
+            elif proposal.get("scope_subset") != handoff.get("scope_subset", []) or any(
+                asset not in allowed_scope for asset in proposal.get("scope_subset", [])
+            ):
+                reason = "scope_must_be_subset_of_parent_handoff"
+            elif not set(proposal.get("evidence_refs", [])) <= set(handoff.get("evidence_refs", [])):
+                reason = "evidence_must_be_in_parent_handoff"
+            else:
+                try:
+                    self.store.validate_evidence_refs_for_engagement(engagement_id, proposal.get("evidence_refs", []))
+                    matches = select_skills(registry, domain=proposal.get("domain"),
+                        agent=proposal.get("agent"), tags=proposal.get("skill_tags", []))
+                    requested_tags = {tag.lower() for tag in proposal.get("skill_tags", [])}
+                    matches = [item for item in matches if item["risk_class"] in {"passive_analysis", "research_context"}
+                               and requested_tags.intersection(tag.lower() for tag in item["tags"])]
+                    if not matches:
+                        reason = "no_compatible_passive_skill"
+                except Exception:
+                    reason = "invalid_evidence_or_skill_selection"
+            if reason:
+                self.store.append_audit(engagement_id, "orchestrator",
+                    "followup.rejected", {"parent_task_id": parent_task_id, "task_key": key, "reason": reason})
+                continue
+            input_data = {
+                "task_key": key, "objective": proposal["objective"],
+                "depends_on": [parent_key] if parent_key else [],
+                "scope_subset": list(proposal["scope_subset"]),
+                "expected_outputs": proposal.get("expected_outputs", []),
+                "completion_criteria": proposal["completion_criteria"],
+                "constraints": list(proposal.get("constraints", [])) + [
+                    "passive analysis only", "no network requests", "no shell or browser execution",
+                    "follow-up proposal cannot authorize active testing"
+                ],
+                "domain": proposal["domain"], "skill_tags": proposal["skill_tags"],
+                "evidence_refs": proposal["evidence_refs"], "active_testing": False,
+                "request_files": [], "origin": "adaptive_followup",
+                "parent_task_key": parent_key, "followup_depth": parent_depth + 1,
+            }
+            task_id = self.store.create_task(engagement_id, proposal["agent"], input_data)
+            seen.add(key)
+            queued.append({"task_key": key, "task_id": task_id, "agent": proposal["agent"]})
+            self.store.append_audit(engagement_id, "orchestrator",
+                "followup.accepted", {"parent_task_id": parent_task_id, "task_id": task_id,
+                                      "task_key": key, "depth": parent_depth + 1})
+        return queued
 
     def record_finding(self, engagement_id, finding):
         if finding.get("engagement_id") != engagement_id:
