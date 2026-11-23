@@ -147,6 +147,48 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             ["completed"] * 9,
         )
 
+    def test_passive_preflight_cannot_report_active_readiness_without_approval(self):
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET status='draft',rules_json=? WHERE engagement_id='eng-enumeration-first'",
+            (json.dumps({
+                "execution_mode": "active",
+                "execution_enabled": False,
+                "authorization_verified": False,
+            }),),
+        )
+        self.workflow.store.connection.commit()
+        created = self.workflow.create_plan("eng-enumeration-first", {"tasks": [{
+            "task_key": "active-testing-preflight",
+            "agent": "scope-analyst",
+            "objective": "Determine whether active testing can begin",
+            "completion_criteria": ["Stop if operator authorization is absent"],
+            "scope_subset": ["app.example.test"],
+            "domain": "web",
+            "skill_tags": ["authorization"],
+            "active_testing": False,
+        }]})
+        fake = self.root / "claude-preflight-fake"
+        fake.write_text(
+            "#!" + sys.executable + "\n"
+            "import json, sys\n"
+            "context = json.loads(sys.stdin.read().split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\n"
+            "task = context['task']\n"
+            "handoff = {'task_id': task['task_id'], 'engagement_id': task['engagement_id'], "
+            "'agent': task['agent'], 'status': 'completed', 'scope_subset': task['scope_subset'], "
+            "'summary': 'Model incorrectly claims ready', 'observations': [], 'hypotheses': [], "
+            "'evidence_refs': [], 'limitations': [], 'next_steps': []}\n"
+            "print(json.dumps({'result': json.dumps(handoff)}))\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        from core.dispatch import dispatch_task
+        result = dispatch_task(
+            self.workflow, created[0]["task_id"], "pinned-test-model",
+            claude_bin=str(fake), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "needs_operator")
+        self.assertIn("explicitly approved", result["summary"])
+
     def test_pipeline_rejects_state_changing_methods_even_when_engagement_allows_them(self):
         row = self.workflow.store.connection.execute(
             "SELECT rules_json FROM engagements WHERE engagement_id='eng-enumeration-first'"
