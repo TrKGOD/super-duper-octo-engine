@@ -36,7 +36,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "technology-fingerprinting"
+        "android"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
