@@ -176,6 +176,7 @@ class DispatchTests(unittest.TestCase):
             "completion_criteria": ["Return a broker execution result or a blocker"],
             "scope_subset": ["app.example.test"],
             "domain": "web",
+            "skill_tags": ["http-read-only"],
             "active_testing": True,
             "request_files": [{
                 "path": ".local/requests/dispatch-active-001.json",
