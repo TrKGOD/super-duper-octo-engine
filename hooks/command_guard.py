@@ -64,7 +64,8 @@ def safe_db_argument(value):
     config_path, db_path = paths
     local = ROOT / ".local"
     engagements = local / "engagements"
-    if local.is_symlink() or (value != DB and engagements.is_symlink()):
+    engagement_dir = db_path.parent
+    if local.is_symlink() or (value != DB and (engagements.is_symlink() or engagement_dir.is_symlink())):
         return False
     if config_path.is_symlink() or db_path.is_symlink():
         return False
