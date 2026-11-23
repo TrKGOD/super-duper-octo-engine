@@ -20,7 +20,7 @@ def parse_agent_result(stdout):
         result = result_text
     elif isinstance(result_text, str):
         text = result_text.strip()
-        text = re.sub(r"^\s*\`\`\`(?:json)?\s*|\s*\`\`\`\s*$", "", text, flags=re.I)
+        text = re.sub(r"^\s*[`]{3}(?:json)?\s*|\s*[`]{3}\s*$", "", text, flags=re.I)
         result = json.loads(text)
     else:
         raise ValueError("Claude Code result field is not JSON text or an object")
