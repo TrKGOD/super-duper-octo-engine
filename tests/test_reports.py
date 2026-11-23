@@ -7,6 +7,7 @@ from core.evidence_scoring import score_finding
 from core.store import StateStore
 from scripts.migrate import migrate
 from scripts.render_report import render_report
+from core.finding_validation import review_finding
 
 
 class ReportTests(unittest.TestCase):
@@ -45,10 +46,13 @@ class ReportTests(unittest.TestCase):
             "proposed_by": "vulnerability-agent",
         })
         self.store.transition_finding(finding_id, "validation_pending", "operator")
-        self.store.transition_finding(
-            finding_id, "validated", "validation-agent",
-            validation_notes="Independent review confirmed supplied synthetic evidence.",
-        )
+        contract={"vulnerability_class":"generic","claims":[{"claim_id":"c1",
+            "assertion":"The synthetic access-control behavior is reproducible",
+            "supporting_refs":[request["evidence_id"],response["evidence_id"]],
+            "alternative_explanations":["The object may be intentionally public"]}]}
+        review_finding(self.store,self.vault,finding_id,{"reviewer":"validation-agent",
+            "evidence_contract":contract,"claim_results":[{"claim_id":"c1","disposition":"supported",
+            "rationale":"Paired request and response artifacts support the stated behavior."}]})
         return request, response
 
     def test_report_includes_only_validated_findings_with_integrity(self):
