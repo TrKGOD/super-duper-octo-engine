@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   agent-benchmark:
-    if: ${{ secrets.ANTHROPIC_API_KEY != '' && vars.CLAUDE_BENCHMARK_MODEL != '' }}
+    if: ${{ vars.CLAUDE_BENCHMARK_MODEL != '' }}
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 30
