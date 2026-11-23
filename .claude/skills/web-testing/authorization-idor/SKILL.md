@@ -62,3 +62,25 @@ The reusable comparison logic is in core/authorization_testing.py. It consumes b
 
 ## Safety
 Never use credential guessing, account takeover, bulk ID enumeration, destructive actions, writes, privilege changes, or real customer data. Stop if the test identities, ownership model, or authorization expectations are unclear.
+
+
+## Brokered paired runner
+The executable orchestration helper is `core/authorization_execution.py`:
+```python
+from core.active_executor import ActiveHTTPExecutor
+from core.authorization_execution import execute_object_access_comparison
+
+result = execute_object_access_comparison(
+    ActiveHTTPExecutor(workflow, project_root),
+    engagement_id,
+    task_id,
+    ".local/requests/idor-owner.json",
+    ".local/requests/idor-non-owner.json",
+    owner_identity="synthetic-owner",
+    other_identity="synthetic-non-owner",
+    object_reference="synthetic-object-1",
+)
+```
+Pin both manifests with SHA-256 in the approved task before dispatch. The manifests must target the same URL with the same method and request context; only the unique request ID and broker-managed secret environment references may differ. Use distinct secret references for the same authentication header. The helper rejects POST/body requests and never resolves credentials itself. Each execution is performed independently by `ActiveHTTPExecutor`, so engagement approval, task scope, pinned-manifest integrity, request-ID replay protection, rate limiting and evidence capture remain enforced by the broker.
+
+If the second request fails after the owner request completes, the helper returns `partial_execution` and the owner evidence references. This is not a comparison, must not be reported as a finding, and must not be automatically replayed. A completed comparison remains candidate-only until synthetic ownership and the comparison identity's lack of entitlement are independently established.
