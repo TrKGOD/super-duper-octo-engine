@@ -49,7 +49,8 @@ See [docs/EVIDENCE.md](docs/EVIDENCE.md) for the operator-driven artifact vault,
 ## Knowledge base
 
 - `scripts/kb_sources.py` discovers candidate research URLs from configured public RSS/Atom feeds; metadata only, no article-body scraping.
-- `scripts/knowledge_base.py` ingests operator-reviewed Markdown/text and searches source documents plus normalized vulnerability patterns.
+- `scripts/knowledge_base.py` ingests operator-reviewed Markdown/text, imports the committed 21-pattern seed idempotently, and searches patterns by full-text terms, domain, and tag.
+- `knowledge-base/seed/` contains original analyst-authored patterns for Web, API, Mobile, Cloud, and Active Directory.
 - See `docs/KNOWLEDGE_BASE.md` for disclosure, licensing, ingestion, and retrieval rules.
 
 Initialize/import the starter corpus with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 import-seed`, then query it with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "object authorization" --domain api`. Import is idempotent. The current runtime still requires an operator to select results and pass them into agent context; autonomous agent dispatch/retrieval is not implemented.\n\nOnly explicitly public material with a documented rights basis may be ingested. Platform-specific reports require confirmation of the exact report's disclosure status and permitted use. The adapters do not access private APIs or bypass disclosure controls.
