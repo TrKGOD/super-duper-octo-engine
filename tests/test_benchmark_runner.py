@@ -4,7 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from scripts.run_benchmark import run
+from scripts.run_benchmark import parse_model_json, run
 
 class BenchmarkRunnerTests(unittest.TestCase):
     def test_runner_invokes_cli_and_emits_schema_valid_prediction(self):
@@ -19,5 +19,15 @@ class BenchmarkRunnerTests(unittest.TestCase):
             self.assertEqual(predictions['predictions'][0]['case_id'],'SYN-TEST-001')
             self.assertEqual(manifest['execution'],'claude_code_cli_agent_prompt')
             self.assertEqual(manifest['model'],'pinned-model')
+
+    def test_parse_fenced_json_result_envelope(self):
+        payload = {"case_id":"SYN-TEST-002","detected":True,"evidence_fields":["request_identity"]}
+        stdout = json.dumps({"result":"```json\\n" + json.dumps(payload) + "\\n```"})
+        self.assertEqual(parse_model_json(stdout), payload)
+
+    def test_parse_plain_json_result_envelope(self):
+        payload = {"case_id":"SYN-TEST-003","detected":False,"evidence_fields":[]}
+        stdout = json.dumps({"result":json.dumps(payload)})
+        self.assertEqual(parse_model_json(stdout), payload)
 
 if __name__=='__main__': unittest.main()
