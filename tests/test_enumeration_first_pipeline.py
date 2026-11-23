@@ -146,6 +146,57 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             ["completed"] * 9,
         )
 
+    def test_pipeline_rejects_state_changing_methods_even_when_engagement_allows_them(self):
+        row = self.workflow.store.connection.execute(
+            "SELECT rules_json FROM engagements WHERE engagement_id='eng-enumeration-first'"
+        ).fetchone()
+        rules = json.loads(row["rules_json"])
+        rules["allowed_test_classes"].append("state-changing-http")
+        rules["human_approval_required_for_state_changes"] = True
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET rules_json=? WHERE engagement_id='eng-enumeration-first'",
+            (json.dumps(rules),),
+        )
+        self.workflow.store.connection.commit()
+
+        requests = self.root / ".local" / "requests"
+        requests.mkdir(parents=True)
+        manifest = {
+            "request_id": "synthetic-pipeline-post-001",
+            "method": "POST",
+            "url": "https://app.example.test/profile",
+            "purpose": "Synthetic negative test for pipeline method policy",
+            "body": "display_name=synthetic",
+            "operator_approval": {
+                "approved": True,
+                "approved_by": "synthetic-test-operator",
+                "approved_at": "2026-11-23T00:00:00Z",
+                "reason": "Synthetic fixture only; this request must still be rejected by the pipeline",
+            },
+        }
+        raw = json.dumps(manifest, sort_keys=True).encode()
+        (requests / "synthetic-pipeline-post-001.json").write_bytes(raw)
+        created = self.workflow.create_plan("eng-enumeration-first", {"tasks": [{
+            "task_key": "active-post-negative",
+            "agent": "active-testing-agent",
+            "objective": "Must reject state-changing methods in this pipeline",
+            "completion_criteria": ["Reject POST before invoking Claude or broker"],
+            "scope_subset": ["app.example.test"],
+            "domain": "web",
+            "skill_tags": ["http-read-only"],
+            "active_testing": True,
+            "request_files": [{
+                "path": ".local/requests/synthetic-pipeline-post-001.json",
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }],
+        }]})
+        from core.dispatch import dispatch_task
+        with self.assertRaisesRegex(DispatchError, "only GET, HEAD and OPTIONS"):
+            dispatch_task(
+                self.workflow, created[0]["task_id"], "pinned-test-model",
+                claude_bin=sys.executable,
+            )
+
     def test_dispatch_fails_closed_when_task_has_no_compatible_skill(self):
         created = self.workflow.create_plan("eng-enumeration-first", {"tasks": [{
             "task_key": "bad-skill",
