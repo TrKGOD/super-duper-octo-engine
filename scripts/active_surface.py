@@ -184,7 +184,7 @@ def _analyse_js(text):
     return sorted(routes), indicators
 
 
-def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_depth=2):
+def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3):
     if not 1 <= max_pages <= 100 or not 0 <= max_depth <= 4:
         raise ActiveExecutionError("Bounds are max_pages 1..100 and max_depth 0..4")
     target_url = _canonical(target_url)
