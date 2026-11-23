@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-SQLI-POS-011",
+  "kind": "synthetic",
+  "description": "A lab-only API query parameter changes the SQL predicate structure and causes a repeatable controlled differential in a disposable database.",
+  "expected_finding": true,
+  "vulnerability_type": "SQL_INJECTION",
+  "required_evidence": [
+    "input_source",
+    "query_context",
+    "baseline_observation",
+    "differential_observation",
+    "repeatability"
+  ],
+  "tags": [
+    "api",
+    "sqli",
+    "positive"
+  ],
+  "fixtures": {
+    "input_source": "filter parameter",
+    "query_context": "string concatenation into WHERE clause",
+    "baseline_observation": "single expected row",
+    "differential_observation": "controlled quote changes predicate and returns extra fixture row",
+    "repeatability": "3 of 3 identical runs"
+  }
+}
