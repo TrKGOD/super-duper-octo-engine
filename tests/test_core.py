@@ -1,7 +1,7 @@
 import sqlite3,tempfile,unittest
 from pathlib import Path
 from core.store import StateStore
-from core.validation import FindingValidationError,validate_finding
+from core.validation import FindingValidationError,validate_finding,validate_finding_transition
 from scripts.migrate import migrate
 
 def finding(**overrides):
@@ -13,6 +13,30 @@ class CoreTests(unittest.TestCase):
   with self.assertRaises(FindingValidationError): validate_finding(finding(evidence_refs=[]))
  def test_rejected_requires_reason(self):
   with self.assertRaises(FindingValidationError): validate_finding(finding(status="rejected",validated_by=None,validation_notes=None))
+ def test_finding_lifecycle_requires_independent_validator(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   db=str(Path(tmp)/"state.sqlite"); migrate(db)
+   with StateStore(db) as store:
+    store.create_engagement("eng-001","AUTH-LOCAL-001",{"assets":[]},{"execution_enabled":False})
+    draft=finding(status="observation",validated_by=None,validation_notes=None)
+    store.record_finding(draft)
+    self.assertEqual(store.transition_finding("f-001","hypothesis","vulnerability-agent"),"hypothesis")
+    self.assertEqual(store.transition_finding("f-001","validation_pending","vulnerability-agent"),"validation_pending")
+    with self.assertRaises(FindingValidationError):
+     store.transition_finding("f-001","validated","vulnerability-agent")
+    self.assertEqual(store.transition_finding("f-001","validated","validation-agent",validation_notes="Independent lab reproduction."),"validated")
+    self.assertEqual(store.transition_finding("f-001","reported","reporting-agent"),"reported")
+    with self.assertRaises(FindingValidationError):
+     store.transition_finding("f-001","observation","operator")
+    events=[e for e in store.audit_events("eng-001") if e["event_type"]=="finding.status_changed"]
+    self.assertEqual([e["details"]["to"] for e in events],["hypothesis","validation_pending","validated","reported"])
+
+ def test_finding_transition_matrix_rejects_skips(self):
+  with self.assertRaises(FindingValidationError):
+   validate_finding_transition("observation","validated")
+  with self.assertRaises(FindingValidationError):
+   validate_finding_transition("rejected","hypothesis")
+
  def test_store_persists_and_audits_work(self):
   with tempfile.TemporaryDirectory() as tmp:
    db=str(Path(tmp)/"state.sqlite"); migrate(db)
