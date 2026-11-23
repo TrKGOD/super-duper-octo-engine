@@ -117,6 +117,11 @@ def _is_crawlable_page(url):
 def _headers_map(headers):
     return {str(k).lower(): str(v) for k, v in headers.items()}
 
+def _parse_allowed_methods(value):
+    """Parse Allow/CORS method lists as tokens, never individual characters."""
+    return sorted({item.upper() for item in re.split(r"[,\\s]+", str(value or "")) if item})
+
+
 
 def _request(executor, engagement_id, task_id, target, purpose, headers=None, method="GET", secret_headers=None):
     if method not in {"GET", "OPTIONS"}:
@@ -400,7 +405,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
             allowed_methods = option_headers.get("allow") or option_headers.get("access-control-allow-methods")
             if allowed_methods:
                 findings.append({"type": "http-options-methods-observed", "url": target_url,
-                                 "methods": sorted({item.upper() for item in re.split(r"[,\\s]+", allowed_methods) if item}),
+                                 "methods": _parse_allowed_methods(allowed_methods),
                                  "status": "capability_observation_not_a_vulnerability"})
         if cors and cors.get("status_code"):
             response_headers = _headers_map(cors.get("response_headers") or {})
