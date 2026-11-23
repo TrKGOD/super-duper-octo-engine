@@ -31,6 +31,8 @@ if tools and tools.get("bash_enabled_for_agents") is not False:
     errors.append("General Bash must be disabled for agents in bootstrap.")
 if tools and tools.get("active_http_broker_enabled") is not True:
     errors.append("The controlled active HTTP broker must be enabled in the tool registry.")
+if tools and tools.get("active_surface_discovery_enabled") is not True:
+    errors.append("The bounded active Web/API surface discovery capability must be enabled in the tool registry.")
 
 schema = ROOT / "database" / "schema.sql"
 if not schema.exists():
