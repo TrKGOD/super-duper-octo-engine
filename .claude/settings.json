@@ -5,7 +5,9 @@
       "Bash(python3 scripts/active_http.py *)",
       "Bash(python scripts/active_http.py *)",
       "Bash(python3 scripts/active_surface.py *)",
-      "Bash(python scripts/active_surface.py *)"
+      "Bash(python scripts/active_surface.py *)",
+      "Bash(python3 scripts/run_orchestrator.py *)",
+      "Bash(python scripts/run_orchestrator.py *)"
     ],
     "deny": [
       "Bash(curl *)",
