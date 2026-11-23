@@ -176,7 +176,7 @@ def _parse_seed_card(block):
     prefix=pattern_id.split("-",1)[0]
     domain=DOMAIN_BY_PREFIX.get(prefix,"other")
     asset_type={"web":["web"],"mobile":["mobile"],"cloud":["cloud"],"active_directory":["active_directory"]}.get(domain,["api"] if "API" in title else ["other"])
-    tags=[domain,prefix.lower(),*re.findall(r"[a-z0-9]+",title.lower())[:8]]
+    tags=[domain,prefix.lower(),*(["api"] if pattern_id in {"WEB-001","WEB-002","WEB-004","WEB-005"} else []),*re.findall(r"[a-z0-9]+",title.lower())[:8]]
     return {"pattern_id":pattern_id,"title":title,"domain":domain,"tags":sorted(set(tags)),
       "vulnerability_type":title,"root_cause":fields["root_cause"],
       "preconditions":[fields["preconditions"]],
@@ -243,7 +243,7 @@ def search_patterns(db,query,limit=5,domain=None,tag=None):
     params=[_fts_query(query)]
     filters=[]
     if domain:
-        filters.append("p.domain=?"); params.append(domain)
+        filters.append("(p.domain=? OR p.tags LIKE ?)"); params.extend([domain,"%"+domain+"%"])
     if tag:
         filters.append("p.tags LIKE ?"); params.append("%"+tag+"%")
     where=" AND ".join(["kb_pattern_search_v2 MATCH ?"]+filters)
@@ -260,7 +260,7 @@ def search_patterns(db,query,limit=5,domain=None,tag=None):
             clauses.append("(p.vulnerability_type LIKE ? OR p.root_cause LIKE ? OR p.reproduction_summary LIKE ? OR p.tags LIKE ?)")
             args.extend(["%"+term+"%"]*4)
         filters=["("+" OR ".join(clauses)+")"]
-        if domain: filters.append("p.domain=?"); args.append(domain)
+        if domain: filters.append("(p.domain=? OR p.tags LIKE ?)"); args.extend([domain,"%"+domain+"%"])
         if tag: filters.append("p.tags LIKE ?"); args.append("%"+tag+"%")
         args.append(limit)
         return db.execute("""SELECT p.pattern_id,p.domain,p.tags,p.document_id,p.vulnerability_type,p.root_cause,p.preconditions,
