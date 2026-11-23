@@ -50,8 +50,9 @@ def _validate_plan(plan, scope):
         if not isinstance(subset, list) or any(item not in allowed_scope for item in subset):
             raise WorkflowError("Task scope exceeds the explicit engagement allowlist: " + key)
         active = task.get("active_testing", False)
-        if active and task.get("agent") != "active-testing-agent":
-            raise WorkflowError("Active tasks must use the dedicated active-testing-agent")
+        active_agents = {"active-testing-agent", "recon-agent", "enumeration-agent", "vulnerability-agent", "exploitation-agent", "validation-agent"}
+        if active and task.get("agent") not in active_agents:
+            raise WorkflowError("Active tasks require an allowlisted scoped assessment specialist")
         if active and not task.get("request_files"):
             raise WorkflowError("Active tasks require at least one pinned request manifest")
         if not active and task.get("agent") == "active-testing-agent":
