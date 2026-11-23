@@ -1,0 +1,5 @@
+{
+  "default": "inherit",
+  "routing_enabled": false,
+  "policy": "Use the runtime default until benchmark data justifies explicit routing."
+}

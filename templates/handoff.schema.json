@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Handoff",
+  "type": "object",
+  "required": ["task_id","engagement_id","agent","status","scope_subset","summary","observations","hypotheses","evidence_refs","limitations"],
+  "properties": {
+    "task_id": {"type":"string"}, "engagement_id": {"type":"string"}, "agent": {"type":"string"},
+    "status": {"enum":["completed","blocked","needs_operator","partial"]},
+    "scope_subset": {"type":"array","items":{"type":"string"}}, "summary": {"type":"string"},
+    "observations": {"type":"array","items":{"type":"object"}}, "hypotheses": {"type":"array","items":{"type":"object"}},
+    "evidence_refs": {"type":"array","items":{"type":"string"}}, "limitations": {"type":"array","items":{"type":"string"}},
+    "next_steps": {"type":"array","items":{"type":"string"}}
+  }, "additionalProperties": false
+}

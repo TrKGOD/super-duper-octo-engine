@@ -1,0 +1,10 @@
+{
+  "engagement_id": "REPLACE-WITH-LOCAL-ID",
+  "authorization_reference": "REQUIRED: contract / ticket / written approval reference",
+  "client_name": "REDACTED",
+  "timezone": "UTC",
+  "testing_window": {"start": null,"end": null},
+  "scope": {"allowed_domains": [],"allowed_ips": [],"allowed_cidrs": [],"excluded_assets": [],"allowed_applications": []},
+  "rules_of_engagement": {"execution_enabled": false,"allowed_test_classes": [],"prohibited_test_classes": ["denial-of-service","destructive-testing","persistence","stealth-or-evasion","bulk-data-extraction","credential-stuffing"],"max_concurrency": 1,"requests_per_second": 1,"human_approval_required_for_state_changes": true},
+  "contacts": {"technical": null,"emergency": null}
+}

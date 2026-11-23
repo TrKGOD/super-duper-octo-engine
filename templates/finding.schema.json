@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Security Finding",
+  "type": "object",
+  "required": ["finding_id","engagement_id","title","status","asset","description","evidence_refs","proposed_by"],
+  "properties": {
+    "finding_id":{"type":"string"}, "engagement_id":{"type":"string"}, "title":{"type":"string"},
+    "status":{"enum":["observation","hypothesis","validation_pending","validated","rejected","needs_more_evidence","reported","retest_pending","resolved"]},
+    "asset":{"type":"string"}, "method":{"type":["string","null"]}, "parameter":{"type":["string","null"]},
+    "severity":{"enum":["informational","low","medium","high","critical","unknown"]}, "cvss_vector":{"type":["string","null"]},
+    "description":{"type":"string"}, "impact":{"type":["string","null"]}, "preconditions":{"type":"array","items":{"type":"string"}},
+    "evidence_refs":{"type":"array","items":{"type":"string"}}, "proposed_by":{"type":"string"}, "validated_by":{"type":["string","null"]},
+    "created_at":{"type":"string","format":"date-time"}, "updated_at":{"type":"string","format":"date-time"}
+  }, "additionalProperties": false
+}

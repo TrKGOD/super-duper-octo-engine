@@ -1,0 +1,101 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS engagements (
+  engagement_id TEXT PRIMARY KEY,
+  authorization_reference TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('draft','approved','active','paused','closed')),
+  scope_json TEXT NOT NULL,
+  rules_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+  asset_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  asset TEXT NOT NULL,
+  asset_type TEXT NOT NULL,
+  scope_status TEXT NOT NULL CHECK(scope_status IN ('in_scope','excluded','unknown')),
+  source_ref TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS endpoints (
+  endpoint_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  asset_id TEXT REFERENCES assets(asset_id),
+  method TEXT,
+  path TEXT NOT NULL,
+  parameters_json TEXT NOT NULL DEFAULT '[]',
+  auth_context TEXT,
+  source_ref TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  task_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  agent TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('queued','running','completed','blocked','needs_operator','failed')),
+  input_json TEXT NOT NULL,
+  output_json TEXT,
+  started_at TEXT,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS findings (
+  finding_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  title TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('observation','hypothesis','validation_pending','validated','rejected','needs_more_evidence','reported','retest_pending','resolved')),
+  severity TEXT NOT NULL DEFAULT 'unknown',
+  asset TEXT NOT NULL,
+  method TEXT,
+  parameter TEXT,
+  description TEXT NOT NULL,
+  impact TEXT,
+  evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+  proposed_by TEXT NOT NULL,
+  validated_by TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS evidence (
+  evidence_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  finding_id TEXT REFERENCES findings(finding_id),
+  evidence_type TEXT NOT NULL,
+  local_path TEXT NOT NULL,
+  sha256 TEXT,
+  redacted INTEGER NOT NULL DEFAULT 1,
+  captured_at TEXT NOT NULL,
+  captured_by TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+  run_id TEXT PRIMARY KEY,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  agent TEXT NOT NULL,
+  model TEXT,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  cost_usd REAL,
+  status TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  engagement_id TEXT NOT NULL REFERENCES engagements(engagement_id),
+  actor TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  details_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_engagement ON assets(engagement_id);
+CREATE INDEX IF NOT EXISTS idx_endpoints_engagement ON endpoints(engagement_id);
+CREATE INDEX IF NOT EXISTS idx_findings_engagement_status ON findings(engagement_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_engagement_status ON tasks(engagement_id, status);

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "deny": ["Bash(curl *)","Bash(wget *)","Bash(nmap *)","Bash(nuclei *)","Bash(sqlmap *)","Bash(metasploit *)","Bash(msfconsole *)"]
+  },
+  "hooks": {"PreToolUse": [{"matcher": "Bash","hooks": [{"type": "command","command": "python3 hooks/command_guard.py","timeout": 5}]}]}
+}
