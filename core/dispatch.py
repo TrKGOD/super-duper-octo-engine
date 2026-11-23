@@ -261,6 +261,25 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             raise DispatchError("Independent validation requires an upstream proposal handoff")
         if all(item["agent"] == "validation-agent" for item in prior_handoffs):
             raise DispatchError("The proposing agent cannot be the independent validator")
+    if row["agent"] == "validation-agent" and active_task:
+        validation_hashes = {
+            item.get("sha256") for item in task_input.get("request_files", [])
+            if isinstance(item, dict) and item.get("sha256")
+        }
+        prior_hashes = set()
+        for dependency_key in task_input.get("depends_on", []):
+            dependency_task = workflow.store.connection.execute(
+                """SELECT input_json FROM tasks
+                   WHERE engagement_id=? AND json_extract(input_json,'$.task_key')=?""",
+                (row["engagement_id"], dependency_key),
+            ).fetchone()
+            if dependency_task:
+                dependency_input = json.loads(dependency_task["input_json"])
+                for manifest in dependency_input.get("request_files", []) + dependency_input.get("generated_request_files", []):
+                    if isinstance(manifest, dict) and manifest.get("sha256"):
+                        prior_hashes.add(manifest["sha256"])
+        if not validation_hashes or validation_hashes.intersection(prior_hashes):
+            raise DispatchError("Active independent validation requires its own separately pinned manifest, distinct from the proposal/exploitation requests")
     if row["agent"] == "impact-analyst":
         if not prior_handoffs or not any(
             item["agent"] == "validation-agent"
