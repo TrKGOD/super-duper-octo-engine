@@ -1,25 +1,28 @@
 # Roadmap
 
-## Phase 0 — Bootstrap (current)
+## Phase 0 — Bootstrap (complete)
 - [x] Repository layout and technical specification
 - [x] Model 1 baseline preserved
 - [x] Hybrid architecture documented
 - [x] Safe default configuration
 - [x] Initial agent and skill contracts
 - [x] Finding schema and SQLite schema
-- [x] Basic validation tests
 
-## Phase 1 — Core contracts
-- [ ] Validate agent frontmatter against Claude Code behavior
-- [ ] Finalize handoff JSON schema and examples
-- [ ] Implement engagement/task state manager
-- [ ] Add migrations and repository layer
-- [ ] Add audit event writer
+## Phase 1 — Deterministic core (implemented baseline)
+- [x] Enforce independent finding validation in Python
+- [x] Require evidence references for validated/reported findings
+- [x] SQLite state store for engagements, tasks, agent runs, findings, and audit events
+- [x] Versioned, idempotent schema migration runner
+- [x] CI for config validation, migrations, unit tests, and JSON contracts
+- [x] Gitleaks pre-commit hook configuration
+- [x] Validated handoff example
+- [ ] Review agent frontmatter against Claude Code runtime behavior
+- [ ] Differentiate agent permissions and completion criteria; consolidate redundant roles
 
 ## Phase 2 — Initial Web/API vertical
 - [ ] Recon and enumeration workflows using supplied/authorized targets
 - [ ] Skills: authentication, authorization/IDOR, XSS, SQLi, SSRF, OAuth/OIDC, JWT, business logic
-- [ ] Independent validation workflow
+- [ ] Independent validation workflow integrated with persisted findings
 - [ ] Duplicate detection and evidence scoring
 
 ## Phase 3 — Other domains
