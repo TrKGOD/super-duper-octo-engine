@@ -117,6 +117,14 @@ def orchestrator_args(argv):
     return {"db": argv[3], "engagement_id": argv[5]}
 
 
+def passive_framing_args(argv):
+    if len(argv) != 4 or argv[0] not in {"python", "python3"} or argv[1] != "scripts/analyze_http_framing.py":
+        return None
+    if argv[2] != "--input" or not safe_local_json(argv[3]):
+        return None
+    return {"input": argv[3]}
+
+
 def active_security_args(argv):
     """Strict argument parser for specialist read-only broker workflows."""
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
@@ -178,6 +186,8 @@ def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
+    if script == "scripts/analyze_http_framing.py":
+        return passive_framing_args(argv) is not None
     if script in {"scripts/active_ssrf_probe.py", "scripts/active_authentication_check.py", "scripts/active_cache_check.py"}:
         return active_security_args(argv) is not None
     if script == "scripts/run_orchestrator.py":
@@ -318,6 +328,11 @@ def main():
         deny("Unable to parse command; default deny.")
     if not allowed_argv(argv):
         deny("Command is not in the workflow/KB allowlist or approved active HTTP broker.")
+    if passive_framing_args(argv):
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "permissionDecision": "allow",
+        }}))
+        return
     active_args = active_http_args(argv)
     surface_args = active_surface_args(argv)
     orchestration_args = orchestrator_args(argv)
