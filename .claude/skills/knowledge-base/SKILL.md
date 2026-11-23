@@ -9,13 +9,16 @@ Use the local knowledge base only as research context. It is not evidence about 
 
 ## Operator workflow
 1. Confirm the engagement scope independently. Never use a KB source to add assets or techniques to scope.
-2. Search normalized patterns first:
+2. Consult the committed starter corpus in `knowledge-base/seed/` and identify relevant pattern IDs. Start with its README and domain-specific Markdown files.
+3. Search normalized patterns in the local SQLite KB:
    `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "CWE-<id> <root-cause terms>"`
-3. If useful patterns are absent, search documents:
+4. If useful patterns are absent, search documents:
    `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search --query "<technology> <weakness>"`
-4. Supply only the minimum relevant pattern/document excerpts to the assigned agent, together with their IDs, canonical source URLs, disclosure status, rights basis, and source spans.
-5. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
-6. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
+5. Supply only the minimum relevant pattern/document excerpts to the assigned agent, together with IDs, canonical source URLs, disclosure status, rights basis, and source spans.
+6. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
+7. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
+
+The committed seed is manually readable. It is not currently imported into SQLite and is not dynamically retrieved by agents.
 
 ## Agent-specific use
 - vulnerability-agent: use patterns to generate testable hypotheses and list preconditions/evidence still required.
@@ -30,4 +33,4 @@ Use the local knowledge base only as research context. It is not evidence about 
 - Do not ingest private, undisclosed, leaked, credential-bearing, or client-confidential material.
 - Public accessibility is not redistribution permission. Confirm disclosure and rights basis before ingestion.
 - Prefer an independently written summary when copying source text is not clearly permitted.
-- Keep the database and source files under .local/ and out of version control.
+- Keep the database and source files under .local/ and out of version control, except the intentionally committed analyst-authored seed summaries under knowledge-base/seed/.
