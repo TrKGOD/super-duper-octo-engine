@@ -20,9 +20,9 @@ Select this pack when observed routes, JavaScript, API schemas, redirects, ident
 ## Deterministic offline analyzer
 Place sanitized JSON artifacts under .local/ (never commit tokens or secrets). Run:
 ~~~bash
-python3 scripts/analyze_protocol_artifacts.py oidc-discovery --input .local/oidc-discovery.json --expected-issuer https://idp.example.test
+python3 scripts/analyze_protocol_artifacts.py oidc-discovery --input .local/oidc-discovery.json
 python3 scripts/analyze_protocol_artifacts.py oauth-flow --input .local/oauth-flow.json
-python3 scripts/analyze_protocol_artifacts.py jwt --input .local/jwt-review.json --expected-issuer https://idp.example.test --expected-audience api
+python3 scripts/analyze_protocol_artifacts.py jwt --input .local/jwt-review.json --expected-issuer https://idp.example.test
 ~~~
 The JWT input is a JSON object with a token field and optional captured jwks. Use short-lived synthetic tokens only; never paste production bearer tokens into chat, logs or findings. The analyzer parses header and claims, checks selected policy relationships and supplied JWKS metadata, but **does not verify JWT signatures** or cryptographic key material. OIDC metadata checks are descriptive, not endpoint tests. A missing field in an incomplete capture is not proof the control is absent.
 
