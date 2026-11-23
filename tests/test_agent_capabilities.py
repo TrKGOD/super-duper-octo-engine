@@ -42,6 +42,9 @@ class AgentCapabilityTests(unittest.TestCase):
   self.assertEqual(select_model({}, "cli-default",policy)["model"],"economy-v1")
   self.assertEqual(select_model({}, "cli-default",policy,attempt=1,trigger="invalid_output")["model"],"strong-v1")
   self.assertEqual(select_model({}, "cli-default",policy,attempt=1,trigger="timeout")["model"],"economy-v1")
+  self.assertEqual(select_model({}, "cli-default",policy,attempt=0,trigger="high_complexity")["model"],"economy-v1")
+  high_policy={**policy,"escalate_on":["high_complexity"]}
+  self.assertEqual(select_model({}, "cli-default",high_policy,attempt=0,trigger="high_complexity")["model"],"strong-v1")
   with self.assertRaises(ModelRoutingError):
    select_model({}, "cli-default",{"max_escalations":2})
 
