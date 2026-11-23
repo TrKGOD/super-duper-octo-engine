@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-AUTHZ-POS-009",
+  "kind": "synthetic",
+  "description": "A low-privilege user can invoke an administrator-only export operation; server performs the operation and returns export metadata.",
+  "expected_finding": true,
+  "vulnerability_type": "AUTHORIZATION_BYPASS",
+  "required_evidence": [
+    "request_identity",
+    "operation",
+    "authorization_decision",
+    "response_observation",
+    "expected_policy"
+  ],
+  "tags": [
+    "api",
+    "authz",
+    "positive"
+  ],
+  "fixtures": {
+    "request_identity": "role=viewer",
+    "operation": "admin export",
+    "authorization_decision": "role check omitted",
+    "response_observation": "export job created",
+    "expected_policy": "admin only"
+  }
+}
