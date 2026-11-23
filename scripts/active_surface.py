@@ -204,6 +204,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
         executor = ActiveHTTPExecutor(workflow, ROOT)
         queue = deque([(target_url, 0)])
         visited, endpoints, inferred_endpoints, js_assets, findings, tech = set(), set(), set(), set(), [], {}
+        evidence_refs = []
         page_count = 0
         while queue and page_count < max_pages:
             current, depth = queue.popleft()
@@ -216,6 +217,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                 findings.append({"type": "discovery-blocked", "url": current, "reason": str(exc)})
                 continue
             page_count += 1
+            evidence_refs.extend(result.get("evidence_refs", []))
             headers = _headers_map(result.get("response_headers") or {})
             if result.get("status_code") is not None:
                 tech.setdefault("http_statuses", set()).add(result["status_code"])
@@ -283,6 +285,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
         for script_url in sorted(js_assets)[:min(10, max_pages - page_count)]:
             try:
                 js_result = _request(executor, engagement_id, task_id, script_url, "Static JavaScript endpoint and sink analysis")
+                evidence_refs.extend(js_result.get("evidence_refs", []))
                 js_body = js_result.get("response_excerpt") or ""
                 routes, indicators = _analyse_js(js_body)
                 for route in routes:
@@ -290,7 +293,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                     if resolved:
                         endpoints.add(resolved)
                         inferred_endpoints.add(resolved)
-                js_results.append({"url": script_url, "status_code": js_result.get("status_code"), "route_count": len(routes), "indicators": indicators})
+                js_results.append({"url": script_url, "status_code": js_result.get("status_code"), "route_count": len(routes), "indicators": indicators, "evidence_refs": js_result.get("evidence_refs", [])})
             except ActiveExecutionError as exc:
                 js_results.append({"url": script_url, "blocked": str(exc)})
         # One harmless CORS observation, never credentials or state changes.
@@ -302,11 +305,15 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                             {"Origin": "https://pentest-agent.invalid"})
         except ActiveExecutionError as exc:
             cors = {"blocked": str(exc)}
+        if cors and isinstance(cors, dict):
+            evidence_refs.extend(cors.get("evidence_refs", []))
         try:
             options = _request(executor, engagement_id, task_id, target_url,
                                "Read-only HTTP OPTIONS capability observation", method="OPTIONS")
         except ActiveExecutionError as exc:
             options = {"blocked": str(exc)}
+        if options and isinstance(options, dict):
+            evidence_refs.extend(options.get("evidence_refs", []))
         if options and options.get("status_code"):
             option_headers = _headers_map(options.get("response_headers") or {})
             allowed_methods = option_headers.get("allow") or option_headers.get("access-control-allow-methods")
@@ -334,6 +341,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             "javascript_analysis": js_results,
             "technology_indicators": {k: sorted(v) if isinstance(v, set) else v for k, v in tech.items()},
             "observations": findings,
+            "evidence_refs": list(dict.fromkeys(evidence_refs)),
             "cors_observation": cors,
             "options_observation": options,
             "limits": {"max_pages": max_pages, "max_depth": max_depth, "same_origin_only": True},
