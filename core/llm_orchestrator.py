@@ -81,7 +81,7 @@ def _available_request_manifests(project_root, scope, exact_assets, budget, allo
             "body_present": request.get("body") is not None,
             "operator_approved": request.get("operator_approval", {}).get("approved") is True,
         })
-        if len(available) >= min(max(int(budget), 1), 50):
+        if len(available) >= min(max(int(budget), 1), 500):
             break
     return available
 

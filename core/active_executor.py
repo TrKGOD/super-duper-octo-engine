@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from core.evidence import EvidenceVault
+from core.execution_policy import validate_execution_limits
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUEST_SCHEMA = json.loads((ROOT / "templates/active-http-request.schema.json").read_text(encoding="utf-8"))
@@ -422,19 +423,15 @@ class ActiveHTTPExecutor:
             or "REQUIRED" in task_row["authorization_reference"].upper()
         ):
             raise ActiveExecutionError("Engagement is not explicitly approved for active execution")
-        if rules.get("max_concurrency", 1) != 1:
-            raise ActiveExecutionError("This broker currently enforces max_concurrency=1")
-        request_budget = rules.get("max_requests_per_engagement", 20)
-        if not isinstance(request_budget, int) or request_budget < 1 or request_budget > 50:
-            raise ActiveExecutionError("max_requests_per_engagement must be between 1 and 50")
+        try:
+            _, rps, request_budget = validate_execution_limits(rules)
+        except ValueError as exc:
+            raise ActiveExecutionError(str(exc)) from exc
         executed_count = self.workflow.store.connection.execute(
             "SELECT COUNT(*) FROM active_request_log WHERE engagement_id=?", (engagement_id,)
         ).fetchone()[0]
         if executed_count >= request_budget:
             raise ActiveExecutionError("Engagement active HTTP request budget has been exhausted")
-        rps = rules.get("requests_per_second", 1)
-        if not isinstance(rps, (int, float)) or rps <= 0 or rps > 1:
-            raise ActiveExecutionError("requests_per_second must be between 0 and 1 for this broker")
         _check_window(rules)
 
         request_path = Path(request_file)

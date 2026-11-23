@@ -6,6 +6,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 from core.store import StateStore, utc_now
 from core.evidence import EvidenceVault, EvidenceError
 from core.active_executor import _validate_request, _validate_request_scope
+from core.execution_policy import validate_execution_limits
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -151,14 +152,10 @@ class Workflow:
             raise WorkflowError("Active HTTP requires http-read-only in allowed_test_classes")
         if "state-changing-http" in allowed_classes and rules.get("human_approval_required_for_state_changes") is not True:
             raise WorkflowError("State-changing HTTP must require per-request human approval")
-        if rules.get("max_concurrency", 1) != 1:
-            raise WorkflowError("The current active broker requires max_concurrency=1")
-        rps = rules.get("requests_per_second", 1)
-        if not isinstance(rps, (int, float)) or rps <= 0 or rps > 1:
-            raise WorkflowError("The current active broker requires requests_per_second between 0 and 1")
-        request_budget = rules.get("max_requests_per_engagement", 20)
-        if not isinstance(request_budget, int) or request_budget < 1 or request_budget > 50:
-            raise WorkflowError("max_requests_per_engagement must be between 1 and 50")
+        try:
+            _, _, request_budget = validate_execution_limits(rules)
+        except ValueError as exc:
+            raise WorkflowError(str(exc)) from exc
         rules["max_requests_per_engagement"] = request_budget
         rules.update({
             "execution_enabled": True,
