@@ -57,6 +57,13 @@ class OrchestrationTests(unittest.TestCase):
   handoff={"task_id":task_id,"engagement_id":"wrong","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"x","observations":[],"hypotheses":[],"evidence_refs":[evidence],"limitations":[]}
   with self.assertRaises(WorkflowError):
    self.w.accept_handoff(task_id,handoff)
+ def test_handoff_rejects_unknown_evidence_reference(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Reviewed supplied artifacts.","observations":[],"hypotheses":[],"evidence_refs":["evidence://fabricated"],"limitations":[]}
+  with self.assertRaises(WorkflowError):
+   self.w.accept_handoff(task_id,handoff)
+
  def test_finding_write_uses_deterministic_validator(self):
   finding={"finding_id":"f1","engagement_id":"eng-test","title":"Synthetic hypothesis","status":"hypothesis","asset":"app.example.test","description":"Lab hypothesis only","evidence_refs":["evidence://lab/h1"],"proposed_by":"vulnerability-agent"}
   evidence=self.w.store.record_evidence("eng-test","reproduction_notes",".local/evidence/finding.txt","operator")
