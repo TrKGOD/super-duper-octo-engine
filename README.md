@@ -162,7 +162,7 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 - Isolated execution container and network egress allowlisting; broker integrations for scanners and non-HTTP tools.
 - Managed KMS integration, key rotation/multi-key support, automated redaction review, retention/deletion and immutable evidence storage.
 - Hardened multi-user filesystem isolation and crash/recovery reconciliation between filesystem and SQLite.
-- Robust concurrent multi-process orchestration and resource budgets.
+- Robust concurrent multi-process orchestration and resource governance (rate limiting, concurrency and response bounds).
 - Repeated authenticated Model 1/hybrid pipeline runs and a variance-aware benchmark report; the current comparison harness is implemented but has not been executed against a live Claude CLI in this session.
 
 ## Safety and limitations
