@@ -141,5 +141,16 @@ class OrchestrationTests(unittest.TestCase):
   self.w.accept_handoff(task_id,handoff)
   self.assertEqual(len(self.w.status("eng-test")["tasks"]),2)
 
+
+ def test_hypothesis_handoff_requires_evidence_contract(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  evidence=self.vault.capture("eng-test","http_response","hypothesis.txt",b"response","recon-agent",redacted=True)["evidence_id"]
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed",
+   "scope_subset":["app.example.test"],"summary":"Candidate","observations":[],"hypotheses":[{"claim":"possible issue"}],
+   "evidence_refs":[evidence],"limitations":[]}
+  with self.assertRaisesRegex(WorkflowError,"evidence_contract"):
+   self.w.accept_handoff(task_id,handoff)
+
 if __name__=="__main__":
  unittest.main()
