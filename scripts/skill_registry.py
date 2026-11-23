@@ -81,6 +81,16 @@ def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
         if not frontmatter.get("description"):
             raise RegistryError(f"Skill description is empty: {item['id']}")
 
+    # Enforce catalogue completeness in both directions: no orphan SKILL.md.
+    registered_paths = {item["path"] for item in data["skills"]}
+    discovered_paths = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / ".claude" / "skills").rglob("SKILL.md")
+    }
+    unregistered = discovered_paths - registered_paths
+    if unregistered:
+        raise RegistryError(f"Unregistered Skill file(s): {sorted(unregistered)}")
+
     agent_dir = ROOT / ".claude" / "agents"
     available_agents = {
         path.stem for path in agent_dir.glob("*.md")
