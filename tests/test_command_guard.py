@@ -8,7 +8,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, allowed_argv, main, safe_local_json, safe_db_argument
+from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
 
 
 class CommandGuardTests(unittest.TestCase):
@@ -38,6 +38,13 @@ class CommandGuardTests(unittest.TestCase):
         self.assertTrue(safe_db_argument(".local/engagements/vinted/state.sqlite3"))
         self.assertFalse(safe_db_argument(".local/engagements/../state.sqlite3"))
         self.assertFalse(safe_db_argument("/tmp/state.sqlite3"))
+
+    def test_orchestrator_entrypoint_is_allowlisted_with_exact_arguments(self):
+        command = ["python3", "scripts/run_orchestrator.py", "--db", ".local/state.sqlite3",
+                   "--engagement-id", "eng-123", "--model", "claude-sonnet-4-5"]
+        self.assertTrue(allowed_argv(command))
+        self.assertEqual(orchestrator_args(command)["engagement_id"], "eng-123")
+        self.assertFalse(allowed_argv(command + ["--extra"]))
 
     def test_rejects_arbitrary_commands(self):
         self.assertFalse(allowed_argv(["python3", "-c", "import os"]))
