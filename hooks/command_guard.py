@@ -206,6 +206,15 @@ def _active_surface_is_approved(args, config):
             return False
         rules = json.loads(engagement["rules_json"])
         task_input = json.loads(task["input_json"])
+        if engagement["status"] != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
+            return False
+        if task["status"] != "running" or task_input.get("active_testing") is not True or not task_input.get("scope_subset"):
+            return False
+        from core.active_executor import ActiveExecutionError, _validate_request_scope
+        try:
+            _validate_request_scope(args["target_url"], json.loads(engagement["scope_json"]), task_input["scope_subset"])
+        except (ActiveExecutionError, ValueError):
+            return False
         return bool(
             engagement["status"] == "active"
             and rules.get("execution_enabled") is True
