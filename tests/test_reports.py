@@ -52,7 +52,7 @@ class ReportTests(unittest.TestCase):
             "alternative_explanations":["The object may be intentionally public"]}]}
         review_finding(self.store,self.vault,finding_id,{"reviewer":"validation-agent",
             "evidence_contract":contract,"claim_results":[{"claim_id":"c1","disposition":"supported",
-            "rationale":"Paired request and response artifacts support the stated behavior."}]})
+            "rationale":"Paired request and response artifacts support the stated behavior.","evidence_refs":[request["evidence_id"],response["evidence_id"]]}]})
         return request, response
 
     def test_report_includes_only_validated_findings_with_integrity(self):
