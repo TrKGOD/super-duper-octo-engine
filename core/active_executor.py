@@ -3,6 +3,7 @@
 The broker deliberately supports a narrow HTTP surface. It is not a sandbox:
 run it inside an isolated environment with outbound network policy as well.
 """
+import base64
 import hashlib
 import http.client
 import ipaddress
