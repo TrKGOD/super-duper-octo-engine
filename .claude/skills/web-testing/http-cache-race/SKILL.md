@@ -18,3 +18,25 @@ Analyze proxy/origin framing, normalization, cache keys, Vary behavior, authoriz
 
 ## Guardrails
 All active requests must use the approved broker and task-pinned manifests. Follow engagement scope, exclusions, test windows and allowed test classes. Stop when the required authorization, synthetic fixture, or safe validation environment is unavailable. A technique description or public KB pattern is not authorization or evidence.
+
+
+## Brokered cache-isolation check
+For two synthetic identities with distinct private marker values, prepare equivalent GET manifests using different broker-managed secret references and run:
+```bash
+python3 scripts/active_cache_check.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --first-request-file .local/requests/cache-a.json --second-request-file .local/requests/cache-b.json --first-private-marker SYNTHETIC_PRIVATE_A --second-private-marker SYNTHETIC_PRIVATE_B
+```
+The runner performs sequential requests only. It compares marker leakage, Cache-Control, Vary, Age and common cache-status headers. Cache directives alone are a lead, not proof of cross-user disclosure.
+
+HTTP framing review is passive-only:
+```bash
+python3 scripts/analyze_http_framing.py --input .local/http-request-capture.json
+```
+No request-smuggling payloads, ambiguous framing, cache poisoning, concurrent race traffic or state-changing requests are sent. Active desynchronization and race-condition validation requires an isolated lab and a dedicated approved harness; the current broker's single-concurrency/read-only constraints intentionally remain intact.
+
+
+## Passive race-capture analysis
+When an isolated lab has already produced a sanitized timing/state log, analyze it without generating traffic:
+```bash
+python3 scripts/analyze_race_capture.py --input .local/race-capture.json
+```
+The JSON must contain 2–100 events, unique request IDs, timezone-aware start/end timestamps, one object reference prefixed `synthetic-`, and an explicit `invariant_violation: true` on an event before the analyzer emits a candidate. Overlap alone is only an observation. This workflow does not create concurrency or validate a production race.

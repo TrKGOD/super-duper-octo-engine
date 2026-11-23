@@ -18,3 +18,13 @@ Identify URL-consuming features from evidence; map parser and resolver boundarie
 
 ## Guardrails
 All active requests must use the approved broker and task-pinned manifests. Follow engagement scope, exclusions, test windows and allowed test classes. Stop when the required authorization, synthetic fixture, or safe validation environment is unavailable. A technique description or public KB pattern is not authorization or evidence.
+
+
+## Brokered canary workflow
+For an approved target-side URL-fetch feature, use one operator-reviewed, SHA-256-pinned GET/HEAD/OPTIONS manifest that contains both the exact unique marker and the exact callback URL:
+```bash
+python3 scripts/active_ssrf_probe.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --request-file .local/requests/ssrf-canary.json --callback-url https://CALLBACK_HOST/unique-path --marker UNIQUE_MARKER
+```
+The callback host must be HTTPS and explicitly present in engagement `allowed_domains`; the target request itself is still sent only by the broker. If callback logs are available, provide a sanitized JSON array via `--callback-events .local/ssrf-callback-events.json`; only events containing the unique marker are retained, with a minimal allowlist of event fields. A callback match is a candidate requiring independent provenance verification, not automatic confirmation.
+
+Do not target metadata services, private/loopback/link-local addresses, internal hosts, or third-party callback infrastructure. DNS rebinding, redirect chains and parser differential work remain manual/lab-only unless a dedicated safe fixture and approved scope are provided.
