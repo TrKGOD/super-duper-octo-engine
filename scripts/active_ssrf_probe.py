@@ -33,7 +33,7 @@ def main():
         executor = ActiveHTTPExecutor(workflow, ROOT)
         manifest = _load_manifest(executor, args.request_file)
         serialized = json.dumps(manifest, sort_keys=True)
-        if args.marker not in serialized or args.callback_url not in serialized:
+        if args.marker not in args.callback_url or args.marker not in serialized or args.callback_url not in serialized:
             raise ActiveExecutionError("Pinned request manifest must contain the exact callback URL and unique marker")
         response = executor.execute_request_file(args.engagement_id, args.task_id, args.request_file)
         events = []
