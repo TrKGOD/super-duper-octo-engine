@@ -1,8 +1,10 @@
 # Orchestrator runtime integration
 
+This runtime is the execution and coordination layer of the Pentest Agent Framework. Its purpose is to move an authorized penetration test through specialist stages and preserve scope, evidence, and validation guarantees. It must not be treated as a standalone planning product.
+
 ## Current implementation status
 
-The Python workflow runner persists and validates plans and handoffs. Passive specialists are invoked with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access for operator-reviewed HTTP request manifests; it does not receive general shell or network tools. This is not autonomous scanner execution or native Task-tool delegation.
+The Python workflow runner persists and validates plans and handoffs. In the current implementation, passive specialists are invoked with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access for operator-reviewed HTTP request manifests; it does not receive general shell or network tools. Therefore, the current runtime is not yet a full autonomous reconnaissance or scanner engine, and native Task-tool delegation is not implemented. These are implementation gaps against the framework's pentesting objective, not a change in product purpose.
 
 The following are separate capabilities and must not be conflated:
 
