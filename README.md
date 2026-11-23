@@ -22,7 +22,7 @@ The orchestrator is responsible for coordinating actual assessment work—not me
 
 ## Current execution boundary
 
-The framework is under active development toward that objective. Implemented workflow and safety infrastructure must not be mistaken for a complete autonomous scanner. In the current implementation, passive specialists are tool-disabled and the active-testing specialist can use only the bounded HTTP broker. The broker is not a crawler, scanner, browser, shell sandbox, or general exploitation engine. Missing capabilities should be implemented and tested against controlled local targets rather than claimed in documentation.
+The framework is under active development toward that objective. The initial Web/API vertical now includes bounded same-origin reconnaissance and crawling, endpoint/form discovery, static JavaScript route/sink analysis, automated low-impact configuration checks, brokered reproduction and independent validation. This is not yet a full autonomous scanner: deeper SQLi/SSRF/authz/OAuth/browser-based testing and Mobile/Cloud/Active Directory execution remain unfinished. Capabilities must be proven against controlled local targets rather than claimed from documentation alone.
 
 All live testing remains restricted to assets explicitly authorized by the relevant engagement. Safety gates are part of the pentesting engine: they must constrain execution without turning the product into a documentation-only workflow.
 
@@ -44,7 +44,7 @@ The nine-stage scope → recon → enumeration → vulnerability → active test
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
 - `scripts/redact_text_evidence.py`: creates a separate best-effort redacted copy of text evidence; manual review remains mandatory.
 - `core/orchestration.py`: workflow coordinator with schema-validated plans, dependency gates, scope-subset enforcement and handoff persistence. Collected artifact claims must match registered evidence metadata.
-- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and the dedicated active-testing-agent with broker-only Bash access; select methodology context, verify evidence, validate handoffs, and persist run telemetry.
+- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and active Web/API specialists with broker-only Bash access; select methodology context, verify evidence, enforce independent validation, and persist run telemetry.
 - `core/active_executor.py` and `scripts/active_http.py`: enforce exact engagement/task scope, DNS/IP checks, redirect validation, rate/response limits, request-manifest pinning, evidence capture, and audit logging for active HTTP requests.
 - `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
 - `scripts/parse_program_policy.py`: extract a draft scope profile from operator-supplied bug bounty policy text, preserving source quotes and ambiguities. It does not browse program sites or approve authorization.
