@@ -1,0 +1,28 @@
+{
+  "case_id": "SYN-AD-POS-024",
+  "kind": "synthetic",
+  "description": "A synthetic low-privilege domain user has a validated write permission over a privileged group's membership attribute; a lab-only directory diff shows the permission and effective path.",
+  "expected_finding": true,
+  "vulnerability_type": "ACTIVE_DIRECTORY_ACL_ABUSE",
+  "required_evidence": [
+    "principal",
+    "target_object",
+    "effective_right",
+    "privilege_boundary",
+    "lab_validation",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "active_directory_acl_abuse",
+    "positive"
+  ],
+  "fixtures": {
+    "principal": "LAB\\\\analyst",
+    "target_object": "LAB\\\\Tier0-Operators",
+    "effective_right": "validated write member permission",
+    "privilege_boundary": "membership in privileged group",
+    "lab_validation": "isolated AD lab ACL evaluation",
+    "fixture_only": true
+  }
+}
