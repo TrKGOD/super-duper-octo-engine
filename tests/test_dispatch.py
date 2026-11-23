@@ -208,6 +208,67 @@ class DispatchTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "needs_operator")
 
+    def test_active_validator_rejects_reuse_of_exploitation_manifest(self):
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET status='active',rules_json=? WHERE engagement_id=?",
+            (json.dumps({
+                "execution_mode": "active", "execution_enabled": True,
+                "authorization_verified": True, "allowed_test_classes": ["http-read-only"],
+                "max_concurrency": 1, "requests_per_second": 1,
+            }), "eng-dispatch-test"),
+        )
+        self.workflow.store.connection.commit()
+        requests_dir = self.root / ".local" / "requests"
+        requests_dir.mkdir(parents=True, exist_ok=True)
+        request = {
+            "request_id": "same-reproduction-001",
+            "method": "GET",
+            "url": "https://app.example.test/item",
+            "purpose": "Synthetic reproduction request for independent validation",
+        }
+        raw = json.dumps(request, sort_keys=True).encode()
+        (requests_dir / "same-reproduction-001.json").write_bytes(raw)
+        manifest = {
+            "path": ".local/requests/same-reproduction-001.json",
+            "sha256": __import__("hashlib").sha256(raw).hexdigest(),
+        }
+        created = self.workflow.create_plan("eng-dispatch-test", {"tasks": [
+            {
+                "task_key": "proposal-exploitation",
+                "agent": "exploitation-agent",
+                "objective": "Execute a pinned synthetic reproduction",
+                "completion_criteria": ["Capture reproduction evidence"],
+                "scope_subset": ["app.example.test"], "domain": "web",
+                "skill_tags": ["xss"], "active_testing": True,
+                "request_files": [manifest],
+            },
+            {
+                "task_key": "independent-validation",
+                "agent": "validation-agent",
+                "objective": "Independently reproduce the proposed finding",
+                "completion_criteria": ["Capture independent validation evidence"],
+                "scope_subset": ["app.example.test"], "domain": "web",
+                "skill_tags": ["independent-review"], "active_testing": True,
+                "depends_on": ["proposal-exploitation"],
+                "request_files": [manifest],
+            },
+        ]})
+        proposal_id = created[0]["task_id"]
+        validator_id = created[1]["task_id"]
+        self.workflow.start_task(proposal_id, model="synthetic-model")
+        self.workflow.accept_handoff(proposal_id, {
+            "task_id": proposal_id, "engagement_id": "eng-dispatch-test",
+            "agent": "exploitation-agent", "status": "completed",
+            "scope_subset": ["app.example.test"], "summary": "Synthetic proposal",
+            "observations": [], "hypotheses": [], "evidence_refs": [],
+            "limitations": [],
+        })
+        with self.assertRaisesRegex(DispatchError, "separately pinned manifest"):
+            dispatch_task(
+                self.workflow, validator_id, "pinned-model",
+                claude_bin=self._fake_cli(), timeout_seconds=30,
+            )
+
     def test_passive_dispatch_stays_tool_disabled_in_active_engagement(self):
         self.workflow.store.connection.execute(
             "UPDATE engagements SET status='active',rules_json=? WHERE engagement_id=?",
