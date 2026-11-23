@@ -10,7 +10,7 @@ from scripts import skill_registry
 class SkillRegistryTests(unittest.TestCase):
     def test_repository_registry_is_valid(self):
         registry = skill_registry.load_registry()
-        self.assertEqual(len(registry["skills"]), 14)
+        self.assertEqual(len(registry["skills"]), 16)
 
     def test_select_by_domain_and_agent(self):
         registry = skill_registry.load_registry()
@@ -21,6 +21,17 @@ class SkillRegistryTests(unittest.TestCase):
         self.assertIn("web-xss", ids)
         self.assertIn("web-oauth-jwt", ids)
         self.assertNotIn("active-directory", ids)
+
+    def test_scope_and_active_http_skills_are_selectable(self):
+        registry = skill_registry.load_registry()
+        scope = skill_registry.select_skills(
+            registry, domain="web", agent="scope-analyst", tags=["authorization"]
+        )
+        active = skill_registry.select_skills(
+            registry, domain="web", agent="active-testing-agent", tags=["http-read-only"]
+        )
+        self.assertEqual([item["id"] for item in scope], ["engagement-scope"])
+        self.assertEqual([item["id"] for item in active], ["active-http-testing"])
 
     def test_tag_filter_uses_any_requested_tag(self):
         registry = skill_registry.load_registry()
