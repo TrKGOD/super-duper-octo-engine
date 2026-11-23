@@ -18,3 +18,11 @@ Map login, enrollment, challenge, recovery, device trust, session rotation and l
 
 ## Guardrails
 All active requests must use the approved broker and task-pinned manifests. Follow engagement scope, exclusions, test windows and allowed test classes. Stop when the required authorization, synthetic fixture, or safe validation environment is unavailable. A technique description or public KB pattern is not authorization or evidence.
+
+
+## Brokered authentication-boundary check
+For a documented protected read-only resource, prepare two equivalent GET/HEAD/OPTIONS manifests: one with a broker-managed synthetic authenticated secret reference, and one anonymous (no `secret_headers`). Pin both manifests in the same active task, then run:
+```bash
+python3 scripts/active_authentication_check.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --authenticated-request-file .local/requests/authenticated.json --anonymous-request-file .local/requests/anonymous.json --protected-resource /account
+```
+Only request ID and secret headers may differ. The tool compares status and captured cookie security flags; it does not attempt login, OTP replay, MFA bypass, recovery abuse, rate-limit stress or credential guessing. A 2xx anonymous response is a candidate until the route's access policy is independently established.
