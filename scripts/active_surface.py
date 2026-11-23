@@ -78,7 +78,7 @@ def _origin(url):
 def _canonical(url):
     p = urlsplit(url)
     path = p.path or "/"
-    return urlunsplit((p.scheme.lower(), p.netloc.lower(), path, p.query, ""))
+    return urlunsplit((p.scheme.lower(), p.netloc.lower(), path, "", ""))
 
 
 def _same_origin(base, candidate):
