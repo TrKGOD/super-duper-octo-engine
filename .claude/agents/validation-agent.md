@@ -32,3 +32,8 @@ Review the methodology pack relevant to the proposed class, then independently v
 
 ## Specialist workflow validation
 Independently review SSRF canary provenance, authenticated-versus-anonymous access policy, and cache-isolation evidence when those candidate classes are proposed. Confirm that all request evidence comes from the broker and that synthetic markers belong to the stated identity. A callback log supplied by the operator is not self-authenticating. Cache headers alone do not prove leakage. The passive HTTP framing analyzer reports indicators only; it does not validate request smuggling. The race-capture analyzer reports candidates only from overlapping isolated-lab events with a recorded invariant violation. No active race or desynchronization claim may be confirmed from these workflows.
+
+## OAuth/JWT and SQLi independent validation
+For OAuth/OIDC candidates, independently verify the relying party's documented issuer, audience, redirect, state, nonce, PKCE and token lifecycle policy. Treat offline JWT parsing as untrusted until signature verification is performed by a trusted, policy-aware verifier outside this analyzer; the analyzer explicitly does not verify signatures. A JWT claim mismatch alone does not prove application authorization impact.
+
+For SQLi candidates, review input-to-query reachability and the provenance of baseline/true/false samples. Confirm response normalization and repeatable timing with server-side telemetry where possible. Error strings, response fingerprints and timing heuristics are candidate evidence only. Do not request database contents or run destructive probes. A methodology pack or deterministic analyzer result is not independent confirmation.
