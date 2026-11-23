@@ -134,8 +134,8 @@ def _build_prompt(task, engagement, skills, evidence, prior_handoffs, active=Fal
     role_guidance = {
         "scope-analyst": "Verify written authorization, exact allowlist, exclusions, testing window, permitted methods and limits. Fail closed; do not infer scope.\n",
         "recon-agent": "Run bounded same-origin HTTP reconnaissance through scripts/active_surface.py on an explicitly scoped target; record technology indicators and evidence.\n",
-        "enumeration-agent": "Use the bounded crawler and static JavaScript parser to map observed routes, API paths, parameters and forms; label inferred routes.\n",
-        "vulnerability-agent": "Correlate automated read-only configuration observations and static JS indicators with evidence; keep all candidates unconfirmed.\n",
+        "enumeration-agent": "Normalize routes, API paths, parameters, forms and JavaScript endpoints from recon-agent evidence and handoff. Do not repeat network crawling unless this task is explicitly active_testing=true.\n",
+        "vulnerability-agent": "Correlate the recon runner's security-header, cookie, CORS, OPTIONS and static JS observations with supplied evidence; keep all candidates unconfirmed. Do not repeat network checks unless this task is explicitly active_testing=true.\n",
         "active-testing-agent": "Execute bounded discovery or exact SHA-256-pinned read-only request manifests through the broker. Never work around a denial.\n",
         "exploitation-agent": "Execute only minimal, non-destructive GET/HEAD/OPTIONS reproduction manifests pinned to this task. No state changes, data extraction, or arbitrary exploit tooling.\n",
         "validation-agent": "Independently re-run the separately pinned safe reproduction request, verify evidence integrity, compare expected/observed behavior, and reject unsupported claims.\n",
