@@ -46,10 +46,35 @@ def safe_request_manifest(path):
     )
 
 
+def engagement_paths(db_arg):
+    """Resolve only the default engagement paths or a strict per-engagement pair."""
+    if db_arg == DB:
+        return CONFIG, ROOT / DB
+    match = re.fullmatch(r"\.local/engagements/([A-Za-z0-9][A-Za-z0-9._-]{0,63})/state\.sqlite3", db_arg)
+    if not match:
+        return None
+    slug = match.group(1)
+    return ROOT / "config" / ("engagement." + slug + ".local.json"), ROOT / db_arg
+
+
+def safe_db_argument(value):
+    paths = engagement_paths(value)
+    if paths is None:
+        return False
+    config_path, db_path = paths
+    local = ROOT / ".local"
+    engagements = local / "engagements"
+    if local.is_symlink() or (value != DB and engagements.is_symlink()):
+        return False
+    if config_path.is_symlink() or db_path.is_symlink():
+        return False
+    return True
+
+
 def active_http_args(argv):
     if len(argv) != 10 or argv[1] != "scripts/active_http.py":
         return None
-    if argv[2] != "--db" or argv[3] != DB:
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
         return None
     if argv[4] != "--engagement-id" or not argv[5]:
         return None
@@ -57,13 +82,13 @@ def active_http_args(argv):
         return None
     if argv[8] != "--request-file" or not safe_request_manifest(argv[9]):
         return None
-    return {"engagement_id": argv[5], "task_id": argv[7], "request_file": argv[9]}
+    return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "request_file": argv[9]}
 
 
 def active_surface_args(argv):
     if len(argv) != 14 or argv[1] != "scripts/active_surface.py":
         return None
-    if argv[2] != "--db" or argv[3] != DB:
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
         return None
     if argv[4] != "--engagement-id" or not argv[5]:
         return None
@@ -75,7 +100,7 @@ def active_surface_args(argv):
         return None
     if argv[12] != "--max-depth" or not argv[13].isdigit() or not 0 <= int(argv[13]) <= 3:
         return None
-    return {"engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
+    return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
 
 
 def allowed_argv(argv):
@@ -121,14 +146,15 @@ def allowed_argv(argv):
 
 
 def _active_request_is_approved(args, config):
-    if not CONFIG.is_file() or config.get("engagement_id") != args["engagement_id"]:
+    config_path, db_path = engagement_paths(args["db"])
+    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
         return False
     manifest_path = ROOT / args["request_file"]
     if manifest_path.is_symlink() or not manifest_path.is_file():
         return False
     try:
         manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-        with sqlite3.connect(ROOT / DB) as connection:
+        with sqlite3.connect(db_path) as connection:
             connection.row_factory = sqlite3.Row
             engagement = connection.execute(
                 "SELECT status,rules_json FROM engagements WHERE engagement_id=?",
@@ -162,10 +188,11 @@ def _active_request_is_approved(args, config):
 
 
 def _active_surface_is_approved(args, config):
-    if not CONFIG.is_file() or config.get("engagement_id") != args["engagement_id"]:
+    config_path, db_path = engagement_paths(args["db"])
+    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
         return False
     try:
-        with sqlite3.connect(ROOT / DB) as connection:
+        with sqlite3.connect(db_path) as connection:
             connection.row_factory = sqlite3.Row
             engagement = connection.execute(
                 "SELECT status,rules_json,scope_json FROM engagements WHERE engagement_id=?",
@@ -206,14 +233,16 @@ def main():
         deny("Unable to parse command; default deny.")
     if not allowed_argv(argv):
         deny("Command is not in the workflow/KB allowlist or approved active HTTP broker.")
-    if not CONFIG.is_file():
-        deny("Local engagement config is required for agent runtime commands.")
-    try:
-        engagement = json.loads(CONFIG.read_text(encoding="utf-8"))
-    except Exception:
-        deny("Invalid local engagement config.")
     active_args = active_http_args(argv)
     surface_args = active_surface_args(argv)
+    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else DB
+    config_path, db_path = engagement_paths(db_arg)
+    if config_path is None or not config_path.is_file() or config_path.is_symlink():
+        deny("The engagement-specific local config is required for agent runtime commands.")
+    try:
+        engagement = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        deny("Invalid local engagement config.")
     if active_args:
         if not _active_request_is_approved(active_args, engagement):
             deny("Active HTTP request is not authorized by the approved engagement, running task, and pinned manifest.")
@@ -230,7 +259,7 @@ def main():
         return
     db_status = None
     try:
-        with sqlite3.connect(ROOT / DB) as connection:
+        with sqlite3.connect(db_path) as connection:
             row = connection.execute(
                 "SELECT status FROM engagements WHERE engagement_id=?",
                 (engagement.get("engagement_id"),),
