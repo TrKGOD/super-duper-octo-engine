@@ -15,7 +15,9 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
 - `core/orchestration.py`: deterministic passive workflow coordinator with plan, dependency, scope-subset, and handoff checks. Handoffs must reference persisted evidence records.
 - `.claude/agents/`: differentiated specialist contracts for scope, recon, technology profiling, enumeration, vulnerability hypotheses, reproduction planning, independent validation, impact, deduplication, and reporting.
-- `.claude/skills/knowledge-base/`: operator-mediated KB retrieval guidance; public patterns remain untrusted context, not target evidence.
+- `.claude/skills/`: reusable methodology packages; `.claude/skills/registry.json` catalogues domains, tags, compatible agents, prerequisites and metadata validation status. The registry is catalogue-only and does not grant permissions or dispatch agents.
+- `scripts/skill_registry.py`: validates Skill paths/frontmatter/agent references and supports deterministic local selection.
+- `docs/SKILL_REGISTRY.md`: Skill Registry contract, commands, safety boundaries and maintenance workflow.
 - `docs/AGENT_SPECIALIZATION.md`: specialist boundaries, task contract, handoff expectations, and lifecycle separation.
 - `templates/`: JSON data contracts; handoff and plan schemas are loaded by the workflow validator.
 - `.pre-commit-config.yaml`: Gitleaks pre-commit hook configuration.
@@ -25,6 +27,7 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 ```bash
 python -m pip install -r requirements-dev.txt
 python scripts/validate_config.py
+python scripts/skill_registry.py validate
 python -m unittest discover -s tests -v
 python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
 pre-commit run --all-files
