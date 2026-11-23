@@ -8,6 +8,8 @@ from core.evidence import EvidenceVault, EvidenceError
 from core.active_executor import _validate_request, _validate_request_scope
 from core.execution_policy import validate_execution_limits
 from scripts.skill_registry import load_registry, select_skills
+from core.evidence_contracts import validate_evidence_contract, EvidenceContractError
+from core.subsystem_coverage import validate_inventory, CoverageError
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -345,6 +347,35 @@ class Workflow:
                 raise WorkflowError("Evidence artifact is missing or cannot be verified: " + evidence_id) from exc
             if not integrity["valid"]:
                 raise WorkflowError("Evidence SHA-256 verification failed: " + evidence_id)
+        evidence_rows = []
+        for evidence_id in handoff["evidence_refs"]:
+            evidence_row = self.store.connection.execute(
+                "SELECT evidence_id,evidence_type FROM evidence WHERE evidence_id=? AND engagement_id=?",
+                (evidence_id, row["engagement_id"]),
+            ).fetchone()
+            if evidence_row:
+                evidence_rows.append(dict(evidence_row))
+        if handoff.get("hypotheses"):
+            contract = handoff.get("evidence_contract")
+            if not contract:
+                raise WorkflowError("Hypotheses require an explicit evidence_contract")
+            try:
+                validate_evidence_contract(contract, evidence_rows,
+                    {evidence_id: True for evidence_id in handoff["evidence_refs"]})
+            except EvidenceContractError as exc:
+                raise WorkflowError("Evidence contract rejected: " + str(exc)) from exc
+        if handoff.get("subsystem_updates"):
+            inventory = task_input.get("subsystem_inventory", [])
+            try:
+                validate_inventory(inventory)
+            except CoverageError as exc:
+                raise WorkflowError("Subsystem inventory is invalid: " + str(exc)) from exc
+            known = {item["subsystem_id"] for item in inventory}
+            for update in handoff["subsystem_updates"]:
+                if update["subsystem_id"] not in known:
+                    raise WorkflowError("Subsystem update references an unknown subsystem")
+                if not set(update["evidence_refs"]) <= set(handoff["evidence_refs"]):
+                    raise WorkflowError("Subsystem updates may reference only handoff evidence")
         # Artifact claims are metadata, not proof. Any artifact marked collected must
         # match a registered evidence record by engagement, path and digest.
         for artifact in handoff.get("evidence_artifacts", []):
