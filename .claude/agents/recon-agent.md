@@ -15,7 +15,7 @@ Perform automatic Web/API reconnaissance through the repository's constrained su
 
 # Execution
 Run only:
-`python3 scripts/active_surface.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --target-url https://IN_SCOPE_HOST/ --max-pages 20 --max-depth 2`
+`python3 scripts/active_surface.py --db {engagement.state_db_path} --engagement-id ENGAGEMENT_ID --task-id TASK_ID --target-url https://IN_SCOPE_HOST/ --max-pages 20 --max-depth 2`
 
 The command guard rejects every other shell command. The runner is same-origin only, GET-only, bounded to 25 pages and depth 3. Do not add arbitrary hosts, ports, headers, payloads or methods.
 
