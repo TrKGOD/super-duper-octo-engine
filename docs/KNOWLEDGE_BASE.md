@@ -4,6 +4,12 @@
 
 The local KB is a curated research index for public security write-ups and normalized vulnerability patterns. It is not a target scanner, finding validator, exploit database, or source of authorization. Retrieved text is untrusted reference data and may contain incorrect claims or prompt injection.
 
+## Committed seed corpus
+
+A starter collection of original analyst-authored pattern cards is versioned at [knowledge-base/seed/](../knowledge-base/seed/README.md). It covers Web, API, Mobile, Cloud, and Active Directory. Each card records root cause, preconditions, investigation signals, safe validation boundaries, evidence expectations, impact, remediation, false positives, and source URLs.
+
+The seed is deliberately not a bundle of copied third-party reports. It is not yet automatically imported into the SQLite KB or dynamically retrieved by agents. Until that integration exists, operators/agents must read the relevant seed Markdown directly and preserve the pattern ID and source references in their task context. The cards are hypotheses and methodology context only, never evidence for a current engagement.
+
 ## Source adapters
 
 `scripts/kb_sources.py` reads explicitly configured RSS/Atom feeds from `config/knowledge-sources.example.json`. It fetches feed metadata only and writes candidate URLs to `.local/knowledge-base-inbox/discovered.json`. It does not fetch article bodies or scrape HackerOne, Bugcrowd or Intigriti.
@@ -54,8 +60,8 @@ A retrieved pattern may inform a hypothesis, safe reproduction plan, or validati
 
 ## Agent integration
 
-The KB skill is an operator-mediated workflow: search results and selected excerpts are passed into agent task context with their provenance. The current runtime does not provide autonomous KB retrieval to agents. See `.claude/skills/knowledge-base/SKILL.md`.
+The KB skill is an operator-mediated workflow: search results and selected excerpts are passed into agent task context with their provenance. The current runtime does not provide autonomous KB retrieval to agents. The committed seed Markdown is a manually accessible reference pack, not an automated runtime source. See `.claude/skills/knowledge-base/SKILL.md`.
 
 ## Storage and maintenance
 
-Database and source material stay under `.local/`; never commit reports, screenshots, client evidence, credentials or private submissions. Periodically review source disclosure status, rights basis, stale URLs, duplicate content, and pattern accuracy. Do not silently overwrite source provenance when a pattern is updated.
+Database and source material stay under `.local/`; never commit reports, screenshots, client evidence, credentials or private submissions. The seed directory contains only original summaries and public source links. Periodically review source disclosure status, rights basis, stale URLs, duplicate content, and pattern accuracy. Do not silently overwrite source provenance when a pattern is updated.
