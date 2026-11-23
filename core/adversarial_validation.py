@@ -26,17 +26,20 @@ def evaluate_review(finding, review, max_rounds=3):
     if not isinstance(review, dict):
         raise AdversarialReviewError("Review must be an object")
     reviewer = review.get("reviewer")
-    if not isinstance(reviewer, str) or not reviewer.strip() or reviewer == finding.get("proposed_by"):
+    if not isinstance(reviewer, str) or not reviewer.strip() or reviewer.strip() == str(finding.get("proposed_by", "")).strip():
         raise AdversarialReviewError("Reviewer must be distinct from the proposing agent")
     rounds = review.get("rounds", 1)
     if not isinstance(rounds, int) or rounds < 1 or rounds > max_rounds:
         raise AdversarialReviewError("Adversarial review exceeded its bounded round limit")
     expected = {c.get("claim_id") for c in (finding.get("evidence_contract") or {}).get("claims", [])}
     results = review.get("claim_results")
-    if not isinstance(results, list) or {r.get("claim_id") for r in results} != expected:
+    if not isinstance(results, list) or len(results) != len(expected) or {r.get("claim_id") for r in results} != expected:
         raise AdversarialReviewError("Every claim must receive exactly one disposition")
     if any(r.get("disposition") not in DISPOSITIONS for r in results):
         raise AdversarialReviewError("Unsupported claim disposition")
+    if any(not isinstance(r.get("evidence_refs"), list) or not r["evidence_refs"]
+           for r in results):
+        raise AdversarialReviewError("Each claim disposition must cite reviewed evidence references")
     if any(not isinstance(r.get("rationale"), str) or not r["rationale"].strip() for r in results):
         raise AdversarialReviewError("Each disposition requires an evidence-based rationale")
     refuted = [r["claim_id"] for r in results if r["disposition"] == "refuted"]
