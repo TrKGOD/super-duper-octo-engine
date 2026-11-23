@@ -455,8 +455,13 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
                     workflow, item["task_id"], model, claude_bin, timeout_seconds
                 )
             except DispatchError as exc:
-                # dispatch_task persists failed state before raising. Record it and
-                # continue other ready branches instead of aborting the whole DAG.
+                # dispatch_task persists failed state after launch. If preflight failed
+                # before task start, persist the failure here so it is not silently retried.
+                current = workflow.store.connection.execute(
+                    "SELECT status FROM tasks WHERE task_id=?", (item["task_id"],)
+                ).fetchone()
+                if current and current["status"] == "queued":
+                    workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
                 result = {
                     "task_id": item["task_id"], "task_key": item["task_key"],
                     "status": "failed", "error": str(exc),
