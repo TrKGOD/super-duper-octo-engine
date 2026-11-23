@@ -125,6 +125,37 @@ class CoreTests(unittest.TestCase):
                         "eng-001", "screenshot", ".local/evidence/x.png", "operator", sha256="not-a-hash"
                     )
 
+    def test_only_one_running_agent_run_per_task(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = str(Path(tmp) / "state.sqlite")
+            migrate(db)
+            with StateStore(db) as store:
+                store.create_engagement("eng-001", "AUTH-LOCAL-001", {"assets": []}, {"execution_enabled": False})
+                task = store.create_task("eng-001", "recon-agent", {"task_key": "recon"})
+                store.update_task(task, "running")
+                store.start_agent_run("eng-001", "recon-agent", "test-model", task_id=task)
+                with self.assertRaises(sqlite3.IntegrityError):
+                    store.start_agent_run("eng-001", "recon-agent", "test-model", task_id=task)
+
+    def test_evidence_database_trigger_prevents_cross_engagement_link(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db = str(Path(tmp) / "state.sqlite")
+            migrate(db)
+            with StateStore(db) as store:
+                store.create_engagement("eng-001", "AUTH-LOCAL-001", {"assets": []}, {"execution_enabled": False})
+                store.create_engagement("eng-002", "AUTH-LOCAL-002", {"assets": []}, {"execution_enabled": False})
+                store.record_finding(finding(
+                    finding_id="f-002", engagement_id="eng-002", status="observation",
+                    validated_by=None, validation_notes=None, evidence_refs=[],
+                ))
+                evidence = store.record_evidence(
+                    "eng-001", "screenshot", ".local/evidence/foreign.png", "operator"
+                )
+                with self.assertRaises(sqlite3.IntegrityError):
+                    store.connection.execute(
+                        "UPDATE evidence SET finding_id='f-002' WHERE evidence_id=?", (evidence,)
+                    )
+
     def test_migrations_are_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
             db = str(Path(tmp) / "state.sqlite")
