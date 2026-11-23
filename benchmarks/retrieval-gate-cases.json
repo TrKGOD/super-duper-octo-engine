@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "retrieval_cases": [
+    {
+      "case_id": "WAVE-01-SSRF",
+      "domain": "web",
+      "agent": "vulnerability-agent",
+      "tags": [
+        "ssrf",
+        "url-fetching"
+      ],
+      "expected_skill": "web-ssrf-advanced"
+    },
+    {
+      "case_id": "WAVE-02-BAC",
+      "domain": "api",
+      "agent": "vulnerability-agent",
+      "tags": [
+        "bola",
+        "idor",
+        "tenant-isolation"
+      ],
+      "expected_skill": "web-authorization-bac"
+    },
+    {
+      "case_id": "WAVE-03-AUTHN",
+      "domain": "web",
+      "agent": "vulnerability-agent",
+      "tags": [
+        "mfa",
+        "otp",
+        "recovery"
+      ],
+      "expected_skill": "web-authn-mfa"
+    },
+    {
+      "case_id": "WAVE-04-INJECTION",
+      "domain": "web",
+      "agent": "exploitation-agent",
+      "tags": [
+        "xss",
+        "csrf",
+        "ssti"
+      ],
+      "expected_skill": "web-injection-csrf"
+    },
+    {
+      "case_id": "WAVE-05-DISCLOSURE",
+      "domain": "web",
+      "agent": "validation-agent",
+      "tags": [
+        "secrets",
+        "sourcemaps",
+        "information-disclosure"
+      ],
+      "expected_skill": "web-information-disclosure"
+    },
+    {
+      "case_id": "WAVE-06-HTTP-RACE",
+      "domain": "api",
+      "agent": "vulnerability-agent",
+      "tags": [
+        "http-smuggling",
+        "cache-poisoning",
+        "race-condition"
+      ],
+      "expected_skill": "web-http-cache-race"
+    },
+    {
+      "case_id": "WAVE-07-REMAINING",
+      "domain": "web",
+      "agent": "reporting-agent",
+      "tags": [
+        "xxe",
+        "path-traversal",
+        "business-logic"
+      ],
+      "expected_skill": "web-remaining-classes"
+    }
+  ]
+}
