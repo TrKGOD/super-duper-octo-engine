@@ -414,7 +414,12 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
 
 def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
                   timeout_seconds=180):
-    """Run queued tasks sequentially in dependency order; stop on first non-completion."""
+    """Drain every runnable branch; block only descendants of incomplete tasks.
+
+    A human/operator gate in one branch must not prevent unrelated queued work
+    from completing. Failed/partial tasks are never replayed automatically:
+    active requests may already have consumed budget or produced side effects.
+    """
     rows = workflow.store.connection.execute(
         """SELECT task_id,status,input_json FROM tasks
            WHERE engagement_id=? ORDER BY rowid""", (engagement_id,)
@@ -422,46 +427,78 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
     tasks = []
     for row in rows:
         item = json.loads(row["input_json"])
+        task_key = item.get("task_key")
+        if not isinstance(task_key, str) or not task_key:
+            raise DispatchError("Task plan contains a missing task_key")
         tasks.append({
             "task_id": row["task_id"], "status": row["status"],
-            "task_key": item.get("task_key"), "depends_on": item.get("depends_on", []),
+            "task_key": task_key, "depends_on": item.get("depends_on", []),
         })
     by_key = {item["task_key"]: item for item in tasks}
     if len(by_key) != len(tasks):
-        raise DispatchError("Task plan contains missing or duplicate task keys")
+        raise DispatchError("Task plan contains duplicate task keys")
+
     results = []
-    remaining = [item for item in tasks if item["status"] == "queued"]
-    while remaining:
+    # Keep draining the DAG. A blocked branch does not stop independent branches.
+    while True:
+        remaining = [item for item in tasks if item["status"] == "queued"]
         ready = [
             item for item in remaining
-            if all(by_key.get(dep, {}).get("status") == "completed" for dep in item["depends_on"])
+            if all(by_key.get(dep, {}).get("status") == "completed"
+                   for dep in item["depends_on"])
         ]
         if not ready:
             break
         for item in ready:
-            result = dispatch_task(
-                workflow, item["task_id"], model, claude_bin, timeout_seconds
-            )
-            results.append(result)
-            item["status"] = "completed" if result["status"] == "completed" else result["status"]
-            remaining.remove(item)
-            if result["status"] != "completed":
-                return {
-                    "engagement_id": engagement_id, "status": "stopped",
-                    "reason": "Task did not complete: " + item["task_key"],
-                    "results": results,
-                    "remaining_task_keys": [entry["task_key"] for entry in remaining],
+            try:
+                result = dispatch_task(
+                    workflow, item["task_id"], model, claude_bin, timeout_seconds
+                )
+            except DispatchError as exc:
+                # dispatch_task persists failed state after launch. If preflight failed
+                # before task start, persist the failure here so it is not silently retried.
+                current = workflow.store.connection.execute(
+                    "SELECT status FROM tasks WHERE task_id=?", (item["task_id"],)
+                ).fetchone()
+                if current and current["status"] == "queued":
+                    workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
+                result = {
+                    "task_id": item["task_id"], "task_key": item["task_key"],
+                    "status": "failed", "error": str(exc),
                 }
-            by_key[item["task_key"]]["status"] = "completed"
+            results.append(result)
+            item["status"] = result.get("status", "failed")
+
     final = workflow.status(engagement_id)
-    queued = [task["task_key"] for task in tasks if task["task_key"] and
-              next((row["status"] for row in final["tasks"] if row["task_key"] == task["task_key"]), None) == "queued"]
+    final_by_key = {row["task_key"]: row["status"] for row in final["tasks"]}
+    queued = [
+        item["task_key"] for item in tasks
+        if final_by_key.get(item["task_key"]) == "queued"
+    ]
+    blocked = [
+        item["task_key"] for item in tasks
+        if final_by_key.get(item["task_key"]) in {"blocked", "needs_operator", "failed"}
+    ]
+    dependency_blocked = [
+        item["task_key"] for item in tasks
+        if final_by_key.get(item["task_key"]) == "queued"
+        and any(final_by_key.get(dep) != "completed" for dep in item["depends_on"])
+    ]
+    statuses = set(final_by_key.values())
+    if statuses and statuses == {"completed"}:
+        status = "completed"
+    elif "needs_operator" in statuses or "blocked" in statuses or dependency_blocked:
+        status = "needs_operator"
+    elif "failed" in statuses:
+        status = "failed"
+    else:
+        status = "incomplete"
     return {
         "engagement_id": engagement_id,
-        "status": "completed" if not queued and all(
-            row["status"] == "completed" for row in final["tasks"]
-        ) else "incomplete",
+        "status": status,
         "results": results,
         "remaining_task_keys": queued,
+        "blocked_task_keys": blocked,
+        "dependency_blocked_task_keys": dependency_blocked,
         "workflow_status": final,
     }

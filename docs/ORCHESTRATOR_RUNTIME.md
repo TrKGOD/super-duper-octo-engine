@@ -78,7 +78,7 @@ This is operator-authored sequential dispatch, not an autonomous planning agent.
 python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
 ```
 
-The runner stops on the first task that does not complete and does not skip failed dependencies. Passive tasks have no tools or target interaction. Active discovery tasks can issue only bounded same-origin GET/OPTIONS requests through the broker; active reproduction and validation tasks can issue only GET/HEAD/OPTIONS from separately reviewed manifests. No general shell, third-party scanner or arbitrary network tool is exposed. The operator approves the engagement before dispatch and reviews every reproduction/validation manifest.
+The runner drains all currently runnable DAG branches. A blocked/partial/failed task blocks only its descendants; independent ready tasks continue. The final JSON reports all operator-gated tasks and dependency-blocked descendants together. Failed or active tasks are never automatically replayed. Passive tasks have no tools or target interaction. Active discovery tasks can issue only bounded same-origin GET/OPTIONS requests through the broker; active reproduction and validation tasks can issue only GET/HEAD/OPTIONS from separately reviewed manifests. No general shell, third-party scanner or arbitrary network tool is exposed. The operator approves the engagement before dispatch and reviews every reproduction/validation manifest.
 
 ## Specialist runtime smoke
 
@@ -115,3 +115,9 @@ The active discovery runner collects bounded HTTP request/response artifacts thr
 - Keep database, local engagement config and evidence out of Git.
 - Runner and hooks are not a sandbox; external process isolation and egress restrictions remain necessary.
 - No live-target test should run until authorization, explicit scope, exclusions, rate limits, test window, and permitted methods are confirmed by an operator.
+
+## Continuous dispatch and operator gates
+
+`scripts/run_plan.py` drains every currently runnable task in dependency order. Completing a task immediately unlocks its dependent tasks. A non-completed handoff blocks only that task's descendants; unrelated branches continue and the runner returns a consolidated status (`completed`, `needs_operator`, `failed`, or `incomplete`) with blocker lists. These are expected workflow outcomes and are emitted as JSON; process exit code 2 is reserved for an execution/runtime error.
+
+The dispatcher does not automatically retry failed or interrupted active tasks. Reconcile broker request logs, evidence and engagement budget before any manual retry to avoid duplicate traffic. Framework unit tests, synthetic benchmarks, secret scanning and CI are engineering checks, not pentest stages, and must never be inserted into an engagement DAG or run between target-assessment stages.

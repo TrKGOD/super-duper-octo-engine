@@ -27,7 +27,9 @@ def main():
             args.claude_bin, args.timeout_seconds,
         )
     print(json.dumps(result, indent=2, ensure_ascii=False))
-    if result["status"] != "completed":
+    # A completed dispatch pass may legitimately leave operator-gated branches.
+    # The JSON status is authoritative; reserve non-zero exits for execution errors.
+    if result["status"] not in {"completed", "needs_operator", "failed", "incomplete"}:
         raise SystemExit(2)
 
 
