@@ -330,7 +330,8 @@
         "supplied flow evidence or approved lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "implemented_unverified",
+      "description": "Offline OIDC discovery, OAuth flow and JWT policy evidence analysis; no token signature verification"
     },
     {
       "id": "web-sqli",
@@ -357,7 +358,8 @@
         "supplied request/response evidence or approved lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "implemented_unverified",
+      "description": "Offline contextual SQL injection differential evidence analysis; no payload generation or active probes"
     },
     {
       "id": "web-ssrf",
