@@ -14,6 +14,8 @@ from core.orchestration import ALLOWED_AGENTS, WorkflowError
 from core.evidence import EvidenceVault, EvidenceError
 from core.store import utc_now
 from scripts.skill_registry import load_registry, select_skills
+from core.model_router import select_model, ModelRoutingError
+from core.design_intent import assess_design_intent
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -421,6 +423,15 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
     """
     results = []
     processed = set()
+    engagement_row = workflow.store.connection.execute(
+        "SELECT rules_json FROM engagements WHERE engagement_id=?", (engagement_id,)
+    ).fetchone()
+    routing_policy = json.loads(engagement_row["rules_json"]).get("model_routing", {}) if engagement_row else {}
+    try:
+        primary_route = select_model({}, model, routing_policy)
+    except ModelRoutingError as exc:
+        raise DispatchError("Invalid model routing policy: " + str(exc)) from exc
+    primary_model = primary_route["model"]
     while True:
         rows = workflow.store.connection.execute(
             """SELECT task_id,status,input_json FROM tasks
@@ -447,16 +458,43 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
         for item in ready:
             processed.add(item["task_id"])
             try:
-                result = dispatch_task(workflow, item["task_id"], model,
+                result = dispatch_task(workflow, item["task_id"], primary_model,
                                        claude_bin, timeout_seconds)
+                result["model_route"] = primary_route
             except DispatchError as exc:
                 current = workflow.store.connection.execute(
-                    "SELECT status FROM tasks WHERE task_id=?", (item["task_id"],)
+                    "SELECT t.status,t.input_json FROM tasks t WHERE t.task_id=?", (item["task_id"],)
                 ).fetchone()
-                if current and current["status"] == "queued":
-                    workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
-                result = {"task_id": item["task_id"], "task_key": item["task_key"],
-                          "status": "failed", "error": str(exc)}
+                task_input = json.loads(current["input_json"]) if current else {}
+                retry_model = None
+                trigger = "invalid_output" if any(token in str(exc).lower()
+                    for token in ("json", "handoff", "schema", "invalid result")) else None
+                if current and current["status"] == "failed" and task_input.get("active_testing") is not True:
+                    try:
+                        route = select_model(task_input, primary_model, routing_policy,
+                                             attempt=1, trigger=trigger)
+                        if route["tier"] == "escalation" and route["model"] != primary_model:
+                            retry_model = route["model"]
+                    except ModelRoutingError:
+                        retry_model = None
+                if retry_model:
+                    workflow.store.update_task(item["task_id"], "queued", {"retry_reason": trigger})
+                    try:
+                        result = dispatch_task(workflow, item["task_id"], retry_model,
+                                               claude_bin, timeout_seconds)
+                        result["model_route"] = {"model": retry_model, "tier": "escalation",
+                                                 "reason": trigger, "attempt": 1}
+                    except DispatchError as retry_exc:
+                        result = {"task_id": item["task_id"], "task_key": item["task_key"],
+                                  "status": "failed", "error": str(retry_exc),
+                                  "model_route": {"model": retry_model, "tier": "escalation",
+                                                  "reason": trigger, "attempt": 1}}
+                else:
+                    if current and current["status"] == "queued":
+                        workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
+                    result = {"task_id": item["task_id"], "task_key": item["task_key"],
+                              "status": "failed", "error": str(exc),
+                              "model_route": primary_route}
             results.append(result)
         # Reload at the top of the loop so newly enqueued follow-ups are visible.
 
