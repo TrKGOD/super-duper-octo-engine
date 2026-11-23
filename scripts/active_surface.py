@@ -35,8 +35,8 @@ class SurfaceParser(HTMLParser):
         values = {str(k).lower(): v for k, v in attrs if k}
         if tag.lower() in {"a", "area"} and values.get("href"):
             self.links.append(values["href"])
-        if tag.lower() in {"script", "iframe", "img", "source"} and values.get("src"):
-            (self.scripts if tag.lower() == "script" else self.links).append(values["src"])
+        if tag.lower() == "script" and values.get("src"):
+            self.scripts.append(values["src"])
         if tag.lower() == "form":
             self.current_form = {"action": values.get("action", ""), "method": values.get("method", "GET").upper(), "fields": []}
             self.forms.append(self.current_form)
@@ -190,7 +190,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
         _resolve_and_authorize(target_url, scope, task["scope_subset"])
         executor = ActiveHTTPExecutor(workflow, ROOT)
         queue = deque([(target_url, 0)])
-        visited, endpoints, js_assets, findings, tech = set(), set(), set(), [], {}
+        visited, endpoints, inferred_endpoints, js_assets, findings, tech = set(), set(), set(), set(), [], {}
         page_count = 0
         while queue and page_count < max_pages:
             current, depth = queue.popleft()
@@ -217,6 +217,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                     resolved = _safe_path_url(target_url, route)
                     if resolved:
                         endpoints.add(resolved)
+                        inferred_endpoints.add(resolved)
                 if indicators:
                     findings.extend([{"url": current, **item} for item in indicators])
                 if "sourceMappingURL=" in body:
@@ -224,6 +225,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                     mapped = _safe_path_url(current, map_ref)
                     if mapped:
                         endpoints.add(mapped)
+                        js_assets.add(mapped)
                 continue
             if "html" not in content_type and not current.endswith("/"):
                 continue
@@ -271,6 +273,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                     resolved = _safe_path_url(target_url, route)
                     if resolved:
                         endpoints.add(resolved)
+                        inferred_endpoints.add(resolved)
                 js_results.append({"url": script_url, "status_code": js_result.get("status_code"), "route_count": len(routes), "indicators": indicators})
             except ActiveExecutionError as exc:
                 js_results.append({"url": script_url, "blocked": str(exc)})
@@ -284,13 +287,19 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             cors = {"blocked": str(exc)}
         if cors and cors.get("status_code"):
             response_headers = _headers_map(cors.get("response_headers") or {})
-            if response_headers.get("access-control-allow-origin") == "*" and response_headers.get("access-control-allow-credentials", "").lower() == "true":
-                findings.append({"type": "cors-wildcard-with-credentials", "url": target_url, "status": "requires_independent_validation"})
+            allowed_origin = response_headers.get("access-control-allow-origin", "")
+            allow_credentials = response_headers.get("access-control-allow-credentials", "").lower() == "true"
+            if allowed_origin == "https://pentest-agent.invalid" and allow_credentials:
+                findings.append({"type": "cors-origin-reflection-with-credentials", "url": target_url, "status": "requires_independent_validation"})
+            elif allowed_origin == "*":
+                findings.append({"type": "cors-wildcard-origin", "url": target_url, "status": "configuration_observation_not_proof"})
         return {
             "status": "completed" if page_count else "partial",
             "target": target_url,
             "pages_fetched": page_count,
             "pages_seen": len(visited),
+            "observed_endpoints": sorted(endpoints - inferred_endpoints),
+            "inferred_javascript_endpoints": sorted(inferred_endpoints),
             "endpoints": sorted(endpoints),
             "javascript_assets": sorted(js_assets),
             "javascript_analysis": js_results,
