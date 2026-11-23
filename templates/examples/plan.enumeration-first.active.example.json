@@ -1,0 +1,222 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Confirm written authorization, exact allowlist, exclusions, test window and permitted methods from operator-supplied artifacts.",
+      "depends_on": [],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Reference only verified evidence IDs",
+        "State limitations and unresolved questions"
+      ],
+      "constraints": [
+        "Use exact allowlisted assets only",
+        "No arbitrary shell or scanners",
+        "Respect engagement rate and request budget"
+      ]
+    },
+    {
+      "task_key": "recon",
+      "agent": "recon-agent",
+      "objective": "Build the authorized attack surface from supplied inventory and artifacts only.",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "passive-recon"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Reference only verified evidence IDs",
+        "State limitations and unresolved questions"
+      ],
+      "constraints": [
+        "Use exact allowlisted assets only",
+        "No arbitrary shell or scanners",
+        "Respect engagement rate and request budget"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Normalize endpoints, routes, parameters, authentication flows and technology indicators from supplied artifacts.",
+      "depends_on": [
+        "recon"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "routes"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Reference only verified evidence IDs",
+        "State limitations and unresolved questions"
+      ],
+      "constraints": [
+        "Use exact allowlisted assets only",
+        "No arbitrary shell or scanners",
+        "Respect engagement rate and request budget"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Produce evidence-backed vulnerability hypotheses; do not confirm without validation.",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Reference only verified evidence IDs",
+        "State limitations and unresolved questions"
+      ],
+      "constraints": [
+        "Use exact allowlisted assets only",
+        "No arbitrary shell or scanners",
+        "Respect engagement rate and request budget"
+      ]
+    },
+    {
+      "task_key": "active-testing",
+      "agent": "active-testing-agent",
+      "objective": "Validate assigned hypotheses using only operator-reviewed, SHA-256-pinned GET/HEAD/OPTIONS manifests through the broker.",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "http-read-only"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Reference only verified evidence IDs",
+        "State limitations and unresolved questions"
+      ],
+      "constraints": [
+        "Use exact allowlisted assets only",
+        "No arbitrary shell or scanners",
+        "Respect engagement rate and request budget"
+      ],
+      "active_testing": true,
+      "request_files": [
+        {
+          "path": ".local/requests/REPLACE-WITH-OPERATOR-REVIEWED-MANIFEST.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently review the active-testing handoff and evidence; reject unsupported hypotheses.",
+      "depends_on": [
+        "active-testing"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "independent-review"
+      ],
+      "completion_criteria": [
+        "Document independent validation decision for each hypothesis",
+        "Verify evidence integrity and reproducibility"
+      ],
+      "constraints": [
+        "Validator must not be the proposing agent",
+        "Do not promote unsupported hypotheses"
+      ]
+    },
+    {
+      "task_key": "impact",
+      "agent": "impact-analyst",
+      "objective": "Assess impact only for findings explicitly marked validated by independent validation.",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Tie each impact statement to a validated finding and evidence"
+      ],
+      "constraints": [
+        "No impact claims for unvalidated hypotheses"
+      ]
+    },
+    {
+      "task_key": "dedupe",
+      "agent": "duplicate-checker",
+      "objective": "Identify duplicate candidates without deleting or mutating original findings.",
+      "depends_on": [
+        "impact"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "false-positives"
+      ],
+      "completion_criteria": [
+        "Return deduplication decisions with preserved source references"
+      ],
+      "constraints": [
+        "Non-destructive comparison only"
+      ]
+    },
+    {
+      "task_key": "reporting",
+      "agent": "reporting-agent",
+      "objective": "Produce a report containing validated findings, rejected hypotheses, evidence and limitations.",
+      "depends_on": [
+        "dedupe"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Confirmed section contains only independently validated findings",
+        "Every finding references fresh verified evidence"
+      ],
+      "constraints": [
+        "Do not report hypotheses as confirmed",
+        "Do not invent evidence or impact"
+      ]
+    }
+  ]
+}

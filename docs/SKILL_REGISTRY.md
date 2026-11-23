@@ -51,7 +51,7 @@ python scripts/skill_registry.py select --tag oauth2 --tag jwt
 
 ## Safety and runtime boundaries
 
-The status is `runtime_context_selection`. The bounded dispatcher reads this registry to select methodology files by task domain, compatible agent, and optional tags, then injects their text as untrusted context into the specialist prompt. This is context selection only: it does **not** grant tools, authorize targets, enable active testing, or override `CLAUDE.md`, engagement scope, hooks, or human approval. The dispatcher currently runs with tools disabled.
+The status is `runtime_context_selection`. The dispatcher reads this registry to select methodology files by task domain, compatible agent, and required task tags, then injects their text as untrusted context into the specialist prompt. A task without a compatible Skill is rejected before execution. Passive specialists remain tool-disabled; active-testing-agent receives only the dedicated scoped HTTP broker under the separate controls in `docs/ACTIVE_EXECUTION.md`. Skill selection does **not** grant tools, authorize targets, enable active testing, or override `CLAUDE.md`, engagement scope, hooks, or human approval.
 
 All current entries use `catalogued_unverified`: metadata and file references are checked locally, but the Skills have not yet been verified through a real Claude Code runtime integration test. Do not promote an entry to `runtime_verified` based only on this static validator.
 

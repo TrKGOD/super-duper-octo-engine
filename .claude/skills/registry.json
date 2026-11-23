@@ -406,6 +406,58 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
+    },
+    {
+      "id": "active-http-testing",
+      "name": "active-http-testing-methodology",
+      "path": ".claude/skills/active-http-testing/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "http-read-only",
+        "broker",
+        "request-validation",
+        "evidence-capture"
+      ],
+      "compatible_agents": [
+        "active-testing-agent"
+      ],
+      "prerequisites": [
+        "active engagement with operator attestation",
+        "exact allowlisted target",
+        "operator-reviewed SHA-256-pinned request manifest"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified"
+    },
+    {
+      "id": "engagement-scope",
+      "name": "engagement-scope-methodology",
+      "path": ".claude/skills/engagement-scope/SKILL.md",
+      "domains": [
+        "web",
+        "api",
+        "mobile",
+        "cloud",
+        "active_directory"
+      ],
+      "tags": [
+        "authorization",
+        "allowlist",
+        "exclusions",
+        "testing-window",
+        "engagement-rules"
+      ],
+      "compatible_agents": [
+        "scope-analyst"
+      ],
+      "prerequisites": [
+        "operator-supplied written authorization and program scope"
+      ],
+      "risk_class": "passive_analysis",
+      "validation_status": "catalogued_unverified"
     }
   ]
 }

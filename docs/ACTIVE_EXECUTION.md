@@ -4,7 +4,7 @@
 
 The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent can invoke the broker; its Bash access is restricted to the exact broker command. The orchestrator's Bash is limited to workflow lifecycle commands before activation and read-only status/KB queries while active.
 
-The broker supports GET, HEAD, OPTIONS, and individually approved POST requests. PUT, PATCH, DELETE, TRACE, CONNECT, uploads, arbitrary shell, Nmap, Nuclei, sqlmap, browser automation, brute force, DoS, persistence, stealth/evasion, bulk extraction, and real customer-data access are not supported.
+The general broker supports GET, HEAD, OPTIONS, and individually approved POST requests. The Enumeration-First pipeline applies a stricter policy and dispatches only GET, HEAD, and OPTIONS; POST and all other methods are rejected for that pipeline even if separately approved. PUT, PATCH, DELETE, TRACE, CONNECT, uploads, arbitrary shell, Nmap, Nuclei, sqlmap, browser automation, brute force, DoS, persistence, stealth/evasion, bulk extraction, and real customer-data access are not supported.
 
 ## Engagement activation
 
@@ -91,6 +91,7 @@ Then include this in the active task:
   "completion_criteria": ["Capture authentic request/response evidence"],
   "scope_subset": ["EXACT-IN-SCOPE-HOST.example"],
   "domain": "web",
+  "skill_tags": ["http-read-only"],
   "active_testing": true,
   "request_files": [
     {

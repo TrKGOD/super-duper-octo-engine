@@ -36,8 +36,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "android",
-        "ios"
+        "android"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -63,8 +62,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "manifest",
-        "deep-links"
+        "routes"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -90,8 +88,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "storage",
-        "transport-security"
+        "android"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -117,8 +114,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "independent-review",
-        "evidence-quality"
+        "independent-review"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -144,7 +140,7 @@
       ],
       "domain": "mobile",
       "skill_tags": [
-        "reporting"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",

@@ -4,6 +4,10 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 
 > **Current status: early pre-alpha implementation.** The repository includes a bounded Claude Code specialist dispatcher, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, an operator-driven evidence vault, and a scope-enforcing active HTTP broker. Only `active-testing-agent` can invoke the broker, and only for SHA-256-pinned request manifests in an explicitly approved engagement. This is not a general-purpose scanner or a sandbox; Nmap/Nuclei execution, browser automation, and isolated network execution remain unimplemented.
 
+## Enumeration-First Multi-Agent Pipeline
+
+The nine-stage scope → recon → enumeration → vulnerability → active testing → independent validation → impact → deduplication → reporting workflow is documented in [docs/ENUMERATION_FIRST_PIPELINE.md](docs/ENUMERATION_FIRST_PIPELINE.md). Every task must declare a domain and compatible Skill tags; the dispatcher fails closed if no methodology is selected. A synthetic end-to-end DAG test exercises handoffs and evidence without contacting external targets.
+
 ## What is implemented
 
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
@@ -23,7 +27,7 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 - `core/evidence_scoring.py`, `scripts/dedupe_findings.py` and `scripts/render_report.py`: score evidence readiness, identify possible duplicates without mutation, and render reports from independently validated findings with re-verified evidence.
 - `scripts/run_architecture_benchmark.py` and `scripts/compare_architecture_results.py`: run fixed Model 1 and hybrid specialist sequences against the same synthetic corpus and compare metrics only when model and corpus hashes match.
 - `.claude/agents/`: differentiated specialist contracts for scope, recon, technology profiling, enumeration, vulnerability hypotheses, reproduction planning, independent validation, impact, deduplication, and reporting.
-- `.claude/skills/`: reusable methodology packages; `.claude/skills/registry.json` selects methodology context by domain, compatible agent and optional tags. Selected Skill text is injected into a specialist prompt as untrusted context; it does not grant permissions.
+- `.claude/skills/`: reusable methodology packages; `.claude/skills/registry.json` selects methodology context by domain, compatible agent and required task tags. Selected Skill text is injected into a specialist prompt as untrusted context; it does not grant permissions.
 - `scripts/skill_registry.py`: validates Skill paths/frontmatter/agent references and supports deterministic local selection.
 - `docs/SKILL_REGISTRY.md`: Skill Registry contract, commands, safety boundaries and maintenance workflow.
 - `docs/AGENT_SPECIALIZATION.md`: specialist boundaries, task contract, handoff expectations, and lifecycle separation.

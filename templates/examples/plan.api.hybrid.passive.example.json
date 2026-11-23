@@ -62,8 +62,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "routes",
-        "parameters"
+        "routes"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -89,10 +88,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "object-authorization",
-        "oauth2",
-        "jwt",
-        "authentication"
+        "object-authorization"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -118,8 +114,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "independent-review",
-        "evidence-quality"
+        "independent-review"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -145,7 +140,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "impact"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -171,7 +166,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "deduplication"
+        "false-positives"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -197,7 +192,7 @@
       ],
       "domain": "api",
       "skill_tags": [
-        "reporting"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",

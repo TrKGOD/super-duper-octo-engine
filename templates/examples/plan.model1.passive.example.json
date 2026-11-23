@@ -36,8 +36,7 @@
       ],
       "domain": "web",
       "skill_tags": [
-        "routes",
-        "parameters"
+        "routes"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -63,10 +62,7 @@
       ],
       "domain": "web",
       "skill_tags": [
-        "authorization",
-        "ssrf",
-        "xss",
-        "sqli"
+        "authorization"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -118,8 +114,7 @@
       ],
       "domain": "web",
       "skill_tags": [
-        "independent-review",
-        "evidence-quality"
+        "independent-review"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -145,7 +140,7 @@
       ],
       "domain": "web",
       "skill_tags": [
-        "reporting"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",

@@ -77,6 +77,7 @@ class LLMOrchestratorTests(unittest.TestCase):
             "completion_criteria": ["Capture the broker request and response evidence"],
             "scope_subset": ["app.example.test"],
             "domain": "web",
+            "skill_tags": ["http-read-only"],
             "active_testing": True,
             "request_files": [{
                 "path": ".local/requests/planner-active-001.json",
