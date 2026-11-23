@@ -424,14 +424,9 @@ class ActiveHTTPExecutor:
         ):
             raise ActiveExecutionError("Engagement is not explicitly approved for active execution")
         try:
-            _, rps, request_budget = validate_execution_limits(rules)
+            _, rps = validate_execution_limits(rules)
         except ValueError as exc:
             raise ActiveExecutionError(str(exc)) from exc
-        executed_count = self.workflow.store.connection.execute(
-            "SELECT COUNT(*) FROM active_request_log WHERE engagement_id=?", (engagement_id,)
-        ).fetchone()[0]
-        if executed_count >= request_budget:
-            raise ActiveExecutionError("Engagement active HTTP request budget has been exhausted")
         _check_window(rules)
 
         request_path = Path(request_file)
@@ -491,11 +486,6 @@ class ActiveHTTPExecutor:
         started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         try:
             with connection:
-                current_count = connection.execute(
-                    "SELECT COUNT(*) FROM active_request_log WHERE engagement_id=?", (engagement_id,)
-                ).fetchone()[0]
-                if current_count >= request_budget:
-                    raise ActiveExecutionError("Engagement active HTTP request budget has been exhausted")
                 connection.execute(
                     """INSERT INTO active_request_log
                        (execution_id,engagement_id,task_id,request_id,target_host,method,started_at,outcome,evidence_refs_json)
