@@ -31,16 +31,24 @@ Create a JSON file with a `predictions` array:
 
 Each case must appear exactly once. Unknown and duplicate IDs are errors. Missing cases count as missed predictions (FN for positive cases, TN for negative cases) only when `--allow-missing` is supplied; otherwise evaluation fails closed.
 
-## Run
+## Run a real agent
 
-```bash
-python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
-python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions /path/to/predictions.json --json-out .local/benchmark-results.json
-```
+Install and authenticate Claude Code, then pin the exact model and per-case timeout used for every comparison:
+
+    python scripts/run_benchmark.py --agent vulnerability-agent --model "$CLAUDE_BENCHMARK_MODEL" --timeout-seconds 120 --scope-id synthetic-lab-v1
+    python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions .local/predictions.json --json-out .local/benchmark-results.json
+
+The runner reads the target agent instructions from .claude/agents, supplies each case description and fixtures, withholds ground truth, disables tools, limits each invocation to one turn, validates output against templates/prediction.schema.json, and writes a run manifest with model, scope, timeout and per-case durations. If Claude Code is missing, unauthenticated, times out, or emits invalid output, the run fails; it never substitutes hand-written or simulated predictions.
+
+The CI agent-benchmark job is separate and non-blocking. Configure the repository variable CLAUDE_BENCHMARK_MODEL and secret ANTHROPIC_API_KEY to enable it. The static predictions.example.json remains only a schema/evaluator fixture and must not be presented as an agent run.
+
+## Evaluate an existing prediction file
+
+    python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions /path/to/predictions.json --json-out .local/benchmark-results.json
 
 ## Metrics
 - Precision, recall, F1
 - False-positive rate
 - Evidence completeness: mean fraction of required evidence fields present on detected positive cases
 
-The evaluator reports counts and percentages. It does **not** claim model accuracy from unit tests or from this tiny fixture set. Compare agent versions on the same cases and add reviewed cases before drawing conclusions.
+The evaluator reports counts and percentages. It does **not** claim model accuracy from unit tests or from this synthetic fixture set. The corpus currently contains 19 synthetic cases across SQLi, XSS, IDOR/BOLA, SSRF, authentication and authorization, including near-positive negatives. Compare agent versions on the same cases and treat results as directional until the corpus is independently reviewed and substantially expanded.
