@@ -118,15 +118,15 @@ python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --mo
 python scripts/workflow.py --db .local/state.sqlite3 status --engagement-id ENG-ID
 ```
 
-The dispatcher invokes passive specialists with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access and executes operator-reviewed request manifests pinned by SHA-256. Initialize with `execution_enabled=false`, then explicitly approve the engagement before creating active tasks:
+Passive tasks remain tool-disabled. Active recon, enumeration and vulnerability specialists receive Bash only for the guarded `scripts/active_surface.py` runner, which performs same-origin GET/OPTIONS crawling, endpoint/form discovery, static JavaScript analysis and low-impact configuration checks through the evidence-capturing HTTP broker. Exploitation-agent and validation-agent receive only guarded broker access for separately SHA-256-pinned GET/HEAD/OPTIONS manifests. No agent receives general shell or unrestricted network access. Initialize with `execution_enabled=false`, then explicitly approve the engagement before creating active tasks:
 
 ```bash
 python scripts/workflow.py --db .local/state.sqlite3 approve --engagement-id ENG-ID --operator "YOUR NAME" --authorization-reference "WRITTEN-AUTH-REF" --confirm-written-authorization --confirm-scope --confirm-rules
 ```
 
-Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Request manifests live under `.local/requests/`; their SHA-256 must be included in an active task's `request_files`. The initial broker supports bounded HTTP(S) GET/HEAD/OPTIONS and individually approved POST. It does not run arbitrary scanners, Nmap, Nuclei, or browser automation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
+Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Operator-reviewed request manifests live under `.local/requests/` and are SHA-256 pinned. The bounded discovery runner generates its own pinned GET/OPTIONS manifests internally, while exploitation and active validation require separate operator-reviewed manifests. It does not run arbitrary shell, Nmap, Nuclei, SQLMap, browser automation, brute force or destructive tests. The initial Web/API checks are limited to observed surface mapping, static JS indicators, security headers, cookie attributes, CORS and OPTIONS behavior; candidates require independent validation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
 
-After approval, place operator-reviewed request manifests in `.local/requests/` and run the LLM planner/dispatcher:
+After approval, the planner can run bounded discovery without pre-created manifests. Provide request manifests only when you want the exploitation-agent or validator to replay a specific reviewed request:
 
 ```bash
 python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
