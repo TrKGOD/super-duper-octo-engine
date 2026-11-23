@@ -17,6 +17,8 @@ def review_finding(store, vault, finding_id, review):
     contract = review.get("evidence_contract") or finding.get("evidence_contract")
     if not contract:
         raise FindingReviewError("Finding requires an evidence_contract before adversarial review")
+    if row["status"] not in {"validation_pending", "needs_more_evidence"}:
+        raise FindingReviewError("Finding must be validation_pending or needs_more_evidence for adversarial review")
     evidence = []
     integrity = {}
     for ref in refs:
@@ -42,8 +44,6 @@ def review_finding(store, vault, finding_id, review):
     decision["evidence_readiness"] = readiness
     store.record_finding_review(finding_id, review["reviewer"], decision, review)
     current = row["status"]
-    if current not in {"validation_pending", "needs_more_evidence"}:
-        raise FindingReviewError("Finding must be validation_pending or needs_more_evidence for adversarial review")
     if decision["decision"] == "rejected":
         store.transition_finding(finding_id, "rejected", review["reviewer"],
             validation_notes="Adversarial review refuted claims: " + ", ".join(decision["refuted_claims"]))
