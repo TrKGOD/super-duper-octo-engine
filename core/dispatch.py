@@ -193,10 +193,20 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
     if domain is None:
         domain = task_input.get("domain")
     tags = tags if tags is not None else task_input.get("skill_tags", [])
+    if not isinstance(domain, str) or not domain.strip():
+        raise DispatchError("Every task must declare a non-empty domain before dispatch")
+    if not isinstance(tags, list) or not tags or any(not isinstance(tag, str) or not tag.strip() for tag in tags):
+        raise DispatchError("Every task must declare non-empty skill_tags before dispatch")
     skills = _selected_skill_context(
         registry_path or ROOT / ".claude/skills/registry.json",
         row["agent"], domain, tags,
     )
+    if not skills:
+        raise DispatchError(
+            "No compatible Skill selected for agent=" + row["agent"]
+            + ", domain=" + domain + ", skill_tags=" + ",".join(tags)
+            + "; refusing methodology-free dispatch"
+        )
     prior_handoffs = []
     inherited_evidence_refs = []
     for dependency_key in task_input.get("depends_on", []):
@@ -214,6 +224,18 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             "agent": dependency["agent"],
             "handoff": prior,
         })
+    if row["agent"] == "validation-agent":
+        if not prior_handoffs:
+            raise DispatchError("Independent validation requires an upstream proposal handoff")
+        if all(item["agent"] == "validation-agent" for item in prior_handoffs):
+            raise DispatchError("The proposing agent cannot be the independent validator")
+    if row["agent"] == "impact-analyst":
+        if not prior_handoffs or not any(
+            item["agent"] == "validation-agent"
+            and item["handoff"].get("status") == "completed"
+            for item in prior_handoffs
+        ):
+            raise DispatchError("Impact analysis requires a completed independent validation handoff")
     effective_evidence_refs = list(dict.fromkeys(
         task_input.get("evidence_refs", []) + inherited_evidence_refs
     ))
@@ -299,6 +321,12 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             "elapsed_seconds": elapsed, "input_tokens": input_tokens,
             "output_tokens": output_tokens, "cost_usd": cost,
             "selected_skills": [item["skill_id"] for item in skills],
+            "inherited_evidence_refs": inherited_evidence_refs,
+            "evidence_refs": handoff.get("evidence_refs", []),
+            "prior_handoffs": [
+                {"task_key": item["task_key"], "agent": item["agent"]}
+                for item in prior_handoffs
+            ],
             "prompt_sha256": prompt_hash,
         }
     except Exception as exc:
