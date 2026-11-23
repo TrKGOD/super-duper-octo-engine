@@ -354,6 +354,38 @@ class StateStore:
             self.connection.rollback()
             raise
 
+    def record_finding_review(self, finding_id, reviewer, decision, review):
+        """Persist a structured adversarial review; only eligible reviews authorize validation."""
+        if decision.get("decision") not in {"rejected", "needs_more_evidence", "eligible_for_independent_validation"}:
+            raise ValueError("Unsupported adversarial review decision")
+        if not isinstance(reviewer, str) or not reviewer.strip():
+            raise ValueError("A named reviewer is required")
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.connection.execute(
+                "SELECT engagement_id,proposed_by FROM findings WHERE finding_id=?", (finding_id,)
+            ).fetchone()
+            if row is None:
+                raise KeyError(finding_id)
+            if reviewer.strip() == row["proposed_by"]:
+                raise FindingValidationError("The proposing agent cannot review its own finding")
+            self.connection.execute(
+                """INSERT INTO finding_reviews
+                   (review_id,finding_id,engagement_id,reviewer,decision,review_json,created_at)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (new_id("review"), finding_id, row["engagement_id"], reviewer.strip(),
+                 decision["decision"], json.dumps({"review": review, "decision": decision}, sort_keys=True), utc_now()),
+            )
+            self.append_audit(row["engagement_id"], reviewer.strip(), "finding.adversarial_reviewed",
+                {"finding_id": finding_id, "decision": decision["decision"],
+                 "supported_claims": decision.get("supported_claims", []),
+                 "refuted_claims": decision.get("refuted_claims", []),
+                 "inconclusive_claims": decision.get("inconclusive_claims", [])})
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
     def transition_finding(self, finding_id, next_status, actor, validation_notes=None, evidence_refs=None):
         """Apply an atomic, audited lifecycle transition with evidence ownership checks."""
         if not isinstance(actor, str) or not actor.strip():
@@ -367,6 +399,16 @@ class StateStore:
                 raise KeyError(finding_id)
             current = row["status"]
             validate_finding_transition(current, next_status)
+            if next_status == "validated":
+                review = self.connection.execute(
+                    """SELECT reviewer,decision FROM finding_reviews
+                       WHERE finding_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1""",
+                    (finding_id,),
+                ).fetchone()
+                if review is None or review["decision"] != "eligible_for_independent_validation":
+                    raise FindingValidationError("An eligible adversarial review is required before validation")
+                if actor.strip() != review["reviewer"]:
+                    raise FindingValidationError("Only the independent adversarial reviewer may validate this finding")
             validator = actor.strip() if next_status == "validated" else row["validated_by"]
             if next_status == "validated" and validator == row["proposed_by"]:
                 raise FindingValidationError("The proposing agent cannot validate its own finding")

@@ -52,6 +52,11 @@ class CoreTests(unittest.TestCase):
                 self.assertEqual(store.transition_finding("f-001", "validation_pending", "vulnerability-agent"), "validation_pending")
                 with self.assertRaises(FindingValidationError):
                     store.transition_finding("f-001", "validated", "vulnerability-agent", evidence_refs=[evidence])
+                review = {"reviewer":"validation-agent","claim_results":[
+                    {"claim_id":"c1","disposition":"supported","rationale":"The synthetic artifact supports the stated claim."}]}
+                decision = {"decision":"eligible_for_independent_validation","supported_claims":["c1"],
+                    "refuted_claims":[],"inconclusive_claims":[]}
+                store.record_finding_review("f-001","validation-agent",decision,review)
                 self.assertEqual(
                     store.transition_finding(
                         "f-001", "validated", "validation-agent",
