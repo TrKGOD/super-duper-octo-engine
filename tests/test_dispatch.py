@@ -221,16 +221,23 @@ class DispatchTests(unittest.TestCase):
         requests_dir = self.root / ".local" / "requests"
         requests_dir.mkdir(parents=True, exist_ok=True)
         request = {
-            "request_id": "same-reproduction-001",
+            "request_id": "exploitation-reproduction-001",
             "method": "GET",
             "url": "https://app.example.test/item",
             "purpose": "Synthetic reproduction request for independent validation",
         }
         raw = json.dumps(request, sort_keys=True).encode()
-        (requests_dir / "same-reproduction-001.json").write_bytes(raw)
+        (requests_dir / "exploitation-reproduction-001.json").write_bytes(raw)
         manifest = {
-            "path": ".local/requests/same-reproduction-001.json",
+            "path": ".local/requests/exploitation-reproduction-001.json",
             "sha256": __import__("hashlib").sha256(raw).hexdigest(),
+        }
+        validator_request = dict(request, request_id="validator-reproduction-002")
+        validator_raw = json.dumps(validator_request, sort_keys=True).encode()
+        (requests_dir / "validator-reproduction-002.json").write_bytes(validator_raw)
+        validator_manifest = {
+            "path": ".local/requests/validator-reproduction-002.json",
+            "sha256": __import__("hashlib").sha256(validator_raw).hexdigest(),
         }
         created = self.workflow.create_plan("eng-dispatch-test", {"tasks": [
             {
@@ -250,7 +257,7 @@ class DispatchTests(unittest.TestCase):
                 "scope_subset": ["app.example.test"], "domain": "web",
                 "skill_tags": ["independent-review"], "active_testing": True,
                 "depends_on": ["proposal-exploitation"],
-                "request_files": [manifest],
+                "request_files": [validator_manifest],
             },
         ]})
         proposal_id = created[0]["task_id"]
@@ -263,6 +270,16 @@ class DispatchTests(unittest.TestCase):
             "observations": [], "hypotheses": [], "evidence_refs": [],
             "limitations": [],
         })
+        validator_row = self.workflow.store.connection.execute(
+            "SELECT input_json FROM tasks WHERE task_id=?", (validator_id,)
+        ).fetchone()
+        validator_input = json.loads(validator_row["input_json"])
+        validator_input["request_files"] = [manifest]
+        self.workflow.store.connection.execute(
+            "UPDATE tasks SET input_json=? WHERE task_id=?",
+            (json.dumps(validator_input, sort_keys=True), validator_id),
+        )
+        self.workflow.store.connection.commit()
         with self.assertRaisesRegex(DispatchError, "separately pinned manifest"):
             dispatch_task(
                 self.workflow, validator_id, "pinned-model",
