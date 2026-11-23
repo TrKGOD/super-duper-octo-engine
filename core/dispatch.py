@@ -117,7 +117,7 @@ def _build_prompt(task, engagement, skills, evidence, prior_handoffs, active=Fal
             "You are executing one bounded active HTTP testing task.\n"
             "Your only execution tool is Bash, and the repository command guard permits "
             "only scripts/active_http.py against the exact request manifests pinned in this task.\n"
-            Do not open manifests; they are operator-reviewed and SHA-256-pinned. Execute only the listed files. 
+            "Do not open manifests; they are operator-reviewed and SHA-256-pinned. Execute only the listed files.\n"
             "Do not modify manifests, construct shell pipelines, or use any other command.\n"
             "The broker enforces engagement scope, task scope, DNS/IP restrictions, redirects, "
             "rate limits, response limits, approval and evidence capture. Never work around a block.\n"
