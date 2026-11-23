@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-AD-NEG-025",
+  "kind": "synthetic",
+  "description": "A directory report labels an ACL as unusual, but effective access evaluation shows only read-property rights and no write or control path to a privileged object.",
+  "expected_finding": false,
+  "vulnerability_type": "ACTIVE_DIRECTORY_ACL_ABUSE",
+  "required_evidence": [
+    "principal",
+    "target_object",
+    "effective_right",
+    "effective_access_result"
+  ],
+  "tags": [
+    "synthetic",
+    "active_directory_acl_abuse",
+    "negative"
+  ],
+  "fixtures": {
+    "principal": "LAB\\\\analyst",
+    "target_object": "LAB\\\\Tier0-Operators",
+    "effective_right": "read-property only",
+    "effective_access_result": "no write/control path"
+  }
+}
