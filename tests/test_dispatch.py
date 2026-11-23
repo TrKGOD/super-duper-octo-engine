@@ -187,7 +187,7 @@ class DispatchTests(unittest.TestCase):
         fake.write_text(
             "#!" + sys.executable + "\n"
             "import json, sys\n"
-            "assert sys.argv[sys.argv.index('--tools') + 1] == 'Read,Grep,Glob,Bash'\n"
+            "assert sys.argv[sys.argv.index('--tools') + 1] == 'Bash'\n"
             "assert sys.argv[sys.argv.index('--max-turns') + 1] == '8'\n"
             "prompt = sys.stdin.read()\n"
             "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\n"

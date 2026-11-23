@@ -19,7 +19,7 @@ class AgentToolValidationTests(unittest.TestCase):
         for path in root.rglob("*.md"):
             name, tools = parse_frontmatter(path)
             if name == "active-testing-agent":
-                self.assertEqual(tools, {"Read", "Grep", "Glob", "Bash"}, path.name)
+                self.assertEqual(tools, {"Bash"}, path.name)
             elif name != "pentest-orchestrator":
                 self.assertFalse({"Bash", "Task", "Write", "Edit", "WebFetch", "WebSearch"} & tools, path.name)
 

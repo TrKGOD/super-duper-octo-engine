@@ -43,7 +43,7 @@ def validate_agents(root=AGENTS):
             errors.append(str(exc))
             continue
         if name == "active-testing-agent":
-            expected = {"Read", "Grep", "Glob", "Bash"}
+            expected = {"Bash"}
             if tools != expected:
                 errors.append(f"{path.relative_to(ROOT)}: active-testing-agent tools must be exactly {sorted(expected)}")
         elif name == "pentest-orchestrator":
