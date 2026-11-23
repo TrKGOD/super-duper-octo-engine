@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator
 from core.dispatch import dispatch_plan, DispatchError
 from core.active_executor import _safe_url, _validate_request, _validate_request_scope
 from core.orchestration import Workflow, WorkflowError, _scope_assets
+from scripts.skill_registry import load_registry, select_skills, RegistryError
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_SCHEMA = json.loads((ROOT / "templates/plan.schema.json").read_text(encoding="utf-8"))
@@ -161,7 +162,7 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
                 "scope_subset": ["exact member of exact_allowed_assets"],
                 "completion_criteria": ["explicit completion condition"],
                 "domain": "web|api|mobile|cloud|active_directory",
-                "skill_tags": [],
+                "skill_tags": ["one or more exact tags from the Skill Registry compatible with this agent and domain"],
                 "evidence_refs": [],
                 "constraints": ["engagement-specific restrictions"],
                 "active_testing": "boolean; false for passive tasks and true only for active-testing-agent",
@@ -170,7 +171,14 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
         },
     }
     active_instructions = (
-        "Active execution is explicitly approved. Prefer active-testing-agent tasks for concrete HTTP checks, "
+        "Active execution is explicitly approved. Build the complete Enumeration-First DAG in this exact order: "
+        "scope-analyst(scope, depends_on=[]), recon-agent(recon, depends_on=[scope]), "
+        "enumeration-agent(enumeration, depends_on=[recon]), vulnerability-agent(vulnerability, depends_on=[enumeration]), "
+        "active-testing-agent(active-testing, depends_on=[vulnerability]), validation-agent(validation, depends_on=[active-testing]), "
+        "impact-analyst(impact, depends_on=[validation]), duplicate-checker(dedupe, depends_on=[impact]), "
+        "reporting-agent(reporting, depends_on=[dedupe]). Every task must have domain and at least one exact compatible skill_tags entry. "
+        "Use the exact same domain as the engagement evidence supports. "
+        "Prefer active-testing-agent tasks for concrete HTTP checks, "
         "using only exact paths and SHA-256 values from available_request_manifests. Do not invent, edit, "
         "or infer manifests. Each active task must set active_testing=true, use agent=active-testing-agent, "
         "include one or more exact request_files from the supplied list, and use only the exact asset(s) "
@@ -178,8 +186,13 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
         "Passive specialists may be used for supporting analysis. The plan does not execute anything until "
         "deterministic validation and dispatch."
     ) if active_allowed else (
-        "Active execution is not approved. Every task must set active_testing=false and must not use "
-        "active-testing-agent. Prepare only passive analysis and identify what the operator must approve."
+        "Active execution is not approved. Do not create active-testing-agent tasks or claim active validation. "
+        "Build only the passive prefix: scope-analyst(scope), recon-agent(recon), "
+        "enumeration-agent(enumeration), vulnerability-agent(vulnerability), with each stage depending on the prior stage. "
+        "Add an explicit final passive gate task named active-testing-preflight using scope-analyst, depending on vulnerability, "
+        "whose handoff must be needs_operator and explain the exact missing operator attestation or request manifests. "
+        "Every task must set active_testing=false and include domain plus one or more exact compatible skill_tags. "
+        "Do not proceed to impact or reporting as if validation occurred."
     )
     prompt = (
         "You are the pentest planning orchestrator. Generate a conservative, operator-reviewable plan. "
@@ -209,6 +222,17 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
     if proc.returncode:
         raise DispatchError("Orchestrator CLI failed: " + proc.stderr[-2000:])
     plan, envelope = _parse_plan(proc.stdout)
+    registry = load_registry()
+    for task in plan["tasks"]:
+        selected = select_skills(
+            registry, domain=task["domain"], agent=task["agent"], tags=task["skill_tags"]
+        )
+        if not selected:
+            raise DispatchError(
+                "Plan task has no compatible Skill: " + task["task_key"]
+                + " (agent=" + task["agent"] + ", domain=" + task["domain"]
+                + ", skill_tags=" + ",".join(task["skill_tags"]) + ")"
+            )
     created = workflow.create_plan(engagement_id, plan)
     return {
         "plan": plan,
