@@ -19,6 +19,15 @@ python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patte
 
 Only explicitly public material with a documented rights basis may be ingested. Platform-specific reports require confirmation of the exact report's disclosure status and permitted use. The adapters do not access private APIs or bypass disclosure controls.
 
+## Agent evaluation benchmark
+- `benchmarks/cases/` contains synthetic positive and negative fixtures only.
+- `scripts/evaluate_benchmark.py` reports precision, recall, F1, false-positive rate and evidence completeness from agent prediction JSON.
+- See `benchmarks/README.md` for the prediction contract and limitations. These fixture metrics are not a real-world model-quality claim.
+
+```bash
+python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
+```
+
 ## Core
 - `core/validation.py` enforces independent finding validation.
 - `core/store.py` persists engagements, tasks, runs, findings and audit events.
