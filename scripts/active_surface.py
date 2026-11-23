@@ -142,6 +142,7 @@ def _request(executor, engagement_id, task_id, target, purpose, headers=None, me
         "url": target,
         "purpose": purpose[:490],
         "headers": headers or {},
+        "secret_headers": secret_headers or {},
         "timeout_seconds": 8,
         "max_response_bytes": 65536,
         "follow_redirects": True,
@@ -367,7 +368,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
         js_results = []
         for script_url in sorted(js_assets)[:min(10, max_pages - page_count)]:
             try:
-                js_result = _request(executor, engagement_id, task_id, script_url, "Static JavaScript endpoint and sink analysis")
+                js_result = _request(executor, engagement_id, task_id, script_url, "Static JavaScript endpoint and sink analysis", headers=base_headers, secret_headers=auth_headers)
                 evidence_refs.extend(js_result.get("evidence_refs", []))
                 js_body = js_result.get("response_excerpt") or ""
                 routes, indicators = _analyse_js(js_body)
