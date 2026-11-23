@@ -3,7 +3,7 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
-from core.validation import validate_finding
+from core.validation import validate_finding, validate_finding_transition, FindingValidationError
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00","Z")
@@ -68,3 +68,41 @@ class StateStore:
     def audit_events(self,engagement_id):
         rows=self.connection.execute("SELECT event_id,actor,event_type,details_json,created_at FROM audit_events WHERE engagement_id=? ORDER BY event_id",(engagement_id,)).fetchall()
         return [{**dict(r),"details":json.loads(r["details_json"])} for r in rows]
+
+
+    def transition_finding(self, finding_id, next_status, actor, validation_notes=None, evidence_refs=None):
+        """Apply an audited, independently validated finding lifecycle transition."""
+        if not isinstance(actor, str) or not actor.strip():
+            raise ValueError("A non-empty transition actor is required")
+        row = self.connection.execute(
+            "SELECT * FROM findings WHERE finding_id=?", (finding_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(finding_id)
+        current = row["status"]
+        validate_finding_transition(current, next_status)
+        validator = actor.strip() if next_status in {"validated", "reported"} else row["validated_by"]
+        if next_status in {"validated", "reported"} and validator == row["proposed_by"]:
+            raise FindingValidationError("The proposing agent cannot validate its own finding")
+        refs = json.loads(row["evidence_refs_json"]) if evidence_refs is None else evidence_refs
+        notes = validation_notes if validation_notes is not None else row["validation_notes"]
+        candidate = {
+            "finding_id": row["finding_id"], "engagement_id": row["engagement_id"],
+            "title": row["title"], "status": next_status, "asset": row["asset"],
+            "description": row["description"], "evidence_refs": refs,
+            "proposed_by": row["proposed_by"], "validated_by": validator,
+            "validation_notes": notes,
+        }
+        validate_finding(candidate)
+        now = utc_now()
+        with self.connection:
+            self.connection.execute(
+                """UPDATE findings SET status=?,validated_by=?,validation_notes=?,
+                   evidence_refs_json=?,updated_at=? WHERE finding_id=?""",
+                (next_status, validator, notes, json.dumps(refs), now, finding_id)
+            )
+            self.append_audit(
+                row["engagement_id"], actor.strip(), "finding.status_changed",
+                {"finding_id": finding_id, "from": current, "to": next_status}
+            )
+        return next_status
