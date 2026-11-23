@@ -7,7 +7,7 @@ from unittest.mock import Mock
 from core.active_executor import ActiveExecutionError
 from core.security_testing import (
     _validate_readonly_pair, analyze_authentication_pair, analyze_cache_pair,
-    analyze_http_framing, analyze_ssrf_probe, execute_readonly_pair,
+    analyze_http_framing, analyze_race_capture, analyze_ssrf_probe, execute_readonly_pair,
     validate_scoped_callback_url,
 )
 
@@ -152,6 +152,42 @@ class SecurityAnalysisTests(unittest.TestCase):
         ]})
         self.assertIn("transfer_encoding_and_content_length_present", result["findings"])
         self.assertIn("passive-only", result["limitations"][1])
+
+    def test_race_capture_requires_synthetic_object_and_reports_only_overlap_with_invariant_violation(self):
+        events = [
+            {"request_id": "race-001", "object_reference": "synthetic-cart-1",
+             "started_at": "2026-11-23T10:00:00+00:00", "finished_at": "2026-11-23T10:00:03+00:00",
+             "invariant_violation": True},
+            {"request_id": "race-002", "object_reference": "synthetic-cart-1",
+             "started_at": "2026-11-23T10:00:01+00:00", "finished_at": "2026-11-23T10:00:04+00:00",
+             "invariant_violation": False},
+        ]
+        result = analyze_race_capture(events)
+        self.assertEqual(result["classification"], "potential_race_condition")
+        self.assertEqual(result["status"], "candidate_only")
+        self.assertEqual(result["overlapping_pairs"], [["race-001", "race-002"]])
+
+    def test_race_capture_does_not_infer_vulnerability_from_overlap_alone(self):
+        events = [
+            {"request_id": "race-003", "object_reference": "synthetic-cart-2",
+             "started_at": "2026-11-23T10:00:00+00:00", "finished_at": "2026-11-23T10:00:03+00:00"},
+            {"request_id": "race-004", "object_reference": "synthetic-cart-2",
+             "started_at": "2026-11-23T10:00:01+00:00", "finished_at": "2026-11-23T10:00:04+00:00"},
+        ]
+        result = analyze_race_capture(events)
+        self.assertEqual(result["classification"], "overlap_without_invariant_violation")
+        self.assertEqual(result["status"], "observation")
+
+    def test_race_capture_rejects_real_or_ambiguous_object_references(self):
+        events = [
+            {"request_id": "race-005", "object_reference": "customer-123",
+             "started_at": "2026-11-23T10:00:00+00:00", "finished_at": "2026-11-23T10:00:03+00:00"},
+            {"request_id": "race-006", "object_reference": "customer-123",
+             "started_at": "2026-11-23T10:00:01+00:00", "finished_at": "2026-11-23T10:00:04+00:00"},
+        ]
+        with self.assertRaisesRegex(ValueError, "synthetic"):
+            analyze_race_capture(events)
+
 
     def test_partial_and_empty_ssrf_results_remain_inconclusive(self):
         result = analyze_ssrf_probe({"status_code": 202, "response_excerpt": "",
