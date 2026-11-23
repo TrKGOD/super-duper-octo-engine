@@ -151,7 +151,7 @@ class SecurityAnalysisTests(unittest.TestCase):
             {"name": "Content-Length", "value": "10"},
         ]})
         self.assertIn("transfer_encoding_and_content_length_present", result["findings"])
-        self.assertIn("passive-only", result["limitations"][1])
+        self.assertIn("No ambiguous framing is transmitted", result["limitations"][1])
 
     def test_race_capture_requires_synthetic_object_and_reports_only_overlap_with_invariant_violation(self):
         events = [
