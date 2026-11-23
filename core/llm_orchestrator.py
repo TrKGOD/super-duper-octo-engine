@@ -166,7 +166,8 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
     }
     active_instructions = (
         "Active execution is explicitly approved. Build an Enumeration-First Web/API DAG in this order: "
-        "scope-analyst(scope), recon-agent(recon), enumeration-agent(enumeration), vulnerability-agent(vulnerability), "
+        "scope-analyst(scope), recon-agent(recon, skill_tags=[active-recon]), "
+        "enumeration-agent(enumeration, skill_tags=[routes]), vulnerability-agent(vulnerability, skill_tags=[javascript-analysis]), "
         "exploitation-agent(exploitation), validation-agent(validation), impact-analyst(impact), "
         "duplicate-checker(dedupe), reporting-agent(reporting), with each stage depending on the previous stage. "
         "Recon, enumeration and vulnerability tasks must set active_testing=true and use the bounded same-origin "
