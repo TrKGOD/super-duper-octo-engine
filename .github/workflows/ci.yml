@@ -22,3 +22,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate JSON contracts
         run: python scripts/validate_contracts.py
+      - name: Smoke-test synthetic benchmark evaluator
+        run: python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
