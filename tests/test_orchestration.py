@@ -18,8 +18,8 @@ class OrchestrationTests(unittest.TestCase):
   self.tmp.cleanup()
  def plan(self):
   return {"tasks":[
-   {"task_key":"recon","agent":"recon-agent","objective":"Review supplied inventory","depends_on":[],"scope_subset":["app.example.test"],"completion_criteria":["Cite source evidence"]},
-   {"task_key":"enum","agent":"enumeration-agent","objective":"Map supplied routes","depends_on":["recon"],"scope_subset":["app.example.test"],"completion_criteria":["Cite route sources"]}
+   {"task_key":"recon","agent":"recon-agent","objective":"Review supplied inventory","depends_on":[],"scope_subset":["app.example.test"],"completion_criteria":["Cite source evidence"],"domain":"web","skill_tags":["passive-recon"]},
+   {"task_key":"enum","agent":"enumeration-agent","objective":"Map supplied routes","depends_on":["recon"],"scope_subset":["app.example.test"],"completion_criteria":["Cite route sources"],"domain":"web","skill_tags":["routes"]}
   ]}
  def test_engagement_persists_active_execution_mode_by_default(self):
   row=self.w.store.connection.execute(
