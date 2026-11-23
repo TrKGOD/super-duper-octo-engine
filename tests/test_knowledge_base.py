@@ -34,4 +34,5 @@ class KnowledgeBaseTests(unittest.TestCase):
   self.assertTrue(search_patterns(self.db,"biometric",domain="mobile"))
   self.assertTrue(search_patterns(self.db,"public access",domain="cloud"))
 
-\nif __name__=="__main__": unittest.main()\n
+
+if __name__=="__main__": unittest.main()
