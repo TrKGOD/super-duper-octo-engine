@@ -1,0 +1,27 @@
+{
+  "case_id": "SYN-XSS-POS-013",
+  "kind": "synthetic",
+  "description": "A stored comment is later rendered into an unsafe HTML context; the isolated browser fixture records execution when a second user views it.",
+  "expected_finding": true,
+  "vulnerability_type": "XSS",
+  "required_evidence": [
+    "input_source",
+    "storage",
+    "rendering_context",
+    "encoding_behavior",
+    "execution_observation"
+  ],
+  "tags": [
+    "api",
+    "web",
+    "xss",
+    "positive"
+  ],
+  "fixtures": {
+    "input_source": "stored comment",
+    "storage": "persistent comment record",
+    "rendering_context": "raw HTML insertion",
+    "encoding_behavior": "no output encoding",
+    "execution_observation": "isolated browser confirms execution on second-user view"
+  }
+}
