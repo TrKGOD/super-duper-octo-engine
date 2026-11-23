@@ -9,11 +9,14 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
 - `hooks/command_guard.py`: narrow local-command allowlist/tripwire. It is not a sandbox or an authorization verifier.
 - `database/schema.sql` plus `database/migrations/`: SQLite baseline and ordered migrations consumed by `scripts/migrate.py`.
-- `scripts/knowledge_base.py` and `scripts/kb_sources.py`: operator-run local research ingestion/search and public RSS/Atom metadata discovery. They do not validate findings on a live target.
+- `scripts/knowledge_base.py` and `scripts/kb_sources.py`: operator-run local research ingestion/search and public RSS/Atom metadata discovery. The KB workflow preserves source provenance and separates public research context from current-engagement evidence; it does not validate findings on a live target.
 - `scripts/evaluate_benchmark.py`: computes metrics from supplied predictions against synthetic fixtures; it does not run or benchmark agents automatically.
 - `core/store.py`: SQLite persistence for engagements, tasks, agent runs, findings, evidence metadata, and audit events. Finding transitions are transactional and evidence references must resolve to records in the same engagement.
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
 - `core/orchestration.py`: deterministic passive workflow coordinator with plan, dependency, scope-subset, and handoff checks. Handoffs must reference persisted evidence records.
+- `.claude/agents/`: differentiated specialist contracts for scope, recon, technology profiling, enumeration, vulnerability hypotheses, reproduction planning, independent validation, impact, deduplication, and reporting.
+- `.claude/skills/knowledge-base/`: operator-mediated KB retrieval guidance; public patterns remain untrusted context, not target evidence.
+- `docs/AGENT_SPECIALIZATION.md`: specialist boundaries, task contract, handoff expectations, and lifecycle separation.
 - `templates/`: JSON data contracts; handoff and plan schemas are loaded by the workflow validator.
 - `.pre-commit-config.yaml`: Gitleaks pre-commit hook configuration.
 
