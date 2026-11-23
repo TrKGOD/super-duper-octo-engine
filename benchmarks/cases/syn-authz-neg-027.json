@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-AUTHZ-NEG-027",
+  "kind": "synthetic",
+  "description": "A standard user receives 403 from an administrative function and the server-side policy trace records a deny decision for the required tenant-admin role.",
+  "expected_finding": false,
+  "vulnerability_type": "BROKEN_FUNCTION_LEVEL_AUTHORIZATION",
+  "required_evidence": [
+    "request_identity",
+    "required_role",
+    "observed_result",
+    "policy_expectation",
+    "server_side_evidence"
+  ],
+  "tags": [
+    "synthetic",
+    "broken_function_level_authorization",
+    "negative"
+  ],
+  "fixtures": {
+    "request_identity": "standard-user-B",
+    "required_role": "tenant-admin",
+    "observed_result": "403 forbidden",
+    "policy_expectation": "standard users denied",
+    "server_side_evidence": "policy trace records deny decision"
+  }
+}

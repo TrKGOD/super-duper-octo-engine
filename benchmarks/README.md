@@ -51,7 +51,7 @@ The CI agent-benchmark job is separate and non-blocking. Configure the repositor
 - False-positive rate
 - Evidence completeness: mean fraction of required evidence fields present on detected positive cases
 
-The evaluator reports counts and percentages. It does **not** claim model accuracy from unit tests or from this synthetic fixture set. The corpus currently contains 19 synthetic cases across SQLi, XSS, IDOR/BOLA, SSRF, authentication and authorization, including near-positive negatives. Compare agent versions on the same cases and treat results as directional until the corpus is independently reviewed and substantially expanded.
+The evaluator reports counts and percentages. It does **not** claim model accuracy from unit tests or from this synthetic fixture set. The corpus currently contains 31 synthetic cases across SQLi, XSS, IDOR/BOLA, SSRF, authentication and authorization, including near-positive negatives. Compare agent versions on the same cases and treat results as directional until the corpus is independently reviewed and substantially expanded.
 
 
 ## Seven-wave retrieval and capability gates

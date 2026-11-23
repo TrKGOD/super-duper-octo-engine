@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-XSS-NEG-019",
+  "kind": "synthetic",
+  "description": "A reflected search term is HTML-escaped before insertion into a text node; the literal markup appears as text and no executable sink is identified.",
+  "expected_finding": false,
+  "vulnerability_type": "CROSS_SITE_SCRIPTING",
+  "required_evidence": [
+    "input_source",
+    "output_context",
+    "encoding_behavior",
+    "execution_evidence"
+  ],
+  "tags": [
+    "synthetic",
+    "cross_site_scripting",
+    "negative"
+  ],
+  "fixtures": {
+    "input_source": "search query parameter",
+    "output_context": "HTML text node",
+    "encoding_behavior": "angle brackets and quotes encoded",
+    "execution_evidence": "literal text only; no execution sink"
+  }
+}

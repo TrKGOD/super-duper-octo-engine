@@ -1,0 +1,28 @@
+{
+  "case_id": "SYN-AUTHZ-POS-026",
+  "kind": "synthetic",
+  "description": "A synthetic standard user invokes an administrative read-only function successfully; role policy explicitly denies that function and server-side authorization logs show no policy check.",
+  "expected_finding": true,
+  "vulnerability_type": "BROKEN_FUNCTION_LEVEL_AUTHORIZATION",
+  "required_evidence": [
+    "request_identity",
+    "required_role",
+    "observed_result",
+    "policy_expectation",
+    "server_side_evidence",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "broken_function_level_authorization",
+    "positive"
+  ],
+  "fixtures": {
+    "request_identity": "standard-user-B",
+    "required_role": "tenant-admin",
+    "observed_result": "administrative report returned",
+    "policy_expectation": "standard users denied",
+    "server_side_evidence": "lab authorization trace confirms missing function-level check",
+    "fixture_only": true
+  }
+}

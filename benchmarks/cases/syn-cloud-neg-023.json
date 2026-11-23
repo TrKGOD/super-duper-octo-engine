@@ -1,0 +1,29 @@
+{
+  "case_id": "SYN-CLOUD-NEG-023",
+  "kind": "synthetic",
+  "description": "A synthetic workload role grants object-read only on one named test bucket and has no wildcard actions or broader resource scope.",
+  "expected_finding": false,
+  "vulnerability_type": "CLOUD_IAM_EXCESSIVE_PRIVILEGE",
+  "required_evidence": [
+    "cloud_provider",
+    "principal",
+    "granted_actions",
+    "resource_scope",
+    "required_function"
+  ],
+  "tags": [
+    "synthetic",
+    "cloud_iam_excessive_privilege",
+    "negative"
+  ],
+  "fixtures": {
+    "cloud_provider": "GCP-like synthetic IAM fixture",
+    "principal": "workload-reader",
+    "granted_actions": [
+      "storage.objects.get",
+      "storage.objects.list"
+    ],
+    "resource_scope": "projects/lab/buckets/test-data",
+    "required_function": "read one synthetic storage bucket"
+  }
+}

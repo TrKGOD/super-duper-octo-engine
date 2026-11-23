@@ -1,0 +1,22 @@
+{
+  "case_id": "SYN-OAUTH-NEG-017",
+  "kind": "synthetic",
+  "description": "An incomplete OAuth capture omits state and PKCE fields but contains no relying-party configuration or complete authorization request; absence of fields in the partial capture is not evidence of a protocol flaw.",
+  "expected_finding": false,
+  "vulnerability_type": "OAUTH_MISCONFIGURATION",
+  "required_evidence": [
+    "capture_completeness",
+    "missing_context",
+    "evidence_gap"
+  ],
+  "tags": [
+    "synthetic",
+    "oauth_misconfiguration",
+    "negative"
+  ],
+  "fixtures": {
+    "capture_completeness": "callback fragment only",
+    "missing_context": "no initiating request or client registration",
+    "evidence_gap": "cannot determine state or PKCE behavior"
+  }
+}
