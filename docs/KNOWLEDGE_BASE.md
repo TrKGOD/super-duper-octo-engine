@@ -8,7 +8,7 @@ The local KB is a curated research index for public security write-ups and norma
 
 A starter collection of original analyst-authored pattern cards is versioned at [knowledge-base/seed/](../knowledge-base/seed/README.md). It covers Web, API, Mobile, Cloud, and Active Directory. Each card records root cause, preconditions, investigation signals, safe validation boundaries, evidence expectations, impact, remediation, false positives, and source URLs.
 
-The seed is deliberately not a bundle of copied third-party reports. It is not yet automatically imported into the SQLite KB or dynamically retrieved by agents. Until that integration exists, operators/agents must read the relevant seed Markdown directly and preserve the pattern ID and source references in their task context. The cards are hypotheses and methodology context only, never evidence for a current engagement.
+The seed is deliberately not a bundle of copied third-party reports. Import it into the local SQLite KB with `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 import-seed`. The import is idempotent and checks the pattern IDs against the manifest. Search by terms and domain, for example `search-patterns --query "object authorization" --domain api`. The cards are hypotheses and methodology context only, never evidence for a current engagement.
 
 ## Source adapters
 
@@ -60,7 +60,7 @@ A retrieved pattern may inform a hypothesis, safe reproduction plan, or validati
 
 ## Agent integration
 
-The KB skill is an operator-mediated workflow: search results and selected excerpts are passed into agent task context with their provenance. The current runtime does not provide autonomous KB retrieval to agents. The committed seed Markdown is a manually accessible reference pack, not an automated runtime source. See `.claude/skills/knowledge-base/SKILL.md`.
+The KB skill defines an operator-mediated retrieval workflow: the operator imports the seed, searches by domain/tag, and passes selected results into agent task context with provenance. The current passive runtime does not automatically dispatch agents or perform tool-driven retrieval. See `.claude/skills/knowledge-base/SKILL.md`.
 
 ## Storage and maintenance
 
