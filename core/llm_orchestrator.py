@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 from core.dispatch import dispatch_plan, DispatchError
 from core.active_executor import _safe_url, _validate_request, _validate_request_scope
 from core.orchestration import Workflow, WorkflowError, _scope_assets
-from scripts.skill_registry import load_registry, select_skills, RegistryError
+from scripts.skill_registry import load_registry, select_skills
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_SCHEMA = json.loads((ROOT / "templates/plan.schema.json").read_text(encoding="utf-8"))
