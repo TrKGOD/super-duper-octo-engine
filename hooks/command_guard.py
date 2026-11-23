@@ -118,7 +118,7 @@ def orchestrator_args(argv):
 
 
 def passive_framing_args(argv):
-    if len(argv) != 4 or argv[0] not in {"python", "python3"} or argv[1] != "scripts/analyze_http_framing.py":
+    if len(argv) != 4 or argv[0] not in {"python", "python3"} or argv[1] not in {"scripts/analyze_http_framing.py", "scripts/analyze_race_capture.py"}:
         return None
     if argv[2] != "--input" or not safe_local_json(argv[3]):
         return None
@@ -186,7 +186,7 @@ def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
-    if script == "scripts/analyze_http_framing.py":
+    if script in {"scripts/analyze_http_framing.py", "scripts/analyze_race_capture.py"}:
         return passive_framing_args(argv) is not None
     if script in {"scripts/active_ssrf_probe.py", "scripts/active_authentication_check.py", "scripts/active_cache_check.py"}:
         return active_security_args(argv) is not None
