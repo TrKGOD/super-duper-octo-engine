@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-XSS-POS-002",
+  "kind": "synthetic",
+  "description": "A lab fixture shows attacker-controlled input reaches an HTML attribute without contextual encoding and executes in the isolated browser harness.",
+  "expected_finding": true,
+  "vulnerability_type": "XSS",
+  "required_evidence": [
+    "input_source",
+    "rendering_context",
+    "encoding_behavior",
+    "execution_observation",
+    "control"
+  ],
+  "tags": [
+    "web",
+    "xss",
+    "positive"
+  ],
+  "fixtures": {
+    "input_source": "profile.displayName",
+    "rendering_context": "quoted event-handler-capable HTML attribute",
+    "encoding_behavior": "raw quote preserved",
+    "execution_observation": "isolated harness records script execution",
+    "control": "same value encoded in text node does not execute"
+  }
+}
