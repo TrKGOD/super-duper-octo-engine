@@ -214,7 +214,9 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
         scope = json.loads(row["scope_json"])
         _resolve_and_authorize(target_url, scope, task["scope_subset"])
         executor = ActiveHTTPExecutor(workflow, ROOT)
-        # Optional authenticated mode uses only environment-backed secret header references.\n        auth_headers = dict(secret_headers or {})\n        base_headers = {"User-Agent": user_agent} if user_agent else {}\n        # Small fixed metadata set: useful discovery, not directory brute force.
+        # Optional authenticated mode uses only environment-backed secret header references.
+        auth_headers = dict(secret_headers or {})
+        base_headers = {"User-Agent": user_agent} if user_agent else {}\n        # Small fixed metadata set: useful discovery, not directory brute force.
         metadata_paths = (
             "/robots.txt", "/sitemap.xml", "/openapi.json", "/swagger.json",
             "/api-docs", "/.well-known/openid-configuration",
