@@ -33,5 +33,6 @@ secrets/
 *.sqlite
 *.sqlite3
 
-# Local engagement authorization metadata
-config/engagement.local.json
+# Local engagement authorization metadata (keep only the sanitized example)
+config/engagement.*.json
+!config/engagement.example.json
