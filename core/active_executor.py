@@ -478,6 +478,8 @@ class ActiveHTTPExecutor:
         scope = json.loads(task_row["scope_json"])
         rules_classes = set(rules.get("allowed_test_classes", []))
         if method in {"POST", "PUT", "PATCH", "DELETE"}:
+            if task_row["agent"] not in {"active-testing-agent", "exploitation-agent"}:
+                raise ActiveExecutionError("State-changing requests are unavailable to recon, enumeration, vulnerability, and validation specialists")
             if "state-changing-http" not in rules_classes or rules.get("human_approval_required_for_state_changes") is not True:
                 raise ActiveExecutionError("State-changing HTTP is not authorized by engagement rules")
         elif "http-read-only" not in rules_classes:
