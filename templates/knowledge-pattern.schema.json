@@ -15,7 +15,9 @@
     "remediation":{"type":"string","minLength":5},
     "false_positives":{"type":"array","items":{"type":"string"}},
     "confidence":{"enum":["low","medium","high"]},
-    "source_spans":{"type":"array","items":{"type":"string"}}
+    "source_spans":{"type":"array","items":{"type":"string"}},
+    "domain":{"enum":["web","api","mobile","cloud","active_directory","other"]},
+    "tags":{"type":"array","items":{"type":"string"}}
   },
   "additionalProperties":false
 }
