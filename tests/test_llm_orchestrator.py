@@ -107,13 +107,15 @@ class LLMOrchestratorTests(unittest.TestCase):
         self.assertEqual(result["available_request_manifests"], 1)
         self.assertEqual(result["created_tasks"][0]["agent"], "active-testing-agent")
 
-    def test_active_planner_requires_reviewed_manifest(self):
+    def test_active_planner_allows_dynamic_discovery_without_prebuilt_manifest(self):
         self._approve_active()
-        with self.assertRaisesRegex(WorkflowError, "no valid in-scope request manifests"):
-            generate_plan(
-                self.workflow, "eng-planner", "pinned-model",
-                claude_bin=self._fake_cli(), timeout_seconds=30,
-            )
+        result = generate_plan(
+            self.workflow, "eng-planner", "pinned-model",
+            claude_bin=self._fake_cli(), timeout_seconds=30,
+        )
+        self.assertTrue(result["active_execution_allowed"])
+        self.assertEqual(result["available_request_manifests"], 0)
+        self.assertEqual(len(result["created_tasks"]), 1)
 
     def test_generates_and_persists_plan_with_no_tools_cli(self):
         result = generate_plan(
