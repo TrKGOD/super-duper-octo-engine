@@ -1,5 +1,4 @@
 """SQLite persistence with transactional lifecycle and evidence integrity."""
-import hashlib
 import json
 import re
 import sqlite3
