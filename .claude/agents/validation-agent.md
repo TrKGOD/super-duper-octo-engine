@@ -15,7 +15,7 @@ Act as an independent validator. The proposing agent must not validate its own f
 
 # Execution
 When a separate request manifest is supplied, execute only:
-`python3 scripts/active_http.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --request-file .local/requests/VALIDATOR_REVIEWED.json`
+`python3 scripts/active_http.py --db {engagement.state_db_path} --engagement-id ENGAGEMENT_ID --task-id TASK_ID --request-file .local/requests/VALIDATOR_REVIEWED.json`
 
 The broker is the only network path. It enforces scope, rate, budget, DNS/IP pinning, redirects and evidence capture. Without a separate manifest, perform evidence-integrity and reproducibility review only and return needs_operator or needs_more_evidence; do not claim active validation.
 
