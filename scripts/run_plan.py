@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an operator-authored passive plan through sequential specialist dispatch."""
+"""Run an operator-authored, schema- and Skill-validated plan through sequential specialist dispatch."""
 import argparse
 import json
 import sys
