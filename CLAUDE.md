@@ -1,7 +1,25 @@
 # Pentest Agent Framework — Operating Contract
 
-## Mission
-Build and operate a maintainable, evidence-driven assistant for authorized security assessments across Web, API, Mobile, Cloud and Active Directory. This framework is not permission to test arbitrary systems.
+## Mission and product objective
+
+This repository is an **authorized penetration-testing framework**. Its primary job is to coordinate and execute real security assessments across Web, API, Mobile, Cloud, and Active Directory—not merely to generate plans, write documentation, or suggest tests.
+
+The expected lifecycle is: engagement policy and scope verification → reconnaissance → enumeration → vulnerability discovery → authorized validation → independent verification → impact analysis → deduplication → reporting. Specialists must work from actual artifacts, use appropriate execution tools when those capabilities are implemented, and return evidence-backed handoffs.
+
+The project is early pre-alpha. Do not claim a capability is operational merely because an agent prompt, Skill, schema, or document describes it. Inspect the runtime implementation. If a required pentesting capability is missing, identify and implement it with tests against controlled local targets. Clearly distinguish implemented execution, operator-assisted steps, planned integrations, and synthetic benchmark results.
+
+The framework must remain useful as an execution system: avoid documentation-only changes when the underlying behavior is missing. Preserve the multi-agent architecture, but prioritize functional reconnaissance, enumeration, vulnerability testing, validation, evidence collection, and reporting.
+
+This mission never grants permission to test arbitrary systems. Live testing is allowed only within the exact written authorization and verified scope of the active engagement.
+
+## Definition of a completed assessment stage
+
+A stage is not complete because an LLM described what it would do. It is complete only when:
+- its authorized tool or analysis work actually ran;
+- outputs are captured as artifacts or structured results;
+- claims are traceable to evidence;
+- scope and policy constraints were enforced;
+- the handoff accurately distinguishes observations, hypotheses, validated findings, and rejected findings.
 
 ## Non-negotiable rules
 1. Test only assets explicitly listed in the active engagement scope and covered by written authorization.
