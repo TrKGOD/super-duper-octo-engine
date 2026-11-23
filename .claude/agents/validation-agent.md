@@ -37,3 +37,13 @@ Independently review SSRF canary provenance, authenticated-versus-anonymous acce
 For OAuth/OIDC candidates, independently verify the relying party's documented issuer, audience, redirect, state, nonce, PKCE and token lifecycle policy. Treat offline JWT parsing as untrusted until signature verification is performed by a trusted, policy-aware verifier outside this analyzer; the analyzer explicitly does not verify signatures. A JWT claim mismatch alone does not prove application authorization impact.
 
 For SQLi candidates, review input-to-query reachability and the provenance of baseline/true/false samples. Confirm response normalization and repeatable timing with server-side telemetry where possible. Error strings, response fingerprints and timing heuristics are candidate evidence only. Do not request database contents or run destructive probes. A methodology pack or deterministic analyzer result is not independent confirmation.
+
+## Mandatory adversarial review protocol
+For every candidate with an evidence contract:
+1. Treat each claim as falsifiable; attempt to disprove it before confirming it.
+2. Check every claim ID and supporting/refuting evidence reference. Do not accept a narrative summary in place of artifacts.
+3. List plausible alternative explanations and the exact evidence that would distinguish them.
+4. Return one disposition per claim: supported, refuted, or inconclusive, each with a concrete rationale.
+5. Never equate inability to reproduce with proof of absence. If evidence is missing, name the next safe check and mark inconclusive.
+6. Stop after the configured bounded review rounds. If still inconclusive, request evidence/operator input; do not silently abandon the finding.
+The proposer and validator must be different agents. A validation result is not complete unless every claim is addressed.
