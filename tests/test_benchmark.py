@@ -22,7 +22,8 @@ class BenchmarkEvaluatorTests(unittest.TestCase):
     def write_case(self, case_id, expected, required):
         (self.cases / f"{case_id}.json").write_text(json.dumps({
             "case_id": case_id, "kind": "synthetic", "expected_finding": expected,
-            "required_evidence": required
+            "required_evidence": required,
+            "fixtures": {item: "synthetic fixture value" for item in required} if expected else {}
         }), encoding="utf-8")
 
     def write_predictions(self, predictions):
@@ -46,6 +47,16 @@ class BenchmarkEvaluatorTests(unittest.TestCase):
     def test_unknown_prediction_rejected(self):
         self.write_predictions([{"case_id": "unknown", "detected": False, "evidence_fields": []}])
         with self.assertRaisesRegex(ValueError, "Unknown prediction"):
+            evaluate(self.cases, self.predictions)
+
+    def test_positive_case_with_missing_fixture_payload_rejected(self):
+        (self.cases / "broken-positive.json").write_text(json.dumps({
+            "case_id": "broken-positive", "kind": "synthetic",
+            "expected_finding": True, "required_evidence": ["proof"],
+            "fixtures": {}
+        }), encoding="utf-8")
+        self.write_predictions([])
+        with self.assertRaisesRegex(ValueError, "lacks required fixture fields"):
             evaluate(self.cases, self.predictions)
 
     def test_non_synthetic_case_rejected(self):

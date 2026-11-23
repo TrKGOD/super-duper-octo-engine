@@ -12,9 +12,14 @@
 - [x] CI, Gitleaks hook configuration and schema examples
 - [x] Workflow runner for plan validation, scope subsets, dependency gates and handoff persistence
 - [x] Orchestrator contract wired to persisted task lifecycle
-- [ ] Runtime integration test in a real Claude Code session
+- [ ] Runtime integration test in a real Claude Code session (orchestrator → specialist → persisted handoff)
+- [x] Add bounded single-specialist Claude Code runtime smoke harness (real credentials/runtime execution still required)
+- [x] Correct benchmark CLI prompt transport and reject incomplete positive fixtures
+- [x] Benchmark CLI prompt transport via stdin and positive-fixture completeness checks
+- [x] Per-case duration and available Claude CLI usage/cost metadata capture
 - [ ] Validate hook compatibility across supported operating systems
 - [ ] Review agent frontmatter and permissions against Claude Code runtime behavior
+- [ ] Verify Task-based dispatch and dynamic Skill loading in a real Claude Code session
 
 ## Phase 2 — Initial Web/API vertical
 - [ ] Passive recon and enumeration workflows using supplied artifacts
@@ -34,9 +39,10 @@
 - [ ] Concurrency and resource budgets
 
 ## Phase 5 — Benchmark
-- [ ] Fixed lab corpus with known ground truth
+- [ ] Expand fixed lab corpus with known ground truth, including adversarial/prompt-injection cases
+- [x] Require complete fixture payloads for positive cases
 - [ ] Baseline Model 1 and hybrid runs
-- [ ] Compare precision, recall, duplicate rate, time and cost
+- [ ] Compare precision, recall, duplicate rate, time and cost across Model 1 and hybrid runs
 - [ ] Publish benchmark report
 
 Do not label a release production-ready until runtime hardening and benchmark gates pass.
