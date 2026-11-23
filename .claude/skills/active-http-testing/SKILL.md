@@ -12,7 +12,7 @@ description: Bounded read-only HTTP validation through the scope-enforcing broke
 - Execute only through the dedicated active HTTP broker.
 
 ## Allowed behavior
-- Use GET, HEAD, or OPTIONS only unless an individual state-changing request has separate explicit operator approval and the engagement rules permit it.
+- This Enumeration-First pipeline permits GET, HEAD, and OPTIONS only. Reject POST and every other method even if a broader engagement policy or separate approval would otherwise permit it.
 - Respect the configured rate limit (at most one request per second), concurrency of one, request budget, timeout, and response-size limits.
 - Revalidate redirects and scope decisions through the broker; never work around a broker denial.
 - Capture only the minimum response material needed to support an observation.
