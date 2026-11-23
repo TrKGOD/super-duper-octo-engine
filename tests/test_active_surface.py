@@ -37,6 +37,7 @@ class ActiveSurfaceTests(unittest.TestCase):
     def test_same_origin_filter_rejects_external_and_non_http_links(self):
         base = "https://app.example.test/"
         self.assertEqual(_safe_path_url(base, "/api/users"), "https://app.example.test/api/users")
+        self.assertEqual(_safe_path_url(base, "/search?token=private&q=test"), "https://app.example.test/search")
         self.assertIsNone(_safe_path_url(base, "https://outside.example/"))
         self.assertIsNone(_safe_path_url(base, "javascript:alert(1)"))
         self.assertIsNone(_safe_path_url(base, "/logout"))
