@@ -103,10 +103,24 @@ def active_surface_args(argv):
     return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
 
 
+def orchestrator_args(argv):
+    if len(argv) != 8 or argv[1] != "scripts/run_orchestrator.py":
+        return None
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
+        return None
+    if argv[4] != "--engagement-id" or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,79}", argv[5]):
+        return None
+    if argv[6] != "--model" or not re.fullmatch(r"[A-Za-z0-9._:-]{2,120}", argv[7]):
+        return None
+    return {"db": argv[3], "engagement_id": argv[5]}
+
+
 def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
+    if script == "scripts/run_orchestrator.py":
+        return orchestrator_args(argv) is not None
     if script == "scripts/active_surface.py":
         return active_surface_args(argv) is not None
     if script == "scripts/active_http.py":
@@ -244,7 +258,8 @@ def main():
         deny("Command is not in the workflow/KB allowlist or approved active HTTP broker.")
     active_args = active_http_args(argv)
     surface_args = active_surface_args(argv)
-    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else DB
+    orchestration_args = orchestrator_args(argv)
+    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else orchestration_args["db"] if orchestration_args else DB
     config_path, db_path = engagement_paths(db_arg)
     if config_path is None or not config_path.is_file() or config_path.is_symlink():
         deny("The engagement-specific local config is required for agent runtime commands.")
@@ -278,7 +293,8 @@ def main():
         deny("Unable to verify engagement state; default deny.")
     if db_status == "active":
         safe_read_only = (
-            argv[1] == "scripts/knowledge_base.py"
+            orchestration_args is not None
+            or argv[1] == "scripts/knowledge_base.py"
             or (
                 argv[1] == "scripts/workflow.py"
                 and len(argv) == 7
