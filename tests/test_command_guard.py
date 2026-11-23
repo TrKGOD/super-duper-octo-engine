@@ -8,7 +8,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
+from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, active_security_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
 
 
 class CommandGuardTests(unittest.TestCase):
@@ -32,6 +32,39 @@ class CommandGuardTests(unittest.TestCase):
         self.assertTrue(allowed_argv(command))
         self.assertIsNotNone(active_surface_args(command))
         self.assertFalse(allowed_argv(command + ["--extra"]))
+
+    def test_specialist_security_commands_are_allowlisted_only_with_strict_pinned_manifest_shapes(self):
+        ssrf = ["python3", "scripts/active_ssrf_probe.py", "--db", ".local/state.sqlite3",
+                "--engagement-id", "eng-123", "--task-id", "task-123",
+                "--request-file", ".local/requests/ssrf-001.json",
+                "--callback-url", "https://callback.example.test/canary",
+                "--marker", "marker-unique-1234"]
+        auth = ["python3", "scripts/active_authentication_check.py", "--db", ".local/state.sqlite3",
+                "--engagement-id", "eng-123", "--task-id", "task-123",
+                "--authenticated-request-file", ".local/requests/auth-001.json",
+                "--anonymous-request-file", ".local/requests/auth-002.json",
+                "--protected-resource", "/account"]
+        cache = ["python3", "scripts/active_cache_check.py", "--db", ".local/state.sqlite3",
+                 "--engagement-id", "eng-123", "--task-id", "task-123",
+                 "--first-request-file", ".local/requests/cache-001.json",
+                 "--second-request-file", ".local/requests/cache-002.json",
+                 "--first-private-marker", "private-a", "--second-private-marker", "private-b"]
+        for command in (ssrf, auth, cache):
+            self.assertTrue(allowed_argv(command))
+            self.assertIsNotNone(active_security_args(command))
+        self.assertFalse(allowed_argv(ssrf[:-2] + ["--marker", "short"]))
+        self.assertFalse(allowed_argv(auth[:-3] + ["--protected-resource", "/account", "--extra"]))
+        self.assertFalse(allowed_argv(cache[:-5] + ["--first-private-marker", "a", "--second-private-marker", "private-b"]))
+
+    def test_specialist_security_commands_reject_unpinned_paths_and_non_https_callback(self):
+        command = ["python3", "scripts/active_ssrf_probe.py", "--db", ".local/state.sqlite3",
+                   "--engagement-id", "eng-123", "--task-id", "task-123",
+                   "--request-file", "../request.json", "--callback-url", "http://callback.example.test/",
+                   "--marker", "marker-unique-1234"]
+        self.assertFalse(allowed_argv(command))
+        command[9] = ".local/requests/ssrf-001.json"
+        self.assertFalse(allowed_argv(command))
+
 
     def test_per_engagement_database_paths_are_strictly_mapped(self):
         self.assertTrue(safe_db_argument(".local/state.sqlite3"))
