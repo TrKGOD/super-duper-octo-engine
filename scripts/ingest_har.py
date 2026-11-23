@@ -17,7 +17,7 @@ from core.orchestration import Workflow
 SECRET_HEADERS = {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-csrf-token"}
 SECRET_NAME = re.compile(r"(?:token|secret|password|passwd|authorization|cookie|session|api[_-]?key|csrf)", re.I)
 GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", re.I)
-NUMERIC = re.compile(r"^\\d+$")
+NUMERIC = re.compile(r"^\d+$")
 OBJECT_ID_KEYS = {"user_id", "account_id", "tenant_id", "listing_id", "item_id", "order_id", "resource_id", "id"}
 
 
