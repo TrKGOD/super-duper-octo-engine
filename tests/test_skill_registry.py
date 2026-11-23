@@ -10,7 +10,7 @@ from scripts import skill_registry
 class SkillRegistryTests(unittest.TestCase):
     def test_repository_registry_is_valid(self):
         registry = skill_registry.load_registry()
-        self.assertEqual(len(registry["skills"]), 16)
+        self.assertEqual(len(registry["skills"]), 17)
 
     def test_select_by_domain_and_agent(self):
         registry = skill_registry.load_registry()
@@ -32,6 +32,18 @@ class SkillRegistryTests(unittest.TestCase):
         )
         self.assertEqual([item["id"] for item in scope], ["engagement-scope"])
         self.assertEqual([item["id"] for item in active], ["active-http-testing"])
+
+    def test_active_web_api_discovery_skill_is_selectable_for_surface_agents(self):
+        registry = skill_registry.load_registry()
+        for agent, tag in (
+            ("recon-agent", "active-recon"),
+            ("enumeration-agent", "routes"),
+            ("vulnerability-agent", "javascript-analysis"),
+        ):
+            selected = skill_registry.select_skills(
+                registry, domain="web", agent=agent, tags=[tag]
+            )
+            self.assertIn("active-web-api-discovery", {item["id"] for item in selected})
 
     def test_tag_filter_uses_any_requested_tag(self):
         registry = skill_registry.load_registry()
