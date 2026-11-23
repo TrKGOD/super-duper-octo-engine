@@ -32,3 +32,6 @@ secrets/
 .local/
 *.sqlite
 *.sqlite3
+
+# Local engagement authorization metadata
+config/engagement.local.json
