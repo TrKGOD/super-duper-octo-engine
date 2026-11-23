@@ -93,5 +93,64 @@ class OrchestrationTests(unittest.TestCase):
   finding["evidence_refs"]=[evidence]
   self.w.record_finding("eng-test",finding)
   self.assertEqual(self.w.store.connection.execute("SELECT status FROM findings WHERE finding_id='f1'").fetchone()["status"],"hypothesis")
+
+ def test_passive_followup_is_queued_from_valid_handoff(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  evidence=self.vault.capture("eng-test","reproduction_notes","parent.txt",b"route inventory","recon-agent",redacted=True)["evidence_id"]
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed",
+   "scope_subset":["app.example.test"],"summary":"Inventory reviewed","observations":[],"hypotheses":[],
+   "evidence_refs":[evidence],"limitations":[],"follow_up_tasks":[{
+    "task_key":"recon-context-review","agent":"recon-agent","objective":"Correlate supplied route inventory with existing asset records",
+    "completion_criteria":["Cite each correlation"],"domain":"web","skill_tags":["passive-recon"],
+    "scope_subset":["app.example.test"],"evidence_refs":[evidence],"constraints":["Use supplied evidence only"]}]}
+  self.w.accept_handoff(task_id,handoff)
+  rows=self.w.store.connection.execute("SELECT agent,status,input_json FROM tasks WHERE engagement_id='eng-test' ORDER BY rowid").fetchall()
+  self.assertEqual(len(rows),3)
+  followup=__import__("json").loads(rows[2]["input_json"])
+  self.assertEqual(rows[2]["status"],"queued")
+  self.assertFalse(followup["active_testing"])
+  self.assertEqual(followup["depends_on"],["recon"])
+  self.assertEqual(followup["origin"],"adaptive_followup")
+
+ def test_active_and_unknown_agent_followups_are_rejected_without_failing_parent(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  evidence=self.vault.capture("eng-test","reproduction_notes","parent2.txt",b"evidence","recon-agent",redacted=True)["evidence_id"]
+  base={"task_key":"unsafe-followup","objective":"Do active testing","completion_criteria":["Complete"],
+   "domain":"web","skill_tags":["passive-recon"],"scope_subset":["app.example.test"],"evidence_refs":[evidence]}
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed",
+   "scope_subset":["app.example.test"],"summary":"done","observations":[],"hypotheses":[],
+   "evidence_refs":[evidence],"limitations":[],"follow_up_tasks":[
+    dict(base,agent="active-testing-agent"),dict(base,task_key="unknown-agent",agent="made-up-agent")]}
+  self.w.accept_handoff(task_id,handoff)
+  self.assertEqual(self.w.store.connection.execute("SELECT COUNT(*) FROM tasks WHERE engagement_id='eng-test'").fetchone()[0],2)
+  self.assertEqual(self.w.status("eng-test")["tasks"][0]["status"],"completed")
+  self.assertEqual(self.w.store.connection.execute("SELECT COUNT(*) FROM audit_events WHERE engagement_id='eng-test' AND event_type='followup.rejected'").fetchone()[0],2)
+
+ def test_followup_scope_expansion_and_bad_evidence_are_rejected(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  evidence=self.vault.capture("eng-test","reproduction_notes","parent3.txt",b"evidence","recon-agent",redacted=True)["evidence_id"]
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed",
+   "scope_subset":["app.example.test"],"summary":"done","observations":[],"hypotheses":[],
+   "evidence_refs":[evidence],"limitations":[],"follow_up_tasks":[{
+    "task_key":"scope-expansion","agent":"recon-agent","objective":"Review supplied evidence",
+    "completion_criteria":["Document"],"domain":"web","skill_tags":["passive-recon"],
+    "scope_subset":["outside.example"],"evidence_refs":["evidence://fake"]}]}
+  self.w.accept_handoff(task_id,handoff)
+  self.assertEqual(len(self.w.status("eng-test")["tasks"]),2)
+
+
+ def test_hypothesis_handoff_requires_evidence_contract(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  evidence=self.vault.capture("eng-test","http_response","hypothesis.txt",b"response","recon-agent",redacted=True)["evidence_id"]
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed",
+   "scope_subset":["app.example.test"],"summary":"Candidate","observations":[],"hypotheses":[{"claim":"possible issue"}],
+   "evidence_refs":[evidence],"limitations":[]}
+  with self.assertRaisesRegex(WorkflowError,"evidence_contract"):
+   self.w.accept_handoff(task_id,handoff)
+
 if __name__=="__main__":
  unittest.main()

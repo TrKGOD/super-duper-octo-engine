@@ -1,23 +1,228 @@
 {
-  "$schema":"https://json-schema.org/draft/2020-12/schema",
-  "title":"Orchestration Plan","type":"object","required":["tasks"],
-  "properties":{"tasks":{"type":"array","minItems":1,"items":{"type":"object","required":["task_key","agent","objective","completion_criteria","domain","skill_tags"],"properties":{
-    "task_key":{"type":"string","minLength":1},"agent":{"type":"string"},"objective":{"type":"string","minLength":1},
-    "depends_on":{"type":"array","items":{"type":"string"},"uniqueItems":true},
-    "scope_subset":{"type":"array","items":{"type":"string"},"uniqueItems":true},
-    "expected_outputs":{"type":"array","items":{"type":"string"}},
-    "completion_criteria":{"type":"array","minItems":1,"items":{"type":"string"}},
-    "constraints":{"type":"array","items":{"type":"string"}},
-    "domain":{"enum":["web","api","mobile","cloud","active_directory"]},
-    "skill_tags":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"uniqueItems":true},
-    "evidence_refs":{"type":"array","items":{"type":"string"},"uniqueItems":true},
-    "active_testing":{"type":"boolean","default":false},
-    "request_files":{"type":"array","maxItems":100,"items":{"type":"object","required":["path","sha256"],"properties":{
-      "path":{"type":"string","pattern":"^\\.local/requests/[A-Za-z0-9._-]+\\.json$"},
-      "sha256":{"type":"string","pattern":"^[a-fA-F0-9]{64}$"}
-    },"additionalProperties":false},"uniqueItems":true}
-  },"allOf":[
-    {"if":{"properties":{"active_testing":{"const":true}},"required":["active_testing"]},"then":{"properties":{"agent":{"enum":["active-testing-agent","recon-agent","enumeration-agent","vulnerability-agent","exploitation-agent","validation-agent"]},"scope_subset":{"type":"array","minItems":1}}}},
-    {"if":{"properties":{"agent":{"const":"active-testing-agent"}},"required":["agent"]},"then":{"properties":{"active_testing":{"const":true}}}}
-  ],"additionalProperties":false}}},"additionalProperties":false
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Orchestration Plan",
+  "type": "object",
+  "required": [
+    "tasks"
+  ],
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "task_key",
+          "agent",
+          "objective",
+          "completion_criteria",
+          "domain",
+          "skill_tags"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "scope_subset": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "expected_outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "completion_criteria": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "domain": {
+            "enum": [
+              "web",
+              "api",
+              "mobile",
+              "cloud",
+              "active_directory"
+            ]
+          },
+          "skill_tags": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "active_testing": {
+            "type": "boolean",
+            "default": false
+          },
+          "request_files": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^\\.local/requests/[A-Za-z0-9._-]+\\.json$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{64}$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "uniqueItems": true
+          },
+          "subsystem_inventory": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "required": [
+                "subsystem_id",
+                "name"
+              ],
+              "properties": {
+                "subsystem_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "surfaces": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "status": {
+                  "enum": [
+                    "not_assessed",
+                    "in_progress",
+                    "assessed",
+                    "blocked",
+                    "not_applicable"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "complexity": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "feature_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "active_testing": {
+                  "const": true
+                }
+              },
+              "required": [
+                "active_testing"
+              ]
+            },
+            "then": {
+              "properties": {
+                "agent": {
+                  "enum": [
+                    "active-testing-agent",
+                    "recon-agent",
+                    "enumeration-agent",
+                    "vulnerability-agent",
+                    "exploitation-agent",
+                    "validation-agent"
+                  ]
+                },
+                "scope_subset": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "agent": {
+                  "const": "active-testing-agent"
+                }
+              },
+              "required": [
+                "agent"
+              ]
+            },
+            "then": {
+              "properties": {
+                "active_testing": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
 }

@@ -14,6 +14,10 @@ from core.orchestration import ALLOWED_AGENTS, WorkflowError
 from core.evidence import EvidenceVault, EvidenceError
 from core.store import utc_now
 from scripts.skill_registry import load_registry, select_skills
+from core.subsystem_coverage import summarize_coverage, CoverageError
+from core.design_intent import assess_design_intent
+from core.model_router import select_model, ModelRoutingError
+from core.design_intent import assess_design_intent
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -214,6 +218,19 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
         "agent": row["agent"],
         **task_input,
     }
+    if task_input.get("subsystem_inventory"):
+        try:
+            task["subsystem_coverage"] = summarize_coverage(task_input["subsystem_inventory"])
+        except CoverageError as exc:
+            raise DispatchError("Invalid subsystem inventory: " + str(exc)) from exc
+    if task_input.get("feature_key"):
+        try:
+            task["design_intent_context"] = assess_design_intent({
+                "asset": task_input.get("asset") or (task_input.get("scope_subset") or [None])[0],
+                "feature_key": task_input["feature_key"],
+            }, rules.get("expected_behavior_registry", []))
+        except Exception as exc:
+            raise DispatchError("Invalid operator expected-behavior registry: " + str(exc)) from exc
     engagement = {
         "authorization_reference": row["authorization_reference"],
         "scope": json.loads(row["scope_json"]),
@@ -414,76 +431,116 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
 
 def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
                   timeout_seconds=180):
-    """Drain every runnable branch; block only descendants of incomplete tasks.
+    """Drain runnable DAG work, refreshing persisted tasks after every handoff.
 
-    A human/operator gate in one branch must not prevent unrelated queued work
-    from completing. Failed/partial tasks are never replayed automatically:
-    active requests may already have consumed budget or produced side effects.
+    Adaptive follow-ups are passive-only and bounded by Workflow. Framework QA
+    is intentionally never scheduled as an engagement task.
     """
-    rows = workflow.store.connection.execute(
-        """SELECT task_id,status,input_json FROM tasks
-           WHERE engagement_id=? ORDER BY rowid""", (engagement_id,)
-    ).fetchall()
-    tasks = []
-    for row in rows:
-        item = json.loads(row["input_json"])
-        task_key = item.get("task_key")
-        if not isinstance(task_key, str) or not task_key:
-            raise DispatchError("Task plan contains a missing task_key")
-        tasks.append({
-            "task_id": row["task_id"], "status": row["status"],
-            "task_key": task_key, "depends_on": item.get("depends_on", []),
-        })
-    by_key = {item["task_key"]: item for item in tasks}
-    if len(by_key) != len(tasks):
-        raise DispatchError("Task plan contains duplicate task keys")
-
     results = []
-    # Keep draining the DAG. A blocked branch does not stop independent branches.
+    processed = set()
+    engagement_row = workflow.store.connection.execute(
+        "SELECT rules_json FROM engagements WHERE engagement_id=?", (engagement_id,)
+    ).fetchone()
+    routing_policy = json.loads(engagement_row["rules_json"]).get("model_routing", {}) if engagement_row else {}
+    try:
+        primary_route = select_model({}, model, routing_policy)
+    except ModelRoutingError as exc:
+        raise DispatchError("Invalid model routing policy: " + str(exc)) from exc
+    primary_model = primary_route["model"]
     while True:
-        remaining = [item for item in tasks if item["status"] == "queued"]
-        ready = [
-            item for item in remaining
-            if all(by_key.get(dep, {}).get("status") == "completed"
-                   for dep in item["depends_on"])
-        ]
+        rows = workflow.store.connection.execute(
+            """SELECT task_id,status,input_json FROM tasks
+               WHERE engagement_id=? ORDER BY rowid""", (engagement_id,)
+        ).fetchall()
+        tasks = []
+        for row in rows:
+            item = json.loads(row["input_json"])
+            key = item.get("task_key")
+            if not isinstance(key, str) or not key:
+                raise DispatchError("Task plan contains a missing task_key")
+            tasks.append({"task_id": row["task_id"], "status": row["status"],
+                          "task_key": key, "depends_on": item.get("depends_on", [])})
+        by_key = {item["task_key"]: item for item in tasks}
+        if len(by_key) != len(tasks):
+            raise DispatchError("Task plan contains duplicate task keys")
+        remaining = [item for item in tasks
+                     if item["status"] == "queued" and item["task_id"] not in processed]
+        ready = [item for item in remaining
+                 if all(by_key.get(dep, {}).get("status") == "completed"
+                        for dep in item["depends_on"])]
         if not ready:
             break
         for item in ready:
+            processed.add(item["task_id"])
+            task_row = workflow.store.connection.execute(
+                "SELECT input_json FROM tasks WHERE task_id=?", (item["task_id"],)
+            ).fetchone()
+            task_data = json.loads(task_row["input_json"])
+            task_trigger = "high_complexity" if task_data.get("complexity") == "high" else None
             try:
-                result = dispatch_task(
-                    workflow, item["task_id"], model, claude_bin, timeout_seconds
-                )
+                task_route = select_model(task_data, primary_model, routing_policy,
+                                           attempt=0, trigger=task_trigger)
+            except ModelRoutingError as exc:
+                raise DispatchError("Invalid task model route: " + str(exc)) from exc
+            task_model = task_route["model"]
+            if task_route["tier"] == "escalation":
+                workflow.store.append_audit(engagement_id, "model-router", "model.escalated",
+                    {"task_id": item["task_id"], "model": task_model,
+                     "reason": task_route["reason"], "attempt": task_route["attempt"]})
+            try:
+                result = dispatch_task(workflow, item["task_id"], task_model,
+                                       claude_bin, timeout_seconds)
+                result["model_route"] = task_route
             except DispatchError as exc:
-                # dispatch_task persists failed state after launch. If preflight failed
-                # before task start, persist the failure here so it is not silently retried.
                 current = workflow.store.connection.execute(
-                    "SELECT status FROM tasks WHERE task_id=?", (item["task_id"],)
+                    "SELECT t.status,t.input_json FROM tasks t WHERE t.task_id=?", (item["task_id"],)
                 ).fetchone()
-                if current and current["status"] == "queued":
-                    workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
-                result = {
-                    "task_id": item["task_id"], "task_key": item["task_key"],
-                    "status": "failed", "error": str(exc),
-                }
+                task_input = json.loads(current["input_json"]) if current else {}
+                retry_model = None
+                trigger = "invalid_output" if any(token in str(exc).lower()
+                    for token in ("json", "handoff", "schema", "invalid result")) else None
+                if current and current["status"] == "failed" and task_input.get("active_testing") is not True:
+                    try:
+                        route = select_model(task_input, task_model, routing_policy,
+                                             attempt=1, trigger=trigger)
+                        if route["tier"] == "escalation" and route["model"] != task_model:
+                            retry_model = route["model"]
+                    except ModelRoutingError:
+                        retry_model = None
+                if retry_model:
+                    workflow.store.update_task(item["task_id"], "queued", {"retry_reason": trigger})
+                    try:
+                        result = dispatch_task(workflow, item["task_id"], retry_model,
+                                               claude_bin, timeout_seconds)
+                        result["model_route"] = {"model": retry_model, "tier": "escalation",
+                                                 "reason": trigger, "attempt": 1}
+                    except DispatchError as retry_exc:
+                        result = {"task_id": item["task_id"], "task_key": item["task_key"],
+                                  "status": "failed", "error": str(retry_exc),
+                                  "model_route": {"model": retry_model, "tier": "escalation",
+                                                  "reason": trigger, "attempt": 1}}
+                else:
+                    if current and current["status"] == "queued":
+                        workflow.store.update_task(item["task_id"], "failed", {"error": str(exc)})
+                    result = {"task_id": item["task_id"], "task_key": item["task_key"],
+                              "status": "failed", "error": str(exc),
+                              "model_route": primary_route}
             results.append(result)
-            item["status"] = result.get("status", "failed")
+        # Reload at the top of the loop so newly enqueued follow-ups are visible.
 
     final = workflow.status(engagement_id)
     final_by_key = {row["task_key"]: row["status"] for row in final["tasks"]}
-    queued = [
-        item["task_key"] for item in tasks
-        if final_by_key.get(item["task_key"]) == "queued"
-    ]
-    blocked = [
-        item["task_key"] for item in tasks
-        if final_by_key.get(item["task_key"]) in {"blocked", "needs_operator", "failed"}
-    ]
-    dependency_blocked = [
-        item["task_key"] for item in tasks
-        if final_by_key.get(item["task_key"]) == "queued"
-        and any(final_by_key.get(dep) != "completed" for dep in item["depends_on"])
-    ]
+    all_inputs = workflow.store.connection.execute(
+        "SELECT input_json FROM tasks WHERE engagement_id=?", (engagement_id,)
+    ).fetchall()
+    dependency_map = {data.get("task_key"): data.get("depends_on", [])
+                      for data in (json.loads(row["input_json"]) for row in all_inputs)}
+    queued = [key for key, status in final_by_key.items() if status == "queued"]
+    blocked = [key for key, status in final_by_key.items()
+               if status in {"blocked", "needs_operator", "failed"}]
+    dependency_blocked = [key for key in queued
+                          if any(final_by_key.get(dep) != "completed"
+                                 for dep in dependency_map.get(key, []))]
     statuses = set(final_by_key.values())
     if statuses and statuses == {"completed"}:
         status = "completed"
@@ -493,12 +550,7 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
         status = "failed"
     else:
         status = "incomplete"
-    return {
-        "engagement_id": engagement_id,
-        "status": status,
-        "results": results,
-        "remaining_task_keys": queued,
-        "blocked_task_keys": blocked,
-        "dependency_blocked_task_keys": dependency_blocked,
-        "workflow_status": final,
-    }
+    return {"engagement_id": engagement_id, "status": status, "results": results,
+            "remaining_task_keys": queued, "blocked_task_keys": blocked,
+            "dependency_blocked_task_keys": dependency_blocked,
+            "workflow_status": final}

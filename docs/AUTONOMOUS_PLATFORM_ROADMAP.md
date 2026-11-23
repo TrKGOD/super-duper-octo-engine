@@ -138,3 +138,11 @@ Report per-class and aggregate precision/recall/F1, false-positive rate, evidenc
 - `production_ready`: security review, operational isolation, recovery, audit and deployment controls independently assessed.
 
 Never promote a capability based only on unit tests, static checks, agent prompt text or a successful plan-generation run.
+
+## Six engineering practices from field guidance — implementation status
+- **Evidence-first hypotheses:** handoffs with hypotheses now require structured claims tied to registered, SHA-256-verified evidence. SAST/DAST evidence type expectations are defined in `core/evidence_contracts.py`.
+- **Adversarial validation:** `core/adversarial_validation.py` defines a bounded, per-claim disproof protocol. The validation agent instructions require all claims to be addressed and prevent "couldn't reproduce" from being treated as proof of absence.
+- **Subsystem breadth:** plans can carry an operator-supplied subsystem inventory; handoffs can report evidence-linked updates. Coverage is persisted in audit events and can be summarized with `summarize_engagement_coverage`. Coverage is inventory progress, not a guarantee of exhaustive testing.
+- **Intent versus vulnerability:** an operator-authored expected-behavior registry can be supplied in engagement rules. Matching findings are marked for design review, never auto-suppressed.
+- **Model escalation:** `core/model_router.py` supports a configured primary and one escalation model. Dispatcher retries only passive tasks after recognized invalid-output failures; active tasks are never automatically replayed.
+- **Docker isolation:** not part of this implementation batch; it remains a separate security-critical gate. HTTP broker and command guard are not a sandbox.
