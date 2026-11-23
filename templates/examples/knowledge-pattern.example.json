@@ -1,0 +1,14 @@
+{
+  "pattern_id":"PATTERN-EXAMPLE-001",
+  "document_id":"KB-0123456789ABCDEF",
+  "vulnerability_type":"Broken Object Level Authorization",
+  "root_cause":"The API checks that a user is authenticated but does not verify ownership or authorization for the requested object.",
+  "preconditions":["Two synthetic test identities","A test object owned by the second identity"],
+  "reproduction_summary":"In an authorized lab, compare access to the same synthetic object using two separately provisioned test identities.",
+  "evidence_summary":"The source write-up describes an authenticated request returning an object belonging to another test identity.",
+  "impact":"Unauthorized read or modification of another tenant's object, depending on the affected operation.",
+  "remediation":"Enforce object-level authorization server-side on every request and test tenant boundaries.",
+  "false_positives":["The object may intentionally be shared","The test identities may belong to the same authorized tenant"],
+  "confidence":"medium",
+  "source_spans":["Sections describing the authorization check and observed response"]
+}

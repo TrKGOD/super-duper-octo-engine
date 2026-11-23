@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Knowledge Base Document Metadata",
+  "type":"object",
+  "required":["title","platform","source_url","disclosure_status","rights_basis","collected_at","content_type","tags"],
+  "properties":{
+    "title":{"type":"string","minLength":1},"platform":{"type":"string","minLength":1},
+    "source_url":{"type":"string","format":"uri"},"disclosure_status":{"const":"public"},
+    "rights_basis":{"type":"string","minLength":8},"collected_at":{"type":"string","format":"date-time"},
+    "published_at":{"type":["string","null"],"format":"date-time"},
+    "content_type":{"enum":["full_report","public_writeup","research_summary","advisory","case_study"]},
+    "vulnerability_types":{"type":"array","items":{"type":"string"}},
+    "technologies":{"type":"array","items":{"type":"string"}},
+    "asset_types":{"type":"array","items":{"enum":["web","api","mobile","cloud","active_directory","infrastructure","other"]}},
+    "tags":{"type":"array","items":{"type":"string"}},
+    "author":{"type":["string","null"]},"license":{"type":["string","null"]},"notes":{"type":["string","null"]}
+  },"additionalProperties":false
+}

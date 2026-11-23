@@ -2,49 +2,30 @@
 
 A Claude Code–first, evidence-driven multi-agent framework for authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> Status: early implementation. Includes deterministic finding validation, SQLite persistence, a workflow runner for plans/tasks/handoffs, evidence contracts, a local public-write-up knowledge base, audit events, migrations, CI and Gitleaks configuration. Claude Code still performs agent dispatch; this is not a production autonomous scanner.
+> Status: early implementation. Includes deterministic finding validation, SQLite persistence, evidence contracts, a local public-write-up knowledge base, structured vulnerability patterns, audit events, CI and Gitleaks configuration. Claude Code still performs agent dispatch; this is not a production autonomous scanner.
 
-## Implemented components
-- `core/validation.py` enforces independent validation and evidence requirements.
-- `core/store.py` persists engagements, tasks, linked agent runs, findings and audit events.
-- `core/orchestration.py` validates task graphs, exact scope subsets, dependencies and handoffs.
-- `scripts/workflow.py` is the CLI used by the orchestrator to persist lifecycle transitions and findings.
-- `scripts/knowledge_base.py` ingests operator-curated public Markdown/text write-ups into a local SQLite FTS index and supports search/show.
-- `scripts/migrate.py` applies ordered SQLite migrations.
-- `scripts/validate_contracts.py` validates finding, handoff, plan, evidence and knowledge-document schemas/examples.
-- `.github/workflows/ci.yml` runs config checks, migrations, unit tests and contract validation.
-- `.pre-commit-config.yaml` configures Gitleaks.
-
-## Quick start
-Requirements: Claude Code, Python 3.11+, Git.
+## Knowledge base
+- `scripts/kb_sources.py` discovers candidate research URLs from configured public RSS/Atom feeds; metadata only, no article-body scraping.
+- `scripts/knowledge_base.py` ingests operator-reviewed Markdown/text and searches source documents plus normalized vulnerability patterns.
+- `templates/knowledge-document.schema.json` and `templates/knowledge-pattern.schema.json` define provenance and structured extraction contracts.
+- See `docs/KNOWLEDGE_BASE.md` for disclosure, licensing, ingestion, and agent retrieval rules.
 
 ```bash
-git clone https://github.com/TrKGOD/super-duper-octo-engine.git
-cd super-duper-octo-engine
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-python scripts/validate_config.py
-python scripts/migrate.py --db .local/state.sqlite3
-python -m unittest discover -s tests -v
-python scripts/validate_contracts.py
-pre-commit install
-claude
-```
-
-Initialize the knowledge base and add a public report with a metadata sidecar:
-
-```bash
+python scripts/kb_sources.py --config config/knowledge-sources.example.json
 python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 init
-python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 ingest --file .local/knowledge-base-inbox/example.md --metadata .local/knowledge-base-inbox/example.meta.json
-python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search --query "API IDOR authorization" --limit 5
+python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search --query "API authorization IDOR"
+python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "BOLA object authorization"
 ```
 
-Only ingest material explicitly disclosed for public use and with a documented rights basis. The importer does not scrape websites, bypass access controls, or access private platform APIs. See `docs/KNOWLEDGE_BASE.md` and `knowledge-base/README.md`.
+Only explicitly public material with a documented rights basis may be ingested. Platform-specific reports require confirmation of the exact report's disclosure status and permitted use. The adapters do not access private APIs or bypass disclosure controls.
 
-Create config/engagement.local.json from config/engagement.example.json, keep execution_enabled=false, then ask the orchestrator to initialize the engagement and build a plan. See docs/ORCHESTRATOR_RUNTIME.md.
+## Core
+- `core/validation.py` enforces independent finding validation.
+- `core/store.py` persists engagements, tasks, runs, findings and audit events.
+- `core/orchestration.py` validates plans, scope subsets, dependencies and handoffs.
+- `scripts/workflow.py` persists lifecycle transitions.
+- `scripts/validate_contracts.py` validates schemas and examples.
+- `.github/workflows/ci.yml` runs unit tests and contract validation.
 
 ## Safety and limitations
-The runner does not verify authorization documents, make network requests, execute tools or spawn agents. Claude Code dispatches subagents and submits their structured handoffs. The bootstrap rejects active-testing plans and requires execution_enabled=false. It enforces exact allowlisted scope subsets at task/handoff level, not at a network boundary.
-
-The Bash hook allows narrowly enumerated local workflow commands and read-only knowledge-base searches while execution is disabled. Knowledge-base ingestion is operator-driven. The hook is defense-in-depth, not a sandbox. External process isolation and egress restrictions remain necessary. Keep .local/, local engagement configs, databases, evidence, credentials and handoffs out of Git.
+The runner does not verify authorization documents, make network requests, execute scanners or spawn agents. The bootstrap rejects active-testing plans and requires `execution_enabled=false`. The RSS adapter is an operator-run research discovery utility, not a target scanner. Keep `.local/`, source documents, engagement evidence, credentials and client data out of Git.

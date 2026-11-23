@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Normalized Vulnerability Knowledge Pattern",
+  "type":"object",
+  "required":["pattern_id","document_id","vulnerability_type","root_cause","preconditions","reproduction_summary","evidence_summary","impact","remediation","false_positives","confidence","source_spans"],
+  "properties":{
+    "pattern_id":{"type":"string","minLength":3},
+    "document_id":{"type":"string","pattern":"^KB-[A-F0-9]{16}$"},
+    "vulnerability_type":{"type":"string","minLength":2},
+    "root_cause":{"type":"string","minLength":10},
+    "preconditions":{"type":"array","items":{"type":"string"}},
+    "reproduction_summary":{"type":"string","minLength":10},
+    "evidence_summary":{"type":"string","minLength":5},
+    "impact":{"type":"string","minLength":5},
+    "remediation":{"type":"string","minLength":5},
+    "false_positives":{"type":"array","items":{"type":"string"}},
+    "confidence":{"enum":["low","medium","high"]},
+    "source_spans":{"type":"array","items":{"type":"string"}}
+  },
+  "additionalProperties":false
+}
