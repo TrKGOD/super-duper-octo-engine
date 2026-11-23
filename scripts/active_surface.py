@@ -119,7 +119,7 @@ def _headers_map(headers):
 
 def _parse_allowed_methods(value):
     """Parse Allow/CORS method lists as tokens, never individual characters."""
-    return sorted({item.upper() for item in re.split(r"[,\\s]+", str(value or "")) if item})
+    return sorted({item.upper() for item in re.split(r"[,\s]+", str(value or "")) if item})
 
 
 
