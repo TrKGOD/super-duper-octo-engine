@@ -422,7 +422,9 @@
         "evidence-capture"
       ],
       "compatible_agents": [
-        "active-testing-agent"
+        "active-testing-agent",
+        "exploitation-agent",
+        "validation-agent"
       ],
       "prerequisites": [
         "active engagement with operator attestation",
