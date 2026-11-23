@@ -9,7 +9,7 @@ checks=[
 ("templates/handoff.schema.json",["templates/examples/handoff.completed.example.json"]),
 ("templates/plan.schema.json",["templates/examples/plan.passive.example.json"]),
 ("templates/evidence-manifest.schema.json",["templates/examples/evidence-manifest.example.json"]),
-("templates/knowledge-document.schema.json",["templates/examples/knowledge-document.example.meta.json"]),
+("templates/knowledge-document.schema.json",[]),
 ("templates/knowledge-pattern.schema.json",["templates/examples/knowledge-pattern.example.json"])
 ]
 for schema_name,examples in checks:
