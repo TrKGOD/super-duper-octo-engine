@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-MOBILE-NEG-021",
+  "kind": "synthetic",
+  "description": "An Android lab app stores a short-lived synthetic token using platform-backed encrypted storage and excludes the relevant data from backup; no plaintext token is present in captured artifacts.",
+  "expected_finding": false,
+  "vulnerability_type": "MOBILE_INSECURE_STORAGE",
+  "required_evidence": [
+    "platform",
+    "storage_location",
+    "protection_state",
+    "backup_behavior",
+    "evidence_scope"
+  ],
+  "tags": [
+    "synthetic",
+    "mobile_insecure_storage",
+    "negative"
+  ],
+  "fixtures": {
+    "platform": "Android lab build",
+    "storage_location": "Android Keystore-backed encrypted preferences",
+    "protection_state": "encrypted at rest",
+    "backup_behavior": "sensitive preference excluded",
+    "evidence_scope": "static and lab runtime capture; no plaintext token observed"
+  }
+}
