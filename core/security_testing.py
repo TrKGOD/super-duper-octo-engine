@@ -237,7 +237,7 @@ def validate_scoped_callback_url(callback_url: str, scope: dict) -> str:
     host = parsed.hostname.lower().rstrip(".")
     def matches(entry):
         entry = str(entry).lower().rstrip(".")
-        return host == entry or (entry.startswith("*.") and host.endswith("." + entry[1:]) and host != entry[2:])
+        return host == entry or (entry.startswith("*.") and host.endswith("." + entry[2:]) and host != entry[2:])
     allowed = any(matches(item) for item in scope.get("allowed_domains", []))
     if not allowed:
         raise ActiveExecutionError("SSRF callback host must be explicitly listed in engagement allowed_domains")
