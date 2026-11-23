@@ -232,6 +232,7 @@ def _active_surface_is_approved(args, config):
             return False
         return bool(
             engagement["status"] == "active"
+            and rules.get("execution_mode", "active") == "active"
             and rules.get("execution_enabled") is True
             and rules.get("authorization_verified") is True
             and task["agent"] in {"recon-agent", "enumeration-agent", "vulnerability-agent", "active-testing-agent"}
