@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-IDOR-NEG-004",
+  "kind": "synthetic",
+  "description": "Changing an invoice identifier returns a consistent authorization denial; no object data is disclosed.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "request_identity",
+    "object_owner_identity",
+    "authorization_decision",
+    "response_observation"
+  ],
+  "tags": [
+    "web",
+    "idor",
+    "negative"
+  ],
+  "fixtures": {
+    "request_identity": "test-user-B",
+    "object_owner_identity": "test-user-A",
+    "authorization_decision": "403 before object serialization",
+    "response_observation": "no invoice fields disclosed"
+  }
+}
