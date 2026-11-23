@@ -476,8 +476,7 @@
         "cors",
         "passive-recon",
         "asset-inventory",
-        "routes",
-        "same-origin-crawling"
+        "routes"
       ],
       "compatible_agents": [
         "recon-agent",
