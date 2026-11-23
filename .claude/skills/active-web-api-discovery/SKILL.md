@@ -1,3 +1,8 @@
+---
+name: active-web-api-surface-discovery
+description: Bounded, authorized same-origin Web/API reconnaissance, crawling, endpoint discovery, static JavaScript analysis and low-impact HTTP checks.
+---
+
 # Active Web/API surface discovery
 
 ## Purpose
