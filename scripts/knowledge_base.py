@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 DEFAULT_DB=Path(".local/knowledge-base.sqlite3")
 MAX_BYTES=2_000_000
 TEXT_EXTS={".md",".txt"}
-DOMAIN_BY_PREFIX={"WEB":"web","MOB":"mobile","CLOUD":"cloud","AD":"active_directory"}
+DOMAIN_BY_PREFIX={"WEB":"web","API":"api","MOB":"mobile","CLOUD":"cloud","AD":"active_directory"}
 
 def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00","Z")
@@ -175,7 +175,7 @@ def _parse_seed_card(block):
     if missing: raise ValueError(f"{pattern_id} is missing fields: {', '.join(missing)}")
     prefix=pattern_id.split("-",1)[0]
     domain=DOMAIN_BY_PREFIX.get(prefix,"other")
-    asset_type={"web":["web"],"mobile":["mobile"],"cloud":["cloud"],"active_directory":["active_directory"]}.get(domain,["api"] if "API" in title else ["other"])
+    asset_type={"web":["web"],"api":["api"],"mobile":["mobile"],"cloud":["cloud"],"active_directory":["active_directory"]}.get(domain,["api"] if "API" in title else ["other"])
     tags=[domain,prefix.lower(),*(["api"] if pattern_id in {"WEB-001","WEB-002","WEB-004","WEB-005"} else []),*re.findall(r"[a-z0-9]+",title.lower())[:8]]
     return {"pattern_id":pattern_id,"title":title,"domain":domain,"tags":sorted(set(tags)),
       "vulnerability_type":title,"root_cause":fields["root_cause"],
