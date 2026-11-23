@@ -72,6 +72,9 @@ class CommandGuardTests(unittest.TestCase):
         self.assertEqual(passive_framing_args(command), {"input": ".local/http-capture.json"})
         self.assertFalse(allowed_argv(command[:-1] + ["/etc/passwd"]))
         self.assertFalse(allowed_argv(command[:-1] + ["../capture.json"]))
+        race = ["python3", "scripts/analyze_race_capture.py", "--input", ".local/race-capture.json"]
+        self.assertTrue(allowed_argv(race))
+        self.assertFalse(allowed_argv(race[:-1] + ["/tmp/race.json"]))
 
 
     def test_per_engagement_database_paths_are_strictly_mapped(self):
