@@ -33,6 +33,11 @@ def review_finding(store, vault, finding_id, review):
         except (EvidenceError, OSError) as exc:
             raise FindingReviewError("Evidence integrity check failed: " + ref) from exc
         evidence.append(dict(item))
+    verified_refs = {ref for ref, valid in integrity.items() if valid}
+    for claim_result in review.get("claim_results", []):
+        cited = set(claim_result.get("evidence_refs", []))
+        if not cited or not cited <= verified_refs:
+            raise FindingReviewError("Each review disposition must cite evidence verified for this engagement")
     try:
         readiness = validate_evidence_contract(contract, evidence, integrity)
         decision = evaluate_review({**finding, "evidence_contract": contract}, review)
