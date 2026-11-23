@@ -1,40 +1,64 @@
 # Pentest Agent Framework
 
-A Claude Code–first, evidence-driven multi-agent framework for authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
+A Claude Code–first scaffold for an evidence-driven assistant supporting authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> Status: early implementation. Includes deterministic finding validation, SQLite persistence, evidence contracts, a local public-write-up knowledge base, structured vulnerability patterns, audit events, CI and Gitleaks configuration. Claude Code still performs agent dispatch; this is not a production autonomous scanner.
+> **Current status: pre-alpha scaffold.** The repository contains agent/skill prompt contracts, JSON/SQL schemas, a configuration validator, a deny-by-default Bash hook, a local public-research knowledge-base utility, and a synthetic benchmark evaluator. It is **not** a production autonomous pentest framework. The executable state engine, lifecycle enforcement, independent finding validator, and runtime orchestration are not implemented.
 
-## Knowledge base
-- `scripts/kb_sources.py` discovers candidate research URLs from configured public RSS/Atom feeds; metadata only, no article-body scraping.
-- `scripts/knowledge_base.py` ingests operator-reviewed Markdown/text and searches source documents plus normalized vulnerability patterns.
-- `templates/knowledge-document.schema.json` and `templates/knowledge-pattern.schema.json` define provenance and structured extraction contracts.
-- See `docs/KNOWLEDGE_BASE.md` for disclosure, licensing, ingestion, and agent retrieval rules.
+## What is implemented
+
+- `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
+- `hooks/command_guard.py`: narrow local-command allowlist/tripwire. It is not a sandbox or an authorization verifier.
+- `database/schema.sql`: SQLite DDL contract only; no application persistence layer currently consumes it.
+- `scripts/knowledge_base.py` and `scripts/kb_sources.py`: operator-run local research ingestion/search and public RSS/Atom metadata discovery. They do not validate findings on a live target.
+- `scripts/evaluate_benchmark.py`: computes metrics from supplied predictions against synthetic fixtures; it does not run or benchmark agents automatically.
+- `templates/`: data contracts; schemas are not runtime enforcement unless a validator explicitly loads them.
+- `.pre-commit-config.yaml`: Gitleaks pre-commit hook configuration.
+
+## Local checks
 
 ```bash
-python scripts/kb_sources.py --config config/knowledge-sources.example.json
-python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 init
-python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search --query "API authorization IDOR"
-python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "BOLA object authorization"
+python -m pip install -r requirements-dev.txt
+python scripts/validate_config.py
+python -m unittest discover -s tests -v
+python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
+pre-commit run --all-files
 ```
+
+## Engagement configuration and sensitive data
+
+Create a local copy of `config/engagement.example.json` as `config/engagement.local.json`. All `config/engagement.*.json` files are ignored by Git except the sanitized example. Verify with:
+
+```bash
+git check-ignore -v config/engagement.local.json
+git check-ignore -v config/engagement.client-name.json
+git check-ignore config/engagement.example.json
+```
+
+Never commit authorization references, client names, scope, contacts, credentials, screenshots, or engagement evidence. The ignore rule is defense-in-depth, not a substitute for reviewing `git status` and the staged diff before committing.
+
+## Knowledge base
+
+- `scripts/kb_sources.py` discovers candidate research URLs from configured public RSS/Atom feeds; metadata only, no article-body scraping.
+- `scripts/knowledge_base.py` ingests operator-reviewed Markdown/text and searches source documents plus normalized vulnerability patterns.
+- See `docs/KNOWLEDGE_BASE.md` for disclosure, licensing, ingestion, and retrieval rules.
 
 Only explicitly public material with a documented rights basis may be ingested. Platform-specific reports require confirmation of the exact report's disclosure status and permitted use. The adapters do not access private APIs or bypass disclosure controls.
 
-## Agent evaluation benchmark
+## Synthetic benchmark
+
 - `benchmarks/cases/` contains synthetic positive and negative fixtures only.
 - `scripts/evaluate_benchmark.py` reports precision, recall, F1, false-positive rate and evidence completeness from agent prediction JSON.
-- See `benchmarks/README.md` for the prediction contract and limitations. These fixture metrics are not a real-world model-quality claim.
+- These fixture metrics are not a real-world model-quality claim and do not measure agent performance unless predictions are generated by actual agent runs under controlled conditions.
 
-```bash
-python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
-```
+## Planned / not yet implemented
 
-## Core
-- `core/validation.py` enforces independent finding validation.
-- `core/store.py` persists engagements, tasks, runs, findings and audit events.
-- `core/orchestration.py` validates plans, scope subsets, dependencies and handoffs.
-- `scripts/workflow.py` persists lifecycle transitions.
-- `scripts/validate_contracts.py` validates schemas and examples.
-- `.github/workflows/ci.yml` runs unit tests and contract validation.
+- Executable `core/` state and orchestration layer.
+- SQLite repositories, migrations, transactional audit-event writer and crash recovery.
+- Enforced finding lifecycle and independent validation.
+- Runtime handoff production and schema validation.
+- Agent dispatch and least-privilege tool separation.
+- Automated Model 1 versus hybrid agent benchmark runs.
 
 ## Safety and limitations
-The runner does not verify authorization documents, make network requests, execute scanners or spawn agents. The bootstrap rejects active-testing plans and requires `execution_enabled=false`. The RSS adapter is an operator-run research discovery utility, not a target scanner. Keep `.local/`, source documents, engagement evidence, credentials and client data out of Git.
+
+The scaffold does not verify authorization documents, make network requests for pentest activity, execute scanners, or autonomously spawn agents. Active testing must remain disabled until authorization, scope enforcement, execution isolation, auditability and human approval controls are implemented and independently tested.
