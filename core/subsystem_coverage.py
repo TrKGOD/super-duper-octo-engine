@@ -38,3 +38,36 @@ def summarize_coverage(inventory):
                            if i.get("status", "not_assessed") in {"not_assessed", "in_progress"}],
             "blocked": [i["subsystem_id"] for i in inventory if i.get("status") == "blocked"],
             "warning": "Coverage measures inventory status, not proof that every vulnerability class was tested."}
+
+def apply_updates(inventory, updates):
+    """Apply evidence-linked updates to a validated inventory without inventing coverage."""
+    validate_inventory(inventory)
+    known = {item["subsystem_id"] for item in inventory}
+    result = [dict(item) for item in inventory]
+    by_id = {item["subsystem_id"]: item for item in result}
+    for update in updates:
+        if update.get("subsystem_id") not in known:
+            raise CoverageError("Update references an unknown subsystem")
+        if update.get("status") not in {"in_progress", "assessed", "blocked", "not_applicable"}:
+            raise CoverageError("Unsupported subsystem update status")
+        if update.get("status") == "assessed" and not update.get("evidence_refs"):
+            raise CoverageError("An assessed subsystem requires evidence references")
+        by_id[update["subsystem_id"]]["status"] = update["status"]
+        by_id[update["subsystem_id"]]["last_evidence_refs"] = list(update.get("evidence_refs", []))
+        if update.get("notes"):
+            by_id[update["subsystem_id"]]["assessment_notes"] = update["notes"]
+    return result
+
+
+def summarize_engagement_coverage(store, engagement_id, inventory):
+    """Fold the latest audited subsystem updates over an operator-supplied inventory."""
+    rows = store.connection.execute(
+        "SELECT details_json FROM audit_events WHERE engagement_id=? AND event_type='subsystem.coverage_updated' ORDER BY event_id",
+        (engagement_id,),
+    ).fetchall()
+    current = [dict(item) for item in inventory]
+    for row in rows:
+        import json
+        details = json.loads(row["details_json"])
+        current = apply_updates(current, details.get("updates", []))
+    return {"inventory": current, **summarize_coverage(current)}
