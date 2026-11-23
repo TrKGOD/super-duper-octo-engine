@@ -47,7 +47,7 @@ def main():
         "This is synthetic data only; do not use tools or network. "
         "Return JSON with keys smoke_test, agent, status, summary. "
         "Set smoke_test to true, agent to the requested agent name, status to "
-        "\\"completed\\" only if you can follow this instruction, and summary to a "
+        '"completed" only if you can follow this instruction, and summary to a '
         "short description. Do not claim any target was tested."
     )
     command = [
