@@ -206,6 +206,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
         visited, endpoints, inferred_endpoints, js_assets, findings, tech = set(), set(), set(), set(), [], {}
         evidence_refs = []
         page_count = 0
+        blocked_requests = 0
         while queue and page_count < max_pages:
             current, depth = queue.popleft()
             if current in visited:
@@ -214,6 +215,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             try:
                 result = _request(executor, engagement_id, task_id, current, "Same-origin page discovery and endpoint mapping")
             except ActiveExecutionError as exc:
+                blocked_requests += 1
                 findings.append({"type": "discovery-blocked", "url": current, "reason": str(exc)})
                 continue
             page_count += 1
@@ -295,6 +297,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                         inferred_endpoints.add(resolved)
                 js_results.append({"url": script_url, "status_code": js_result.get("status_code"), "route_count": len(routes), "indicators": indicators, "evidence_refs": js_result.get("evidence_refs", [])})
             except ActiveExecutionError as exc:
+                blocked_requests += 1
                 js_results.append({"url": script_url, "blocked": str(exc)})
         # One harmless CORS observation, never credentials or state changes.
         cors = None
@@ -304,6 +307,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                             "Read-only CORS policy observation using a non-credentialed synthetic Origin",
                             {"Origin": "https://pentest-agent.invalid"})
         except ActiveExecutionError as exc:
+            blocked_requests += 1
             cors = {"blocked": str(exc)}
         if cors and isinstance(cors, dict):
             evidence_refs.extend(cors.get("evidence_refs", []))
@@ -311,6 +315,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             options = _request(executor, engagement_id, task_id, target_url,
                                "Read-only HTTP OPTIONS capability observation", method="OPTIONS")
         except ActiveExecutionError as exc:
+            blocked_requests += 1
             options = {"blocked": str(exc)}
         if options and isinstance(options, dict):
             evidence_refs.extend(options.get("evidence_refs", []))
@@ -330,7 +335,8 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             elif allowed_origin == "*":
                 findings.append({"type": "cors-wildcard-origin", "url": target_url, "status": "configuration_observation_not_proof"})
         return {
-            "status": "completed" if page_count else "partial",
+            "status": "completed" if page_count and not blocked_requests else "partial",
+            "blocked_requests": blocked_requests,
             "target": target_url,
             "pages_fetched": page_count,
             "pages_seen": len(visited),
