@@ -107,7 +107,7 @@ class SecurityAnalysisTests(unittest.TestCase):
         pair = {"status": "comparison_completed",
                 "first_response": {"status_code": 200, "response_excerpt": "private-A",
                     "response_headers": {"Cache-Control": "private, no-store"}},
-                "second_response": {"status_code": 200, "response_excerpt": "private-A",
+                "second_response": {"status_code": 200, "response_excerpt": "private-B private-A",
                     "response_headers": {"Age": "2", "X-Cache": "HIT"}},
                 "evidence_refs": ["a", "b"]}
         result = analyze_cache_pair(pair, first_private_marker="private-A",
