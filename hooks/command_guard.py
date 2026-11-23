@@ -88,7 +88,7 @@ def active_http_args(argv):
 
 
 def active_surface_args(argv):
-    if len(argv) != 14 or argv[1] != "scripts/active_surface.py":
+    if len(argv) < 14 or argv[1] != "scripts/active_surface.py":
         return None
     if argv[2] != "--db" or not safe_db_argument(argv[3]):
         return None
@@ -101,6 +101,29 @@ def active_surface_args(argv):
     if argv[10] != "--max-pages" or not argv[11].isdigit() or not 1 <= int(argv[11]) <= 25:
         return None
     if argv[12] != "--max-depth" or not argv[13].isdigit() or not 0 <= int(argv[13]) <= 3:
+        return None
+    index = 14
+    seen_headers = set()
+    seen_ua = False
+    while index < len(argv):
+        if argv[index] == "--secret-header" and index + 1 < len(argv):
+            name, sep, env_name = argv[index + 1].partition("=")
+            if not sep or not re.fullmatch(r"[!#$%&'*+.^_|~0-9A-Za-z-]{1,64}", name):
+                return None
+            if not re.fullmatch(r"[A-Z_][A-Z0-9_]{0,63}", env_name) or name.lower() in seen_headers:
+                return None
+            if name.lower() in {"host", "content-length", "transfer-encoding", "connection"}:
+                return None
+            seen_headers.add(name.lower())
+            index += 2
+            continue
+        if argv[index] == "--user-agent" and index + 1 < len(argv) and not seen_ua:
+            value = argv[index + 1]
+            if not value or len(value) > 512 or "\r" in value or "\n" in value:
+                return None
+            seen_ua = True
+            index += 2
+            continue
         return None
     return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
 
