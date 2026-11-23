@@ -57,7 +57,9 @@ class EvidenceVault:
     ):
         """Persist already-collected bytes; caller is responsible for prior redaction."""
         engagement_id = self._safe_component(engagement_id, "engagement_id")
-        filename = self._safe_component(Path(filename).name, "filename")
+        if not isinstance(filename, str) or Path(filename).name != filename or "/" in filename or chr(92) in filename:
+            raise EvidenceError("filename must be a plain file name without path components")
+        filename = self._safe_component(filename, "filename")
         suffix = Path(filename).suffix.lower()
         if suffix not in _ALLOWED_SUFFIXES:
             raise EvidenceError("Unsupported evidence file extension: " + (suffix or "<none>"))
