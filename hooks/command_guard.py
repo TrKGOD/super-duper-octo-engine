@@ -60,10 +60,30 @@ def active_http_args(argv):
     return {"engagement_id": argv[5], "task_id": argv[7], "request_file": argv[9]}
 
 
+def active_surface_args(argv):
+    if len(argv) != 14 or argv[1] != "scripts/active_surface.py":
+        return None
+    if argv[2] != "--db" or argv[3] != DB:
+        return None
+    if argv[4] != "--engagement-id" or not argv[5]:
+        return None
+    if argv[6] != "--task-id" or not argv[7]:
+        return None
+    if argv[8] != "--target-url" or not argv[9].startswith(("http://", "https://")):
+        return None
+    if argv[10] != "--max-pages" or not argv[11].isdigit() or not 1 <= int(argv[11]) <= 25:
+        return None
+    if argv[12] != "--max-depth" or not argv[13].isdigit() or not 0 <= int(argv[13]) <= 3:
+        return None
+    return {"engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
+
+
 def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
+    if script == "scripts/active_surface.py":
+        return active_surface_args(argv) is not None
     if script == "scripts/active_http.py":
         return active_http_args(argv) is not None
     if script == "scripts/migrate.py":
@@ -123,7 +143,8 @@ def _active_request_is_approved(args, config):
         rules = json.loads(engagement["rules_json"])
         task_input = json.loads(task["input_json"])
         pinned = next(
-            (item for item in task_input.get("request_files", []) if item.get("path") == args["request_file"]),
+            (item for item in task_input.get("request_files", []) + task_input.get("generated_request_files", [])
+             if item.get("path") == args["request_file"]),
             None,
         )
         return bool(
@@ -131,10 +152,41 @@ def _active_request_is_approved(args, config):
             and rules.get("execution_mode", "active") == "active"
             and rules.get("execution_enabled") is True
             and rules.get("authorization_verified") is True
-            and task["agent"] == "active-testing-agent"
+            and task["agent"] in {"active-testing-agent", "exploitation-agent", "validation-agent", "recon-agent", "enumeration-agent", "vulnerability-agent"}
             and task["status"] == "running"
             and task_input.get("active_testing") is True
             and pinned and pinned.get("sha256") == manifest_hash
+        )
+    except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+
+def _active_surface_is_approved(args, config):
+    if not CONFIG.is_file() or config.get("engagement_id") != args["engagement_id"]:
+        return False
+    try:
+        with sqlite3.connect(ROOT / DB) as connection:
+            connection.row_factory = sqlite3.Row
+            engagement = connection.execute(
+                "SELECT status,rules_json,scope_json FROM engagements WHERE engagement_id=?",
+                (args["engagement_id"],),
+            ).fetchone()
+            task = connection.execute(
+                "SELECT agent,status,input_json FROM tasks WHERE task_id=? AND engagement_id=?",
+                (args["task_id"], args["engagement_id"]),
+            ).fetchone()
+        if not engagement or not task:
+            return False
+        rules = json.loads(engagement["rules_json"])
+        task_input = json.loads(task["input_json"])
+        return bool(
+            engagement["status"] == "active"
+            and rules.get("execution_enabled") is True
+            and rules.get("authorization_verified") is True
+            and task["agent"] in {"recon-agent", "enumeration-agent", "vulnerability-agent", "active-testing-agent"}
+            and task["status"] == "running"
+            and task_input.get("active_testing") is True
+            and task_input.get("scope_subset")
         )
     except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
         return False
@@ -161,9 +213,17 @@ def main():
     except Exception:
         deny("Invalid local engagement config.")
     active_args = active_http_args(argv)
+    surface_args = active_surface_args(argv)
     if active_args:
         if not _active_request_is_approved(active_args, engagement):
             deny("Active HTTP request is not authorized by the approved engagement, running task, and pinned manifest.")
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "permissionDecision": "allow",
+        }}))
+        return
+    if surface_args:
+        if not _active_surface_is_approved(surface_args, engagement):
+            deny("Surface discovery requires an active, explicitly approved engagement and running scoped discovery task.")
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PreToolUse", "permissionDecision": "allow",
         }}))
