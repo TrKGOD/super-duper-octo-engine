@@ -357,6 +357,8 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
         return {
             "task_id": task_id, "task_key": task_input.get("task_key"),
             "agent": row["agent"], "run_id": run_id, "status": handoff["status"],
+            "summary": handoff.get("summary", ""),
+            "limitations": handoff.get("limitations", []),
             "elapsed_seconds": elapsed, "input_tokens": input_tokens,
             "output_tokens": output_tokens, "cost_usd": cost,
             "selected_skills": [item["skill_id"] for item in skills],
