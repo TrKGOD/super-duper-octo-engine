@@ -172,7 +172,7 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
         "validation-agent(validation, skill_tags=[independent-review, http-read-only] when active), impact-analyst(impact), "
         "duplicate-checker(dedupe), reporting-agent(reporting), with each stage depending on the previous stage. "
         "The recon-agent task must set active_testing=true and run the complete bounded same-origin "
-        "scripts/active_surface.py workflow once; it may omit request_files because the runner generates SHA-256-pinned "
+        "scripts/active_surface.py workflow once per concrete, explicitly listed in-scope Web/API origin; never expand wildcard scope or guess subdomains. It may omit request_files because the runner generates SHA-256-pinned "
         "GET/OPTIONS manifests internally and executes them through the broker. The enumeration-agent and "
         "vulnerability-agent tasks should consume the recon evidence and remain passive (active_testing=false) to avoid "
         "duplicating network traffic; only create a separate active task for a clearly justified coverage gap. "
