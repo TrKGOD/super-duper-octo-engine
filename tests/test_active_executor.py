@@ -100,7 +100,7 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
         request.update(extra)
         return request
 
-    def _plan_and_start(self, request, scope_subset=None):
+    def _plan_and_start(self, request, scope_subset=None, agent="active-testing-agent", skill_tags=None):
         requests_dir = self.root / ".local" / "requests"
         requests_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = requests_dir / (request["request_id"] + ".json")
@@ -109,12 +109,12 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
         relative = ".local/requests/" + manifest_path.name
         created = self.workflow.create_plan(self.engagement_id, {"tasks": [{
             "task_key": "active-http-check",
-            "agent": "active-testing-agent",
+            "agent": agent,
             "objective": "Execute the operator-reviewed local HTTP manifest",
             "completion_criteria": ["Capture authentic HTTP evidence and return a handoff"],
             "scope_subset": scope_subset or ["127.0.0.1"],
             "domain": "web",
-            "skill_tags": ["http-read-only"],
+            "skill_tags": skill_tags or ["http-read-only"],
             "active_testing": True,
             "request_files": [{
                 "path": relative,
@@ -174,6 +174,32 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             "SELECT outcome,status_code FROM active_request_log WHERE request_id='req-local-001'"
         ).fetchone()
         self.assertEqual((log["outcome"], log["status_code"]), ("completed", 200))
+
+    def test_exploitation_agent_executes_only_its_pinned_read_only_reproduction(self):
+        self._approve()
+        task_id, manifest = self._plan_and_start(
+            self._request(request_id="req-exploit-001"),
+            agent="exploitation-agent",
+            skill_tags=["xss"],
+        )
+        result = ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
+            self.engagement_id, task_id, manifest
+        )
+        self.assertEqual(result["status_code"], 200)
+        self.assertEqual(len(result["evidence_refs"]), 2)
+
+    def test_validation_agent_can_capture_fresh_broker_evidence(self):
+        self._approve()
+        task_id, manifest = self._plan_and_start(
+            self._request(request_id="req-validator-001"),
+            agent="validation-agent",
+            skill_tags=["independent-review"],
+        )
+        result = ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
+            self.engagement_id, task_id, manifest
+        )
+        self.assertEqual(result["status_code"], 200)
+        self.assertEqual(len(result["evidence_refs"]), 2)
 
     def test_secret_headers_are_loaded_from_environment_and_redacted_in_evidence(self):
         self._approve()
