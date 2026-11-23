@@ -2,16 +2,18 @@
 
 A Claude Code–first scaffold for an evidence-driven assistant supporting authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> **Current status: pre-alpha scaffold.** The repository contains agent/skill prompt contracts, JSON/SQL schemas, a configuration validator, a deny-by-default Bash hook, a local public-research knowledge-base utility, and a synthetic benchmark evaluator. It is **not** a production autonomous pentest framework. The executable state engine, lifecycle enforcement, independent finding validator, and runtime orchestration are not implemented.
+> **Current status: early pre-alpha implementation.** The repository contains agent/skill prompt contracts, configuration validation, a deny-by-default Bash hook, a local public-research knowledge-base utility, a synthetic benchmark evaluator, SQLite persistence and migrations, deterministic task/finding lifecycle controls, evidence metadata records, audit events, and a passive-only workflow coordinator. It is **not** a production autonomous pentest framework and does not autonomously dispatch Claude agents or execute active tests.
 
 ## What is implemented
 
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
 - `hooks/command_guard.py`: narrow local-command allowlist/tripwire. It is not a sandbox or an authorization verifier.
-- `database/schema.sql`: SQLite DDL contract only; no application persistence layer currently consumes it.
+- `database/schema.sql` plus `database/migrations/`: SQLite baseline and ordered migrations consumed by `scripts/migrate.py`.
 - `scripts/knowledge_base.py` and `scripts/kb_sources.py`: operator-run local research ingestion/search and public RSS/Atom metadata discovery. They do not validate findings on a live target.
 - `scripts/evaluate_benchmark.py`: computes metrics from supplied predictions against synthetic fixtures; it does not run or benchmark agents automatically.
-- `templates/`: data contracts; schemas are not runtime enforcement unless a validator explicitly loads them.
+- `core/store.py`: SQLite persistence for engagements, tasks, agent runs, findings, evidence metadata, and audit events. Finding transitions are transactional and evidence references must resolve to records in the same engagement.
+- `core/orchestration.py`: deterministic passive workflow coordinator with plan, dependency, scope-subset, and handoff checks. Handoffs must reference persisted evidence records.
+- `templates/`: JSON data contracts; handoff and plan schemas are loaded by the workflow validator.
 - `.pre-commit-config.yaml`: Gitleaks pre-commit hook configuration.
 
 ## Local checks
@@ -52,11 +54,10 @@ Only explicitly public material with a documented rights basis may be ingested. 
 
 ## Planned / not yet implemented
 
-- Executable `core/` state and orchestration layer.
-- SQLite repositories, migrations, transactional audit-event writer and crash recovery.
-- Enforced finding lifecycle and independent validation.
-- Runtime handoff production and schema validation.
-- Agent dispatch and least-privilege tool separation.
+- Claude Code agent dispatch and least-privilege tool separation.
+- Handoff generation by live agents (the current coordinator validates submitted handoffs but does not generate them).
+- Evidence file ingestion, content hashing at capture time, redaction pipeline, and artifact retention controls.
+- Crash recovery and robust concurrent multi-process orchestration.
 - Automated Model 1 versus hybrid agent benchmark runs.
 
 ## Safety and limitations
