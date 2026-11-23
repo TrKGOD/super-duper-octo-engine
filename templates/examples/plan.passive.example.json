@@ -1,0 +1,6 @@
+{
+  "tasks":[
+    {"task_key":"recon-passive","agent":"recon-agent","objective":"Normalize supplied in-scope asset inventory and technology evidence.","depends_on":[],"scope_subset":["app.example.test"],"expected_outputs":["asset inventory","technology indicators","evidence references"],"completion_criteria":["Every observation has a source reference","No live network requests are sent"],"constraints":["passive analysis only","use operator-supplied artifacts"]},
+    {"task_key":"enumerate-artifacts","agent":"enumeration-agent","objective":"Map routes and API operations from supplied captures and specifications.","depends_on":["recon-passive"],"scope_subset":["app.example.test"],"expected_outputs":["endpoint inventory","auth-context matrix"],"completion_criteria":["Direct and inferred routes are distinguished","Every route has an evidence reference"],"constraints":["passive analysis only","no network requests"]}
+  ]
+}

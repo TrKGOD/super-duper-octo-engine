@@ -28,3 +28,7 @@ local/
 *.p12
 *.pfx
 secrets/
+
+.local/
+*.sqlite
+*.sqlite3
