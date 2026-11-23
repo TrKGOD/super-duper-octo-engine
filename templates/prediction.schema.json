@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Benchmark Prediction Output",
+  "type": "object",
+  "required": [
+    "predictions"
+  ],
+  "properties": {
+    "predictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "detected",
+          "evidence_fields"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "vulnerability_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
