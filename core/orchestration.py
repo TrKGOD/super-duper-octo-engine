@@ -10,6 +10,8 @@ from core.execution_policy import validate_execution_limits
 from scripts.skill_registry import load_registry, select_skills
 from core.evidence_contracts import validate_evidence_contract, EvidenceContractError
 from core.subsystem_coverage import validate_inventory, CoverageError
+from core.design_intent import validate_design_registry, DesignIntentError
+from core.model_router import validate_policy, ModelRoutingError
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
