@@ -473,7 +473,11 @@
         "endpoint-discovery",
         "javascript-analysis",
         "security-headers",
-        "cors"
+        "cors",
+        "passive-recon",
+        "asset-inventory",
+        "routes",
+        "same-origin-crawling"
       ],
       "compatible_agents": [
         "recon-agent",
