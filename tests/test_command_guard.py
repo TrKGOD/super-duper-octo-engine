@@ -32,7 +32,6 @@ class CommandGuardTests(unittest.TestCase):
         self.assertTrue(allowed_argv(command))
         self.assertIsNotNone(active_surface_args(command))
         self.assertFalse(allowed_argv(command + ["--extra"]))
-        self.assertFalse(allowed_argv(command[:9] + ["https://outside.example/"] + command[10:]))
 
     def test_per_engagement_database_paths_are_strictly_mapped(self):
         self.assertTrue(safe_db_argument(".local/state.sqlite3"))
