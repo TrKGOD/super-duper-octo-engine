@@ -29,6 +29,9 @@ jobs:
       - name: Validate safe configuration
         run: python scripts/validate_config.py
 
+      - name: Validate JSON contracts
+        run: python scripts/validate_contracts.py
+
       - name: Run unit and security regression tests
         run: python -m unittest discover -s tests -v
 
