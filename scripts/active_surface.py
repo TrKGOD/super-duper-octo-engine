@@ -94,7 +94,18 @@ def _safe_path_url(base, value):
         return None
     if any(x in p.path.lower() for x in ("/logout", "/signout", "/delete", "/remove", "/checkout", "/purchase")):
         return None
-    return _canonical(candidate)
+    # Never replay query values discovered in links; endpoint inventory records paths only.
+    return urlunsplit((p.scheme.lower(), p.netloc.lower(), p.path or "/", "", ""))
+
+
+def _is_crawlable_page(url):
+    path = urlsplit(url).path.lower()
+    blocked = ("/api/", "/graphql", "/v1/", "/v2/", "/users/", "/account",
+               "/profile", "/orders", "/billing", "/settings", "/admin",
+               "/download", "/export", "/logout", "/signout")
+    return not any(token in path for token in blocked) and not path.lower().endswith(
+        (".json", ".xml", ".pdf", ".zip", ".csv")
+    )
 
 
 def _headers_map(headers):
@@ -240,7 +251,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                 resolved = _safe_path_url(current, link)
                 if resolved:
                     endpoints.add(resolved)
-                    if depth < max_depth and len(visited) + len(queue) < max_pages:
+                    if depth < max_depth and _is_crawlable_page(resolved) and len(visited) + len(queue) < max_pages:
                         queue.append((resolved, depth + 1))
             for script in parser.scripts:
                 resolved = _safe_path_url(current, script)
