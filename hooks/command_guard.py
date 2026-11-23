@@ -117,10 +117,69 @@ def orchestrator_args(argv):
     return {"db": argv[3], "engagement_id": argv[5]}
 
 
+def active_security_args(argv):
+    """Strict argument parser for specialist read-only broker workflows."""
+    if len(argv) < 2 or argv[0] not in {"python", "python3"}:
+        return None
+    script = argv[1]
+    if script == "scripts/active_ssrf_probe.py":
+        if len(argv) not in {14, 16}:
+            return None
+        if argv[2] != "--db" or not safe_db_argument(argv[3]):
+            return None
+        if argv[4] != "--engagement-id" or not argv[5] or argv[6] != "--task-id" or not argv[7]:
+            return None
+        if argv[8] != "--request-file" or not safe_request_manifest(argv[9]):
+            return None
+        if argv[10] != "--callback-url" or not argv[11].startswith("https://"):
+            return None
+        if argv[12] != "--marker" or not re.fullmatch(r"[A-Za-z0-9._-]{8,96}", argv[13]):
+            return None
+        if len(argv) == 16 and (argv[14] != "--callback-events" or not safe_local_json(argv[15])):
+            return None
+        return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7],
+                "request_files": [argv[9]]}
+    if script == "scripts/active_authentication_check.py":
+        if len(argv) != 14:
+            return None
+        if argv[2] != "--db" or not safe_db_argument(argv[3]):
+            return None
+        if argv[4] != "--engagement-id" or not argv[5] or argv[6] != "--task-id" or not argv[7]:
+            return None
+        if argv[8] != "--authenticated-request-file" or not safe_request_manifest(argv[9]):
+            return None
+        if argv[10] != "--anonymous-request-file" or not safe_request_manifest(argv[11]):
+            return None
+        if argv[12] != "--protected-resource" or not argv[13]:
+            return None
+        return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7],
+                "request_files": [argv[9], argv[11]]}
+    if script == "scripts/active_cache_check.py":
+        if len(argv) != 16:
+            return None
+        if argv[2] != "--db" or not safe_db_argument(argv[3]):
+            return None
+        if argv[4] != "--engagement-id" or not argv[5] or argv[6] != "--task-id" or not argv[7]:
+            return None
+        if argv[8] != "--first-request-file" or not safe_request_manifest(argv[9]):
+            return None
+        if argv[10] != "--second-request-file" or not safe_request_manifest(argv[11]):
+            return None
+        if argv[12] != "--first-private-marker" or not re.fullmatch(r"[A-Za-z0-9._-]{4,128}", argv[13]):
+            return None
+        if argv[14] != "--second-private-marker" or not re.fullmatch(r"[A-Za-z0-9._-]{4,128}", argv[15]):
+            return None
+        return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7],
+                "request_files": [argv[9], argv[11]]}
+    return None
+
+
 def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
+    if script in {"scripts/active_ssrf_probe.py", "scripts/active_authentication_check.py", "scripts/active_cache_check.py"}:
+        return active_security_args(argv) is not None
     if script == "scripts/run_orchestrator.py":
         return orchestrator_args(argv) is not None
     if script == "scripts/active_surface.py":
@@ -262,7 +321,8 @@ def main():
     active_args = active_http_args(argv)
     surface_args = active_surface_args(argv)
     orchestration_args = orchestrator_args(argv)
-    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else orchestration_args["db"] if orchestration_args else DB
+    security_args = active_security_args(argv)
+    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else security_args["db"] if security_args else orchestration_args["db"] if orchestration_args else DB
     config_path, db_path = engagement_paths(db_arg)
     if config_path is None or not config_path.is_file() or config_path.is_symlink():
         deny("The engagement-specific local config is required for agent runtime commands.")
@@ -272,6 +332,17 @@ def main():
         deny("Invalid local engagement config.")
     if orchestration_args and engagement.get("engagement_id") != orchestration_args["engagement_id"]:
         deny("Orchestrator engagement ID does not match the selected isolated database/config pair.")
+    if security_args:
+        for request_file in security_args["request_files"]:
+            if not _active_request_is_approved({
+                "db": security_args["db"], "engagement_id": security_args["engagement_id"],
+                "task_id": security_args["task_id"], "request_file": request_file,
+            }, engagement):
+                deny("Specialist security test requires an active approved task and every request manifest SHA-256-pinned in that task.")
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "permissionDecision": "allow",
+        }}))
+        return
     if active_args:
         if not _active_request_is_approved(active_args, engagement):
             deny("Active HTTP request is not authorized by the approved engagement, running task, and pinned manifest.")
