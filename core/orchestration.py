@@ -403,6 +403,10 @@ class Workflow:
             self.store.accept_task_handoff(task_id, status, handoff)
         except (ValueError, KeyError) as exc:
             raise WorkflowError(str(exc)) from exc
+        if handoff.get("subsystem_updates"):
+            self.store.append_audit(row["engagement_id"], row["agent"],
+                "subsystem.coverage_updated", {"task_id": task_id,
+                "updates": handoff["subsystem_updates"]})
         # Adaptive planning is deliberately passive-only. LLM proposals cannot
         # authorize active testing, change scope, or bypass the request-manifest gate.
         self._enqueue_passive_followups(task_id, task_input, handoff)
