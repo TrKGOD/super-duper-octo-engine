@@ -249,9 +249,11 @@ def _validate_request(request):
     if errors:
         raise ActiveExecutionError("Invalid request file: " + "; ".join(error.message for error in errors))
     method = request["method"].upper()
-    if method not in {"GET", "HEAD", "OPTIONS", "POST"}:
+    if method not in {"GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"}:
         raise ActiveExecutionError("HTTP method is not permitted by the active broker")
-    if method == "POST":
+    upload = request.get("upload")
+    state_changing = method in {"POST", "PUT", "PATCH", "DELETE"} or upload is not None
+    if state_changing:
         approval = request.get("operator_approval", {})
         try:
             approved_at = datetime.fromisoformat(approval.get("approved_at", "").replace("Z", "+00:00"))
@@ -264,7 +266,18 @@ def _validate_request(request):
             and approved_at <= datetime.now(timezone.utc)
             and isinstance(approval.get("reason"), str) and len(approval["reason"].strip()) >= 10
         ):
-            raise ActiveExecutionError("POST requires a timestamped, explicit operator approval in the request manifest")
+            raise ActiveExecutionError(method + " requires a timestamped, explicit operator approval in the request manifest")
+    if upload is not None:
+        try:
+            payload = base64.b64decode(upload["content_base64"], validate=True)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise ActiveExecutionError("Upload content must be valid base64") from exc
+        if len(payload) > 262144:
+            raise ActiveExecutionError("Upload exceeds the strict 256 KiB limit")
+        if method not in {"POST", "PUT"} or request.get("body") not in (None, ""):
+            raise ActiveExecutionError("Multipart upload requires POST or PUT and cannot be combined with body")
+    elif request.get("body") is not None and method not in {"POST", "PUT", "PATCH"}:
+        raise ActiveExecutionError("Request body is permitted only for POST, PUT, or PATCH")
     forbidden_headers = {
         "host", "content-length", "transfer-encoding", "connection",
         "proxy-authorization", "proxy-connection", "upgrade", "te", "trailer", "accept-encoding",
@@ -281,8 +294,8 @@ def _validate_request(request):
         if key.lower() in {item.lower() for item in request.get("headers", {})}:
             raise ActiveExecutionError("A header cannot be defined in both headers and secret_headers")
     body = request.get("body")
-    if body is not None and (method != "POST" or not isinstance(body, str) or len(body.encode("utf-8")) > 16384):
-        raise ActiveExecutionError("Only bounded text POST bodies are supported")
+    if body is not None and (not isinstance(body, str) or len(body.encode("utf-8")) > 32768):
+        raise ActiveExecutionError("Request text body exceeds the strict 32 KiB limit")
     return method
 
 
@@ -464,11 +477,16 @@ class ActiveHTTPExecutor:
 
         scope = json.loads(task_row["scope_json"])
         rules_classes = set(rules.get("allowed_test_classes", []))
-        if method == "POST":
+        if method in {"POST", "PUT", "PATCH", "DELETE"}:
             if "state-changing-http" not in rules_classes or rules.get("human_approval_required_for_state_changes") is not True:
                 raise ActiveExecutionError("State-changing HTTP is not authorized by engagement rules")
         elif "http-read-only" not in rules_classes:
             raise ActiveExecutionError("http-read-only is not an allowed test class")
+        if request.get("upload") is not None:
+            if "upload-http" not in rules_classes or rules.get("uploads_enabled") is not True:
+                raise ActiveExecutionError("Uploads are disabled unless upload-http is explicitly allowed and uploads_enabled is true")
+            if rules.get("human_approval_required_for_state_changes") is not True:
+                raise ActiveExecutionError("Uploads require explicit state-change approval")
 
         task_scope = task.get("scope_subset", [])
         url = request["url"]
@@ -499,6 +517,15 @@ class ActiveHTTPExecutor:
             headers = _resolve_request_headers(request)
             headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
             body = request.get("body")
+            upload = request.get("upload")
+            if upload is not None:
+                boundary = "PentestAgent-" + hashlib.sha256(request_id.encode()).hexdigest()[:24]
+                file_bytes = base64.b64decode(upload["content_base64"], validate=True)
+                disposition = 'form-data; name="file"; filename="' + upload["filename"] + '"'
+                body = (("--" + boundary + "\\r\\nContent-Disposition: " + disposition +
+                         "\\r\\nContent-Type: " + upload["content_type"] + "\\r\\n\\r\\n").encode("ascii")
+                        + file_bytes + ("\\r\\n--" + boundary + "--\\r\\n").encode("ascii"))
+                headers["Content-Type"] = "multipart/form-data; boundary=" + boundary
             current_url = url
             redirects = 0
             while True:
@@ -531,7 +558,7 @@ class ActiveHTTPExecutor:
             safe_request = {
                 "request_id": request_id, "method": method, "url": _safe_url(url),
                 "headers": _safe_headers(headers),
-                "body": _redact_text(body) if isinstance(body, str) else None,
+                "body": _redact_text(body) if isinstance(body, str) else ({"upload": True, "filename": upload["filename"], "content_type": upload["content_type"], "size_bytes": len(file_bytes)} if upload is not None else None),
             }
             safe_response = {
                 "url": _safe_url(current_url), "status": status,
