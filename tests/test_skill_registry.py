@@ -37,6 +37,30 @@ class SkillRegistryTests(unittest.TestCase):
                 with self.assertRaisesRegex(skill_registry.RegistryError, "escapes"):
                     skill_registry.load_registry(path)
 
+    def test_rejects_skill_file_missing_from_catalogue(self):
+        registry = skill_registry.load_registry()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for item in registry["skills"]:
+                destination = root / item["path"]
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(
+                    (skill_registry.ROOT / item["path"]).read_text(encoding="utf-8"),
+                    encoding="utf-8",
+                )
+            agents = root / ".claude" / "agents"
+            agents.mkdir(parents=True)
+            for agent in (skill_registry.ROOT / ".claude" / "agents").glob("*.md"):
+                (agents / agent.name).write_text(agent.read_text(encoding="utf-8"), encoding="utf-8")
+            orphan = root / ".claude" / "skills" / "forgotten-skill" / "SKILL.md"
+            orphan.parent.mkdir(parents=True)
+            orphan.write_text("---\\nname: forgotten-skill\\ndescription: Unregistered test skill\\n---\\n", encoding="utf-8")
+            registry_path = root / "registry.json"
+            registry_path.write_text(json.dumps(registry), encoding="utf-8")
+            with patch.object(skill_registry, "ROOT", root):
+                with self.assertRaisesRegex(skill_registry.RegistryError, "Unregistered Skill"):
+                    skill_registry.load_registry(registry_path)
+
     def test_rejects_unknown_agent(self):
         registry = skill_registry.load_registry()
         registry["skills"][0]["compatible_agents"].append("agent-that-does-not-exist")
