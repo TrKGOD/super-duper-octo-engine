@@ -161,7 +161,8 @@ class CoreTests(unittest.TestCase):
     def test_migrations_are_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
             db = str(Path(tmp) / "state.sqlite")
-            self.assertTrue(migrate(db))
+            applied = migrate(db)
+            self.assertIn("5: evidence_integrity", applied)
             self.assertEqual(migrate(db), [])
             con = sqlite3.connect(db)
             columns = {row[1] for row in con.execute("PRAGMA table_info(findings)")}
