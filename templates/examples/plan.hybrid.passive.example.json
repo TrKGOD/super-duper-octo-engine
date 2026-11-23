@@ -1,0 +1,242 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Review operator-supplied authorization and scope artifacts; flag ambiguity",
+      "depends_on": [],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "scope",
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "recon",
+      "agent": "recon-agent",
+      "objective": "Review supplied passive asset inventory and source provenance",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "passive-recon"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "technology",
+      "agent": "technology-profiler",
+      "objective": "Profile technologies from supplied captures and inventory",
+      "depends_on": [
+        "recon"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "fingerprinting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Normalize supplied routes, parameters and authentication contexts",
+      "depends_on": [
+        "technology"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "routes",
+        "parameters"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Develop evidence-grounded vulnerability hypotheses from supplied artifacts",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "authorization",
+        "ssrf",
+        "xss",
+        "sqli"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently assess candidate findings against registered evidence",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "independent-review",
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "impact",
+      "agent": "impact-analyst",
+      "objective": "Assess business impact and preconditions for independently supported findings",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "impact"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "deduplication",
+      "agent": "duplicate-checker",
+      "objective": "Identify duplicate candidates using evidence and root-cause similarity",
+      "depends_on": [
+        "impact"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "deduplication"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "reporting",
+      "agent": "reporting-agent",
+      "objective": "Prepare a report using only persisted evidence and validated status",
+      "depends_on": [
+        "deduplication"
+      ],
+      "scope_subset": [
+        "app.example.test"
+      ],
+      "domain": "web",
+      "skill_tags": [
+        "reporting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    }
+  ]
+}

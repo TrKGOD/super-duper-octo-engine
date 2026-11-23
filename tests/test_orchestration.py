@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from core.orchestration import Workflow,WorkflowError
+from core.evidence import EvidenceVault
 from scripts.migrate import migrate
 
 class OrchestrationTests(unittest.TestCase):
@@ -9,7 +10,8 @@ class OrchestrationTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory()
   self.db=str(Path(self.tmp.name)/"state.sqlite")
   migrate(self.db)
-  self.w=Workflow(self.db)
+  self.w=Workflow(self.db, project_root=self.tmp.name)
+  self.vault=EvidenceVault(self.w.store,self.tmp.name)
   self.w.initialize({"engagement_id":"eng-test","authorization_reference":"AUTH-LAB-001","scope":{"allowed_domains":["app.example.test"]},"rules_of_engagement":{"execution_enabled":False}})
  def tearDown(self):
   self.w.close()
@@ -40,7 +42,7 @@ class OrchestrationTests(unittest.TestCase):
   tasks=self.w.create_plan("eng-test",self.plan())
   task=tasks[0]
   run=self.w.start_task(task["task_id"])
-  evidence=self.w.store.record_evidence("eng-test","reproduction_notes",".local/evidence/recon.txt","recon-agent")
+  evidence=self.vault.capture("eng-test","reproduction_notes","recon.txt",b"synthetic passive evidence","recon-agent",redacted=True)["evidence_id"]
   handoff={"task_id":task["task_id"],"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Reviewed supplied artifacts.","observations":[],"hypotheses":[],"evidence_refs":[evidence],"limitations":[],"next_steps":[]}
   self.w.accept_handoff(task["task_id"],handoff)
   self.assertEqual(self.w.status("eng-test")["tasks"][0]["status"],"completed")
@@ -62,6 +64,13 @@ class OrchestrationTests(unittest.TestCase):
   self.w.start_task(task_id)
   handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Reviewed supplied artifacts.","observations":[],"hypotheses":[],"evidence_refs":["evidence://fabricated"],"limitations":[]}
   with self.assertRaises(WorkflowError):
+   self.w.accept_handoff(task_id,handoff)
+
+ def test_collected_artifact_must_match_registered_evidence(self):
+  task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
+  self.w.start_task(task_id)
+  handoff={"task_id":task_id,"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Artifact check","observations":[],"hypotheses":[],"evidence_refs":[],"evidence_artifacts":[{"artifact_id":"a1","type":"http_response","path":".local/evidence/fake.json","collection_status":"collected","description":"Claimed collected response","redacted":True,"sha256":"a"*64}],"limitations":[]}
+  with self.assertRaisesRegex(WorkflowError,"registered evidence"):
    self.w.accept_handoff(task_id,handoff)
 
  def test_finding_write_uses_deterministic_validator(self):

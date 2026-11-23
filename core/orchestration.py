@@ -3,10 +3,13 @@ import json
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 from core.store import StateStore
+from core.evidence import EvidenceVault, EvidenceError
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
 HANDOFF_VALIDATOR = Draft202012Validator(HANDOFF_SCHEMA, format_checker=FormatChecker())
+PLAN_SCHEMA = json.loads((ROOT / "templates/plan.schema.json").read_text(encoding="utf-8"))
+PLAN_VALIDATOR = Draft202012Validator(PLAN_SCHEMA, format_checker=FormatChecker())
 ALLOWED_AGENTS = {
     "recon-agent", "enumeration-agent", "technology-profiler", "scope-analyst",
     "vulnerability-agent", "validation-agent", "exploitation-agent",
@@ -24,6 +27,9 @@ def _scope_assets(scope):
 
 
 def _validate_plan(plan, scope):
+    errors = list(PLAN_VALIDATOR.iter_errors(plan))
+    if errors:
+        raise WorkflowError("Invalid plan schema: " + "; ".join(error.message for error in errors))
     tasks = plan.get("tasks")
     if not isinstance(tasks, list) or not tasks:
         raise WorkflowError("Plan must contain a non-empty tasks array")
@@ -60,8 +66,9 @@ def _validate_plan(plan, scope):
 
 
 class Workflow:
-    def __init__(self, db_path):
+    def __init__(self, db_path, project_root=ROOT):
         self.store = StateStore(db_path)
+        self.project_root = Path(project_root).resolve()
 
     def close(self):
         self.store.close()
@@ -102,6 +109,13 @@ class Workflow:
         if row["status"] not in {"draft", "approved", "active"}:
             raise WorkflowError("Engagement is not available for planning")
         tasks = _validate_plan(plan, json.loads(row["scope_json"]))
+        for task in tasks:
+            try:
+                self.store.validate_evidence_refs_for_engagement(
+                    engagement_id, task.get("evidence_refs", [])
+                )
+            except ValueError as exc:
+                raise WorkflowError(str(exc)) from exc
         existing = {
             item[0] for item in self.store.connection.execute(
                 "SELECT json_extract(input_json,'$.task_key') FROM tasks WHERE engagement_id=?",
@@ -121,6 +135,9 @@ class Workflow:
                     "expected_outputs": task.get("expected_outputs", []),
                     "completion_criteria": task["completion_criteria"],
                     "constraints": task.get("constraints", ["passive analysis only", "no network requests"]),
+                    "domain": task.get("domain"),
+                    "skill_tags": task.get("skill_tags", []),
+                    "evidence_refs": task.get("evidence_refs", []),
                 }
             )
         return [
@@ -171,6 +188,33 @@ class Workflow:
             self.store.validate_evidence_refs_for_engagement(row["engagement_id"], handoff["evidence_refs"])
         except ValueError as exc:
             raise WorkflowError(str(exc)) from exc
+        evidence_vault = EvidenceVault(self.store, self.project_root)
+        for evidence_id in handoff["evidence_refs"]:
+            try:
+                integrity = evidence_vault.verify(evidence_id)
+            except (EvidenceError, OSError) as exc:
+                raise WorkflowError("Evidence artifact is missing or cannot be verified: " + evidence_id) from exc
+            if not integrity["valid"]:
+                raise WorkflowError("Evidence SHA-256 verification failed: " + evidence_id)
+        # Artifact claims are metadata, not proof. Any artifact marked collected must
+        # match a registered evidence record by engagement, path and digest.
+        for artifact in handoff.get("evidence_artifacts", []):
+            if artifact["collection_status"] in {"collected", "redacted_copy"}:
+                if artifact.get("sha256") is None:
+                    raise WorkflowError("Collected evidence artifacts require a SHA-256 digest")
+                row_match = self.store.connection.execute(
+                    """SELECT evidence_id FROM evidence
+                       WHERE engagement_id=? AND local_path=? AND sha256=?""",
+                    (row["engagement_id"], artifact["path"], artifact["sha256"]),
+                ).fetchone()
+                if row_match is None or row_match["evidence_id"] not in handoff["evidence_refs"]:
+                    raise WorkflowError("Collected artifact must match a registered evidence reference")
+                try:
+                    verification = EvidenceVault(self.store, self.project_root).verify(row_match["evidence_id"])
+                except (EvidenceError, OSError) as exc:
+                    raise WorkflowError("Collected artifact could not be integrity-verified: " + str(exc)) from exc
+                if not verification["valid"]:
+                    raise WorkflowError("Collected artifact SHA-256 verification failed")
         assigned_scope = set(task_input.get("scope_subset", []))
         if any(asset not in assigned_scope for asset in handoff["scope_subset"]):
             raise WorkflowError("Handoff scope exceeds task scope")

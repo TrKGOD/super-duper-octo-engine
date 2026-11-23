@@ -1,0 +1,162 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Review operator-confirmed mobile application scope and build identifiers",
+      "depends_on": [],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "profile",
+      "agent": "technology-profiler",
+      "objective": "Profile supplied Android/iOS package metadata and build artifacts",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "android",
+        "ios"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Inventory manifest, entitlements, exported components, deep links and API references from supplied artifacts",
+      "depends_on": [
+        "profile"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "manifest",
+        "deep-links"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Develop mobile security hypotheses from supplied static/configuration evidence",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "storage",
+        "transport-security"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently review evidence and false-positive alternatives",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "independent-review",
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "report",
+      "agent": "reporting-agent",
+      "objective": "Prepare report content from persisted validated mobile findings",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "mobile",
+      "skill_tags": [
+        "reporting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    }
+  ]
+}

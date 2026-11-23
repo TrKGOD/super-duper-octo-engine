@@ -1,0 +1,161 @@
+{
+  "tasks": [
+    {
+      "task_key": "scope",
+      "agent": "scope-analyst",
+      "objective": "Review operator-confirmed domain and directory scope",
+      "depends_on": [],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "authorization"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "profile",
+      "agent": "technology-profiler",
+      "objective": "Profile supplied domain controller, forest and Windows environment metadata",
+      "depends_on": [
+        "scope"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "windows"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "enumeration",
+      "agent": "enumeration-agent",
+      "objective": "Normalize supplied BloodHound, LDAP, Kerberos and GPO exports",
+      "depends_on": [
+        "profile"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "identity",
+        "kerberos"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "vulnerability",
+      "agent": "vulnerability-agent",
+      "objective": "Develop identity and privilege-path hypotheses from supplied directory exports",
+      "depends_on": [
+        "enumeration"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "delegation",
+        "group-policy"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "validation",
+      "agent": "validation-agent",
+      "objective": "Independently review privilege-path evidence and false-positive alternatives",
+      "depends_on": [
+        "vulnerability"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "independent-review",
+        "evidence-quality"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    },
+    {
+      "task_key": "report",
+      "agent": "reporting-agent",
+      "objective": "Prepare report content from persisted validated directory findings",
+      "depends_on": [
+        "validation"
+      ],
+      "scope_subset": [
+        "REPLACE-WITH-EXACT-IN-SCOPE-ASSET"
+      ],
+      "domain": "active_directory",
+      "skill_tags": [
+        "reporting"
+      ],
+      "completion_criteria": [
+        "Return a schema-valid handoff",
+        "Cite only supplied and integrity-verified engagement evidence",
+        "State limitations and missing proof"
+      ],
+      "constraints": [
+        "passive analysis only",
+        "no network requests",
+        "no active testing",
+        "tools disabled"
+      ]
+    }
+  ]
+}

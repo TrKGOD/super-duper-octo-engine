@@ -40,6 +40,26 @@ class EvidenceVaultTests(unittest.TestCase):
         self.assertEqual(row["redacted"], 1)
         self.assertTrue(self.vault.verify(result["evidence_id"])["valid"])
 
+    def test_aes_gcm_encryption_at_rest_and_key_required_for_read(self):
+        key = bytes(range(32))
+        encrypted_vault = EvidenceVault(
+            self.store, self.root, max_bytes=1024, encryption_key=key
+        )
+        payload = b"synthetic secret-bearing evidence"
+        result = encrypted_vault.capture(
+            "eng-test", "reproduction_notes", "encrypted.txt", payload,
+            "operator", redacted=True,
+        )
+        stored = (self.root / result["local_path"]).read_bytes()
+        self.assertNotIn(payload, stored)
+        self.assertEqual(result["encryption_algorithm"], "AES-256-GCM")
+        self.assertTrue(encrypted_vault.verify(result["evidence_id"])["valid"])
+        self.assertEqual(encrypted_vault.read(result["evidence_id"]), payload)
+        without_key = EvidenceVault(self.store, self.root, max_bytes=1024)
+        self.assertTrue(without_key.verify(result["evidence_id"])["valid"])
+        with self.assertRaisesRegex(EvidenceError, "key is required"):
+            without_key.read(result["evidence_id"])
+
     def test_tampering_is_detected(self):
         result = self.vault.capture(
             "eng-test", "log", "capture.log", b"original", "operator"

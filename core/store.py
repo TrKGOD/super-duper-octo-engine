@@ -256,11 +256,13 @@ class StateStore:
 
     def record_evidence(
         self, engagement_id, evidence_type, local_path, captured_by,
-        sha256=None, redacted=True, captured_at=None,
+        sha256=None, redacted=True, captured_at=None, encryption_algorithm="none",
     ):
         local_path = self._validate_evidence_path(local_path)
         if not evidence_type or not captured_by:
             raise ValueError("Evidence type and captured_by are required")
+        if encryption_algorithm not in {"none", "AES-256-GCM"}:
+            raise ValueError("Unsupported evidence encryption algorithm")
         if sha256 is not None and (
             not isinstance(sha256, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", sha256)
         ):
@@ -275,9 +277,9 @@ class StateStore:
                 raise KeyError(engagement_id)
             self.connection.execute(
                 """INSERT INTO evidence
-                   (evidence_id,engagement_id,finding_id,evidence_type,local_path,sha256,redacted,captured_at,captured_by)
-                   VALUES(?,?,NULL,?,?,?,?,?,?)""",
-                (evidence_id, engagement_id, evidence_type, local_path, sha256, int(bool(redacted)), timestamp, captured_by),
+                   (evidence_id,engagement_id,finding_id,evidence_type,local_path,sha256,redacted,captured_at,captured_by,encryption_algorithm)
+                   VALUES(?,?,NULL,?,?,?,?,?,?,?)""",
+                (evidence_id, engagement_id, evidence_type, local_path, sha256, int(bool(redacted)), timestamp, captured_by, encryption_algorithm),
             )
             self.append_audit(
                 engagement_id, captured_by, "evidence.recorded",

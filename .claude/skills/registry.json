@@ -1,15 +1,33 @@
 {
   "schema_version": 1,
-  "registry_status": "catalogue_only",
+  "registry_status": "runtime_context_selection",
   "skills": [
     {
       "id": "active-directory",
       "name": "active-directory-methodology",
       "path": ".claude/skills/active-directory/SKILL.md",
-      "domains": ["active_directory"],
-      "tags": ["identity", "kerberos", "delegation", "group-policy", "windows"],
-      "compatible_agents": ["scope-analyst", "technology-profiler", "vulnerability-agent", "validation-agent", "reporting-agent"],
-      "prerequisites": ["written authorization", "explicit engagement scope", "operator-supplied directory evidence or approved lab"],
+      "domains": [
+        "active_directory"
+      ],
+      "tags": [
+        "identity",
+        "kerberos",
+        "delegation",
+        "group-policy",
+        "windows"
+      ],
+      "compatible_agents": [
+        "scope-analyst",
+        "technology-profiler",
+        "vulnerability-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "operator-supplied directory evidence or approved lab"
+      ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
     },
@@ -17,10 +35,29 @@
       "id": "api-security",
       "name": "api-security-methodology",
       "path": ".claude/skills/api-security/SKILL.md",
-      "domains": ["api"],
-      "tags": ["object-authorization", "function-authorization", "mass-assignment", "rate-limits", "schema-validation", "authentication"],
-      "compatible_agents": ["enumeration-agent", "vulnerability-agent", "exploitation-agent", "validation-agent", "reporting-agent"],
-      "prerequisites": ["written authorization", "explicit engagement scope", "supplied API inventory or approved isolated lab"],
+      "domains": [
+        "api"
+      ],
+      "tags": [
+        "object-authorization",
+        "function-authorization",
+        "mass-assignment",
+        "rate-limits",
+        "schema-validation",
+        "authentication"
+      ],
+      "compatible_agents": [
+        "enumeration-agent",
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied API inventory or approved isolated lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -28,10 +65,28 @@
       "id": "cloud-security",
       "name": "cloud-security-methodology",
       "path": ".claude/skills/cloud-security/SKILL.md",
-      "domains": ["cloud"],
-      "tags": ["iam", "storage", "network-controls", "audit", "configuration"],
-      "compatible_agents": ["scope-analyst", "technology-profiler", "vulnerability-agent", "validation-agent", "reporting-agent"],
-      "prerequisites": ["written authorization", "explicit cloud asset scope", "operator-supplied configuration exports or approved lab"],
+      "domains": [
+        "cloud"
+      ],
+      "tags": [
+        "iam",
+        "storage",
+        "network-controls",
+        "audit",
+        "configuration"
+      ],
+      "compatible_agents": [
+        "scope-analyst",
+        "technology-profiler",
+        "vulnerability-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit cloud asset scope",
+        "operator-supplied configuration exports or approved lab"
+      ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
     },
@@ -39,10 +94,29 @@
       "id": "enumeration",
       "name": "enumeration-methodology",
       "path": ".claude/skills/enumeration/SKILL.md",
-      "domains": ["web", "api", "mobile", "cloud", "active_directory"],
-      "tags": ["attack-surface", "routes", "parameters", "roles", "authentication-context"],
-      "compatible_agents": ["enumeration-agent", "technology-profiler", "vulnerability-agent"],
-      "prerequisites": ["explicit engagement scope", "supplied captures, specifications, or approved artifacts"],
+      "domains": [
+        "web",
+        "api",
+        "mobile",
+        "cloud",
+        "active_directory"
+      ],
+      "tags": [
+        "attack-surface",
+        "routes",
+        "parameters",
+        "roles",
+        "authentication-context"
+      ],
+      "compatible_agents": [
+        "enumeration-agent",
+        "technology-profiler",
+        "vulnerability-agent"
+      ],
+      "prerequisites": [
+        "explicit engagement scope",
+        "supplied captures, specifications, or approved artifacts"
+      ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
     },
@@ -50,10 +124,29 @@
       "id": "knowledge-base",
       "name": "knowledge-base",
       "path": ".claude/skills/knowledge-base/SKILL.md",
-      "domains": ["web", "api", "mobile", "cloud", "active_directory"],
-      "tags": ["public-research", "provenance", "untrusted-context", "pattern-retrieval"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent", "reporting-agent"],
-      "prerequisites": ["operator-selected public KB results", "source provenance and rights basis"],
+      "domains": [
+        "web",
+        "api",
+        "mobile",
+        "cloud",
+        "active_directory"
+      ],
+      "tags": [
+        "public-research",
+        "provenance",
+        "untrusted-context",
+        "pattern-retrieval"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "operator-selected public KB results",
+        "source provenance and rights basis"
+      ],
       "risk_class": "research_context",
       "validation_status": "catalogued_unverified"
     },
@@ -61,10 +154,30 @@
       "id": "mobile-security",
       "name": "mobile-security-methodology",
       "path": ".claude/skills/mobile-security/SKILL.md",
-      "domains": ["mobile"],
-      "tags": ["android", "ios", "manifest", "storage", "transport-security", "deep-links"],
-      "compatible_agents": ["technology-profiler", "enumeration-agent", "vulnerability-agent", "exploitation-agent", "validation-agent", "reporting-agent"],
-      "prerequisites": ["written authorization", "explicit mobile app scope", "supplied application artifacts or approved lab"],
+      "domains": [
+        "mobile"
+      ],
+      "tags": [
+        "android",
+        "ios",
+        "manifest",
+        "storage",
+        "transport-security",
+        "deep-links"
+      ],
+      "compatible_agents": [
+        "technology-profiler",
+        "enumeration-agent",
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit mobile app scope",
+        "supplied application artifacts or approved lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -72,10 +185,28 @@
       "id": "reconnaissance",
       "name": "reconnaissance-methodology",
       "path": ".claude/skills/reconnaissance/SKILL.md",
-      "domains": ["web", "api", "cloud", "active_directory"],
-      "tags": ["passive-recon", "asset-inventory", "dns", "tls", "technology-fingerprinting"],
-      "compatible_agents": ["recon-agent", "technology-profiler", "scope-analyst"],
-      "prerequisites": ["explicit authorized asset list", "operator-supplied passive data"],
+      "domains": [
+        "web",
+        "api",
+        "cloud",
+        "active_directory"
+      ],
+      "tags": [
+        "passive-recon",
+        "asset-inventory",
+        "dns",
+        "tls",
+        "technology-fingerprinting"
+      ],
+      "compatible_agents": [
+        "recon-agent",
+        "technology-profiler",
+        "scope-analyst"
+      ],
+      "prerequisites": [
+        "explicit authorized asset list",
+        "operator-supplied passive data"
+      ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
     },
@@ -83,10 +214,30 @@
       "id": "validation",
       "name": "validation-methodology",
       "path": ".claude/skills/validation/SKILL.md",
-      "domains": ["web", "api", "mobile", "cloud", "active_directory"],
-      "tags": ["independent-review", "evidence-quality", "reproducibility", "false-positives"],
-      "compatible_agents": ["validation-agent", "duplicate-checker", "impact-analyst", "reporting-agent"],
-      "prerequisites": ["candidate finding", "current-engagement evidence references", "validator identity distinct from proposer"],
+      "domains": [
+        "web",
+        "api",
+        "mobile",
+        "cloud",
+        "active_directory"
+      ],
+      "tags": [
+        "independent-review",
+        "evidence-quality",
+        "reproducibility",
+        "false-positives"
+      ],
+      "compatible_agents": [
+        "validation-agent",
+        "duplicate-checker",
+        "impact-analyst",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "candidate finding",
+        "current-engagement evidence references",
+        "validator identity distinct from proposer"
+      ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
     },
@@ -94,10 +245,26 @@
       "id": "web-authentication",
       "name": "web-testing-authentication",
       "path": ".claude/skills/web-testing/authentication/SKILL.md",
-      "domains": ["web"],
-      "tags": ["authentication", "sessions", "mfa", "recovery", "identity"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit web scope", "supplied evidence or approved test accounts in a lab"],
+      "domains": [
+        "web"
+      ],
+      "tags": [
+        "authentication",
+        "sessions",
+        "mfa",
+        "recovery",
+        "identity"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit web scope",
+        "supplied evidence or approved test accounts in a lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -105,10 +272,27 @@
       "id": "web-authorization-idor",
       "name": "web-testing-authorization-idor",
       "path": ".claude/skills/web-testing/authorization-idor/SKILL.md",
-      "domains": ["web", "api"],
-      "tags": ["idor", "bola", "authorization", "access-control", "synthetic-accounts"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit asset scope", "synthetic accounts and approved test objects"],
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "idor",
+        "bola",
+        "authorization",
+        "access-control",
+        "synthetic-accounts"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit asset scope",
+        "synthetic accounts and approved test objects"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -116,10 +300,29 @@
       "id": "web-oauth-jwt",
       "name": "web-testing-oauth-jwt",
       "path": ".claude/skills/web-testing/oauth-jwt/SKILL.md",
-      "domains": ["web", "api"],
-      "tags": ["oauth2", "oidc", "jwt", "redirect-uri", "state", "nonce", "token-lifecycle"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit asset scope", "supplied flow evidence or approved lab"],
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "oauth2",
+        "oidc",
+        "jwt",
+        "redirect-uri",
+        "state",
+        "nonce",
+        "token-lifecycle"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit asset scope",
+        "supplied flow evidence or approved lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -127,10 +330,26 @@
       "id": "web-sqli",
       "name": "web-testing-sqli",
       "path": ".claude/skills/web-testing/sqli/SKILL.md",
-      "domains": ["web", "api"],
-      "tags": ["sql-injection", "query-construction", "input-validation", "non-destructive"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit asset scope", "supplied request/response evidence or approved lab"],
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "sql-injection",
+        "query-construction",
+        "input-validation",
+        "non-destructive"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit asset scope",
+        "supplied request/response evidence or approved lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -138,10 +357,26 @@
       "id": "web-ssrf",
       "name": "web-testing-ssrf",
       "path": ".claude/skills/web-testing/ssrf/SKILL.md",
-      "domains": ["web", "api"],
-      "tags": ["ssrf", "url-fetching", "destination-validation", "egress"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit asset scope", "controlled lab or safe supplied evidence"],
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "ssrf",
+        "url-fetching",
+        "destination-validation",
+        "egress"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit asset scope",
+        "controlled lab or safe supplied evidence"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     },
@@ -149,10 +384,26 @@
       "id": "web-xss",
       "name": "web-testing-xss",
       "path": ".claude/skills/web-testing/xss/SKILL.md",
-      "domains": ["web"],
-      "tags": ["xss", "source-to-sink", "encoding", "sanitization", "browser-evidence"],
-      "compatible_agents": ["vulnerability-agent", "exploitation-agent", "validation-agent"],
-      "prerequisites": ["written authorization", "explicit asset scope", "supplied evidence or approved lab"],
+      "domains": [
+        "web"
+      ],
+      "tags": [
+        "xss",
+        "source-to-sink",
+        "encoding",
+        "sanitization",
+        "browser-evidence"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit asset scope",
+        "supplied evidence or approved lab"
+      ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified"
     }
