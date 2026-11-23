@@ -26,6 +26,8 @@ The framework is under active development toward that objective. Implemented wor
 
 All live testing remains restricted to assets explicitly authorized by the relevant engagement. Safety gates are part of the pentesting engine: they must constrain execution without turning the product into a documentation-only workflow.
 
+See [the project charter](docs/PROJECT_CHARTER.md) for the product definition, assessment lifecycle, and capability-status principles.
+
 ## Enumeration-First Multi-Agent Pipeline
 
 The nine-stage scope → recon → enumeration → vulnerability → active testing → independent validation → impact → deduplication → reporting workflow is documented in [docs/ENUMERATION_FIRST_PIPELINE.md](docs/ENUMERATION_FIRST_PIPELINE.md). Every task must declare a domain and compatible Skill tags; the dispatcher fails closed if no methodology is selected. A synthetic end-to-end DAG test exercises handoffs and evidence without contacting external targets.
