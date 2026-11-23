@@ -208,6 +208,21 @@ class StateStore:
             )
         return evidence_id
 
+    def validate_evidence_refs_for_engagement(self, engagement_id, evidence_refs):
+        """Verify every handoff evidence ID exists and belongs to this engagement."""
+        if not isinstance(evidence_refs, list) or any(
+            not isinstance(ref, str) or not ref.strip() for ref in evidence_refs
+        ):
+            raise FindingValidationError("evidence_refs must be a list of non-empty evidence IDs")
+        if len(set(evidence_refs)) != len(evidence_refs):
+            raise FindingValidationError("evidence_refs cannot contain duplicate IDs")
+        for evidence_id in evidence_refs:
+            row = self.connection.execute(
+                "SELECT engagement_id FROM evidence WHERE evidence_id=?", (evidence_id,)
+            ).fetchone()
+            if row is None or row["engagement_id"] != engagement_id:
+                raise FindingValidationError("Unknown or out-of-engagement evidence reference: " + evidence_id)
+
     def _validate_evidence_refs(self, engagement_id, finding_id, evidence_refs):
         if not isinstance(evidence_refs, list) or any(
             not isinstance(ref, str) or not ref.strip() for ref in evidence_refs
