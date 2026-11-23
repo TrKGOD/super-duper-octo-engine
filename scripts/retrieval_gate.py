@@ -43,9 +43,9 @@ def run_gates(cases_path=DEFAULT_CASES):
     capability = {
         "handoff_requires_evidence_refs": "evidence_refs" in handoff.get("required", []),
         "handoff_requires_limitations": "limitations" in handoff.get("required", []),
-        "validated_finding_requires_validator": "validated_by" in finding.get("required", []),
+        "validated_finding_requires_validator": any("validated_by" in item.get("then", {}).get("required", []) for item in finding.get("allOf", [])),
         "validated_finding_requires_evidence": finding.get("allOf", [{}])[0].get("then", {}).get("properties", {}).get("evidence_refs", {}).get("minItems", 0) >= 1,
-        "vulnerability_agent_separates_observations_and_hypotheses": "observations" in vuln_agent and "hypotheses" in vuln_agent,
+        "vulnerability_agent_separates_observations_and_hypotheses": "observed facts" in vuln_agent.lower() and "hypotheses" in vuln_agent.lower(),
         "exploitation_agent_requires_reviewed_manifests": "SHA-256-pinned" in exploit_agent,
         "validation_agent_requires_independent_proposal": "different agent" in validator_agent,
         "reporting_agent_requires_evidence": "evidence" in reporting_agent.lower(),
