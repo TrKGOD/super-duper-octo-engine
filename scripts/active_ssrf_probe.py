@@ -39,9 +39,19 @@ def main():
         events = []
         callback_evidence = []
         if args.callback_events:
-            if args.callback_events.stat().st_size > 65536:
+            event_path = args.callback_events
+            if event_path.is_absolute() or ".." in event_path.parts or event_path.parts[:1] != (".local",):
+                raise ActiveExecutionError("Callback evidence must be confined to .local/")
+            event_candidate = ROOT / event_path
+            local_root = ROOT / ".local"
+            if local_root.is_symlink() or event_candidate.is_symlink():
+                raise ActiveExecutionError("Callback evidence path must not use symlinks")
+            event_resolved = event_candidate.resolve(strict=True)
+            if not event_resolved.is_file() or not event_resolved.is_relative_to(local_root.resolve(strict=True)):
+                raise ActiveExecutionError("Callback evidence must be a regular file inside .local/")
+            if event_resolved.stat().st_size > 65536:
                 raise ActiveExecutionError("Callback evidence file exceeds 64 KiB")
-            supplied = json.loads(args.callback_events.read_text(encoding="utf-8"))
+            supplied = json.loads(event_resolved.read_text(encoding="utf-8"))
             if not isinstance(supplied, list) or len(supplied) > 100:
                 raise ActiveExecutionError("Callback evidence must be a JSON array of at most 100 events")
             events = [item for item in supplied if isinstance(item, dict) and item.get("marker") == args.marker]
