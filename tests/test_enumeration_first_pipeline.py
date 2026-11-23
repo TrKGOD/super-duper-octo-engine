@@ -113,7 +113,7 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             "    response_ev = vault.capture('eng-enumeration-first', 'http_response', 'synthetic-response.txt', b'HTTP/1.1 200 OK\\nsynthetic fixture\\n', 'active-testing-agent', redacted=True)\n"
             "    refs = [request_ev['evidence_id'], response_ev['evidence_id']]\n"
             "    with workflow.store.connection:\n"
-            "        workflow.store.connection.execute('INSERT INTO active_request_log (execution_id,engagement_id,task_id,request_id,target_host,method,started_at,outcome,evidence_refs_json) VALUES (?,?,?,?,?,?,?,\'completed\',?)', ('synthetic-execution', 'eng-enumeration-first', task['task_id'], 'synthetic-pipeline-get-001', 'app.example.test', 'GET', '2026-11-23T00:00:00+00:00', json.dumps(refs)))\n"
+            "        workflow.store.connection.execute('INSERT INTO active_request_log (execution_id,engagement_id,task_id,request_id,target_host,method,started_at,outcome,evidence_refs_json) VALUES (?,?,?,?,?,?,?,?,?)', ('synthetic-execution', 'eng-enumeration-first', task['task_id'], 'synthetic-pipeline-get-001', 'app.example.test', 'GET', '2026-11-23T00:00:00+00:00', 'completed', json.dumps(refs)))\n"
             "    workflow.close()\n"
             "    evidence_refs.extend(refs)\n"
             "evidence_refs = list(dict.fromkeys(evidence_refs))\n"
