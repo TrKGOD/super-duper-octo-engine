@@ -217,6 +217,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
         "authorization_reference": row["authorization_reference"],
         "scope": json.loads(row["scope_json"]),
         "rules_of_engagement": json.loads(row["rules_json"]),
+        "state_db_path": workflow.store.db_path,
     }
     if not active_task and engagement["rules_of_engagement"].get("execution_enabled") not in {False, True}:
         raise DispatchError("Invalid engagement execution state")
