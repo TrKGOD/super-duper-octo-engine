@@ -495,8 +495,7 @@
       "prerequisites": [
         "explicit written authorization",
         "active engagement approval",
-        "exact task scope subset",
-        "request budget and testing window"
+        "exact task scope subset"
       ],
       "risk_class": "controlled_read_only_http",
       "validation_status": "implemented_unverified"
