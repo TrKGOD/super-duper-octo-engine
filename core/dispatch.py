@@ -66,7 +66,7 @@ def _selected_skill_context(registry_path, agent, domain, tags):
 
 
 def _load_evidence_context(workflow, engagement_id, evidence_refs):
-    vault = EvidenceVault(workflow.store, ROOT)
+    vault = EvidenceVault(workflow.store, workflow.project_root)
     artifacts = []
     for evidence_id in evidence_refs:
         row = workflow.store.connection.execute(
