@@ -249,10 +249,11 @@ def search_patterns(db,query,limit=5,domain=None,tag=None):
     where=" AND ".join(["kb_pattern_search_v2 MATCH ?"]+filters)
     params.append(limit)
     try:
-        return db.execute("""SELECT p.pattern_id,p.domain,p.tags,p.document_id,p.vulnerability_type,p.root_cause,p.preconditions,
+        rows=db.execute("""SELECT p.pattern_id,p.domain,p.tags,p.document_id,p.vulnerability_type,p.root_cause,p.preconditions,
           p.reproduction_summary,p.evidence_summary,p.impact,p.remediation,p.false_positives,p.confidence,
           d.title,d.platform,d.source_url FROM kb_pattern_search_v2 s JOIN kb_patterns p USING(pattern_id)
           JOIN kb_documents d USING(document_id) WHERE """+where+""" ORDER BY rank LIMIT ?""",params).fetchall()
+        return [_wrap_pattern_row(row) for row in rows]
     except sqlite3.OperationalError:
         terms=re.findall(r"[\w.-]+",query)[:8]
         clauses=[]; args=[]
@@ -263,10 +264,22 @@ def search_patterns(db,query,limit=5,domain=None,tag=None):
         if domain: filters.append("(p.domain=? OR p.tags LIKE ?)"); args.extend([domain,"%"+domain+"%"])
         if tag: filters.append("p.tags LIKE ?"); args.append("%"+tag+"%")
         args.append(limit)
-        return db.execute("""SELECT p.pattern_id,p.domain,p.tags,p.document_id,p.vulnerability_type,p.root_cause,p.preconditions,
+        rows=db.execute("""SELECT p.pattern_id,p.domain,p.tags,p.document_id,p.vulnerability_type,p.root_cause,p.preconditions,
           p.reproduction_summary,p.evidence_summary,p.impact,p.remediation,p.false_positives,p.confidence,
           d.title,d.platform,d.source_url FROM kb_patterns p JOIN kb_documents d USING(document_id)
           WHERE """+" AND ".join(filters)+""" LIMIT ?""",args).fetchall()
+        return [_wrap_pattern_row(row) for row in rows]
+
+def _wrap_pattern_row(row):
+    result=dict(row)
+    for key in ("vulnerability_type","root_cause","preconditions","reproduction_summary","evidence_summary","impact","remediation","false_positives"):
+        result[key]=untrusted_block(result[key])
+    return result
+
+def show_document(db,document_id):
+    row=db.execute("SELECT document_id,title,platform,source_url,content_type,content,content_sha256,created_at FROM kb_documents WHERE document_id=? AND disclosure_status='public'",(document_id,)).fetchone()
+    if not row: raise ValueError("Public source document not found.")
+    result=dict(row); result["content"]=untrusted_block(result["content"]); return result
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__); ap.add_argument("--db",type=Path,default=DEFAULT_DB)
@@ -274,6 +287,7 @@ def main():
     sp.add_parser("init")
     a=sp.add_parser("ingest"); a.add_argument("--file",required=True); a.add_argument("--metadata",required=True)
     a=sp.add_parser("search"); a.add_argument("--query",required=True); a.add_argument("--limit",type=int,default=5)
+    a=sp.add_parser("show"); a.add_argument("--document-id",required=True)
     a=sp.add_parser("import-pattern"); a.add_argument("--file",required=True)
     a=sp.add_parser("import-seed"); a.add_argument("--seed-dir",type=Path,default=ROOT/"knowledge-base/seed")
     a=sp.add_parser("search-patterns"); a.add_argument("--query",required=True); a.add_argument("--limit",type=int,default=5); a.add_argument("--domain",choices=sorted(set(DOMAIN_BY_PREFIX.values()))+["other"]); a.add_argument("--tag")
@@ -284,6 +298,7 @@ def main():
         if args.cmd=="init": out={"status":"initialized","db":str(args.db)}
         elif args.cmd=="ingest": out={"document_id":ingest(db,args.file,args.metadata)}
         elif args.cmd=="search": out={"results":[dict(x) for x in search(db,args.query,args.limit)]}
+        elif args.cmd=="show": out={"document":show_document(db,args.document_id)}
         elif args.cmd=="import-pattern": out={"pattern_id":import_pattern(db,args.file)}
         elif args.cmd=="import-seed":
             ids=import_seed(db,args.seed_dir); out={"imported":len(ids),"pattern_ids":ids,"db":str(args.db)}
