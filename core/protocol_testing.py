@@ -157,9 +157,9 @@ def analyze_oauth_flow(flow: dict) -> dict[str, Any]:
 
 
 _SQL_ERROR = re.compile(
-    r"(?:SQL syntax.*MySQL|Warning: mysql_|PostgreSQL.*ERROR|ORA-\\d{4,5}|"
+    r"(?:SQL syntax.*MySQL|Warning: mysql_|PostgreSQL.*ERROR|ORA-\d{4,5}|"
     r"SQLite\\/JDBC|ODBC SQL Server Driver|Unclosed quotation mark|"
-    r"SQLSTATE\\[[0-9A-Z]+\\])", re.IGNORECASE
+    r"SQLSTATE\[[0-9A-Z]+\])", re.IGNORECASE
 )
 
 
