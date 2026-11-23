@@ -56,7 +56,7 @@ A stage is not complete because an LLM described what it would do. It is complet
 - Once a task produces a valid `completed` handoff, immediately dispatch every newly-ready dependent task. Do not ask the operator to approve ordinary stage transitions again.
 - If one task is `needs_operator`, `blocked`, `partial`, or `failed`, continue other independent ready branches. Do not run its descendants until its dependency is genuinely completed. Report all blockers together after the runnable DAG is drained.
 - Never retry an active task automatically after an error or interruption: inspect persisted broker logs and evidence first because a request may already have consumed budget. Resume only after reconciling task state and ensuring no duplicate request will be sent.
-- Ask the operator only for a real external dependency: missing authorization/scope, required human-verified test account or CAPTCHA, ambiguous policy, explicit per-request approval, exhausted budget, or a safety control. Missing credentials must not cause repeated status prompts; record the exact blocker and continue unrelated work.
+- Ask the operator only for a real external dependency: missing authorization/scope, required human-verified test account or CAPTCHA, ambiguous policy, explicit per-request approval, rate-limit, testing-window, or safety control. Missing credentials must not cause repeated status prompts; record the exact blocker and continue unrelated work.
 - Publishing code (push/PR/merge) is a separate engineering workflow. A missing GitHub CLI is not a reason to stop the pentest itself; use an available authenticated GitHub integration when authorized, or report the publication blocker after the assessment work that can safely continue.
 
 
