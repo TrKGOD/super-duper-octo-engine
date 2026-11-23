@@ -149,7 +149,7 @@ The broker:
 - pins the resolved IP for the socket connection while preserving the original Host header and TLS SNI;
 - revalidates every redirect, blocks HTTPS-to-HTTP downgrade, and strips credentials when origin changes;
 - permits only ports 80/443 unless a custom port is explicitly listed in allowed_http_ports or the exact application origin is allowlisted;
-- limits concurrency to one, rate to at most one request per second, 20 requests per engagement by default (operator-configurable up to 50), timeout to 10 seconds, request body to 16 KiB, and response body to 256 KiB;
+- enforces one concurrent request (until multi-worker lease and budget reservation are implemented), an engagement-configurable rate of up to 5 requests per second (default 1), and an engagement-configurable budget of up to 500 requests (default 20); request timeout, body and response size remain separately bounded;
 - stores best-effort redacted request/response evidence with SHA-256 and audit events;
 - prevents replay of a request ID within the same engagement.
 
