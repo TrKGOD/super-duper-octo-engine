@@ -22,6 +22,17 @@ def evaluate(cases_dir, predictions_path, allow_missing=False):
             raise ValueError(f"Non-synthetic benchmark case rejected: {path}")
         if not isinstance(case.get("expected_finding"), bool):
             raise ValueError(f"expected_finding must be boolean: {path}")
+        required = case.get("required_evidence", [])
+        fixtures = case.get("fixtures", {})
+        if not isinstance(required, list) or not all(isinstance(item, str) for item in required):
+            raise ValueError(f"required_evidence must be a string list: {path}")
+        if not isinstance(fixtures, dict):
+            raise ValueError(f"fixtures must be an object: {path}")
+        missing_fixtures = sorted(set(required) - set(fixtures))
+        if case["expected_finding"] and missing_fixtures:
+            raise ValueError(
+                f"Positive case lacks required fixture fields {missing_fixtures}: {path}"
+            )
         cases[case_id] = case
     if not cases:
         raise ValueError("No benchmark cases found")

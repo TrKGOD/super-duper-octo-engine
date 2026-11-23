@@ -1,7 +1,7 @@
 {
   "case_id": "SYN-BOLA-001",
   "kind": "synthetic",
-  "description": "Synthetic API object-access case: a user can retrieve an object belonging to another test tenant because the server omits an object-level authorization decision.",
+  "description": "Synthetic API object-access case: a user can retrieve a different test tenant's object because the server omits an object-level authorization decision. All identities and responses below are fictional fixture data.",
   "expected_finding": true,
   "vulnerability_type": "BOLA",
   "required_evidence": [
@@ -14,5 +14,11 @@
     "api",
     "authorization",
     "positive"
-  ]
+  ],
+  "fixtures": {
+    "request_identity": "synthetic-user-tenant-b",
+    "object_owner_identity": "synthetic-user-tenant-a",
+    "authorization_decision": "no object-level policy check was applied",
+    "response_observation": "fixture response returned synthetic object tenant-a-record-001 to tenant-b; no real service or data involved"
+  }
 }

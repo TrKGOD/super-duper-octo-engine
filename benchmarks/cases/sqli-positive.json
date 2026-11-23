@@ -1,7 +1,7 @@
 {
   "case_id": "SYN-SQLI-001",
   "kind": "synthetic",
-  "description": "Synthetic lab-only query-handling case: controlled input changes the database query structure in a disposable fixture, with repeatable differential evidence.",
+  "description": "Synthetic lab-only query-handling case: controlled input changes query structure in a disposable fixture. All observations are simulated fixture values, not results from a real database.",
   "expected_finding": true,
   "vulnerability_type": "SQL_INJECTION",
   "required_evidence": [
@@ -14,5 +14,11 @@
     "web",
     "injection",
     "positive"
-  ]
+  ],
+  "fixtures": {
+    "controlled_input": "synthetic value: 7' OR '1'='1",
+    "baseline_observation": "fixture baseline: one record returned for an exact identifier",
+    "differential_observation": "fixture variant: result set changes to three synthetic records when the quote boundary changes",
+    "query_context": "fixture metadata states the value is concatenated into a SQL predicate without parameter binding"
+  }
 }
