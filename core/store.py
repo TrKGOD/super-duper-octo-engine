@@ -157,6 +157,84 @@ class StateStore:
             self.connection.rollback()
             raise
 
+
+    def start_task_with_run(self, task_id, model=None):
+        """Atomically mark a task running and create its linked agent run."""
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            task = self.connection.execute(
+                "SELECT engagement_id,agent,status FROM tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is None:
+                raise KeyError(task_id)
+            if task["status"] != "queued":
+                raise ValueError("Task is not queued: " + task["status"])
+            now = utc_now()
+            run_id = new_id("run")
+            self.connection.execute(
+                "UPDATE tasks SET status='running',started_at=COALESCE(started_at,?),completed_at=NULL WHERE task_id=?",
+                (now, task_id),
+            )
+            self.connection.execute(
+                """INSERT INTO agent_runs(run_id,engagement_id,agent,model,status,started_at,task_id)
+                   VALUES(?,?,?,?,'running',?,?)""",
+                (run_id, task["engagement_id"], task["agent"], model, now, task_id),
+            )
+            self.append_audit(
+                task["engagement_id"], task["agent"], "task.status_changed",
+                {"task_id": task_id, "from": "queued", "to": "running"},
+            )
+            self.append_audit(
+                task["engagement_id"], task["agent"], "agent_run.started",
+                {"run_id": run_id, "model": model, "task_id": task_id},
+            )
+            self.connection.commit()
+            return run_id
+        except Exception:
+            self.connection.rollback()
+            raise
+
+    def accept_task_handoff(self, task_id, task_status, handoff):
+        """Atomically persist a handoff and finish its one active agent run."""
+        if task_status not in {"completed", "blocked", "needs_operator"}:
+            raise ValueError("Unsupported handoff task status")
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            task = self.connection.execute(
+                "SELECT engagement_id,agent,status FROM tasks WHERE task_id=?", (task_id,)
+            ).fetchone()
+            if task is None:
+                raise KeyError(task_id)
+            if task["status"] != "running":
+                raise ValueError("Only running tasks can accept a handoff")
+            run = self.connection.execute(
+                "SELECT run_id,status FROM agent_runs WHERE task_id=? AND status='running'",
+                (task_id,),
+            ).fetchone()
+            if run is None:
+                raise ValueError("No running agent run exists for task: " + task_id)
+            now = utc_now()
+            self.connection.execute(
+                "UPDATE tasks SET status=?,output_json=?,completed_at=? WHERE task_id=?",
+                (task_status, json.dumps(handoff), now, task_id),
+            )
+            self.connection.execute(
+                "UPDATE agent_runs SET status=?,completed_at=? WHERE run_id=?",
+                (task_status, now, run["run_id"]),
+            )
+            self.append_audit(
+                task["engagement_id"], task["agent"], "task.status_changed",
+                {"task_id": task_id, "from": "running", "to": task_status},
+            )
+            self.append_audit(
+                task["engagement_id"], task["agent"], "agent_run.finished",
+                {"run_id": run["run_id"], "status": task_status, "task_id": task_id},
+            )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+
     def finish_agent_run_for_task(self, task_id, status):
         row = self.connection.execute(
             """SELECT run_id FROM agent_runs
