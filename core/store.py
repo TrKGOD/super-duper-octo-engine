@@ -365,8 +365,8 @@ class StateStore:
                 raise KeyError(finding_id)
             current = row["status"]
             validate_finding_transition(current, next_status)
-            validator = actor.strip() if next_status in {"validated", "reported"} else row["validated_by"]
-            if next_status in {"validated", "reported"} and validator == row["proposed_by"]:
+            validator = actor.strip() if next_status == "validated" else row["validated_by"]
+            if next_status == "validated" and validator == row["proposed_by"]:
                 raise FindingValidationError("The proposing agent cannot validate its own finding")
             refs = json.loads(row["evidence_refs_json"]) if evidence_refs is None else evidence_refs
             self._validate_evidence_refs(row["engagement_id"], finding_id, refs)
