@@ -182,6 +182,12 @@ def _is_sensitive_name(name):
     ))
 
 
+def _strip_sensitive_query(url):
+    parsed = urlsplit(url)
+    query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if not _is_sensitive_name(key)]
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), ""))
+
+
 def _safe_url(url):
     parsed = urlsplit(url)
     query = [(key, "[REDACTED]" if _is_sensitive_name(key) else value) for key, value in parse_qsl(parsed.query, keep_blank_values=True)]
@@ -486,7 +492,8 @@ class ActiveHTTPExecutor:
                 if next_parsed.scheme == "http" and parsed.scheme == "https":
                     raise ActiveExecutionError("HTTPS-to-HTTP redirect downgrade blocked")
                 if next_origin != previous_origin:
-                    headers = {key: value for key, value in headers.items() if key.lower() not in {"authorization", "cookie"}}
+                    headers = {key: value for key, value in headers.items() if not _is_sensitive_name(key)}
+                    next_url = _strip_sensitive_query(next_url)
                 current_url, host, port, pinned_ip, parsed = next_url, next_host, next_port, next_ip, next_parsed
                 redirects += 1
 

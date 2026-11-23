@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor, _validate_request
+from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor, _validate_request, _strip_sensitive_query
 from core.orchestration import Workflow, WorkflowError
 from scripts.migrate import migrate
 
@@ -189,6 +189,13 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
         request = self._request(headers={"Authorization": "Bearer literal-secret"})
         with self.assertRaisesRegex(ActiveExecutionError, "must not be stored as plaintext"):
             _validate_request(request)
+
+    def test_cross_origin_redirect_query_credentials_are_stripped(self):
+        url = "https://other.example.test/path?access_token=private&view=public&session_id=secret"
+        self.assertEqual(
+            _strip_sensitive_query(url),
+            "https://other.example.test/path?view=public",
+        )
 
     def test_request_manifest_tampering_is_rejected(self):
         self._approve()
