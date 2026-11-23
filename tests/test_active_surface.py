@@ -135,6 +135,8 @@ class ActiveSurfaceIntegrationTests(unittest.TestCase):
                 "max_concurrency": 1,
                 "requests_per_second": 1,
                 "max_requests_per_engagement": 20,
+                "human_approval_required_for_state_changes": True,
+                "prohibited_test_classes": ["denial-of-service", "destructive-testing", "persistence"],
             },
         })
         self.workflow.approve_engagement(
