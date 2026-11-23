@@ -4,6 +4,10 @@ A Claude Code–first scaffold for an evidence-driven assistant supporting autho
 
 > **Current status: early pre-alpha implementation.** The repository includes a bounded Claude Code specialist dispatcher, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, an operator-driven evidence vault, and a scope-enforcing active HTTP broker. Only `active-testing-agent` can invoke the broker, and only for SHA-256-pinned request manifests in an explicitly approved engagement. This is not a general-purpose scanner or a sandbox; Nmap/Nuclei execution, browser automation, and isolated network execution remain unimplemented.
 
+## Enumeration-First Multi-Agent Pipeline
+
+The nine-stage scope → recon → enumeration → vulnerability → active testing → independent validation → impact → deduplication → reporting workflow is documented in [docs/ENUMERATION_FIRST_PIPELINE.md](docs/ENUMERATION_FIRST_PIPELINE.md). Every task must declare a domain and compatible Skill tags; the dispatcher fails closed if no methodology is selected. A synthetic end-to-end DAG test exercises handoffs and evidence without contacting external targets.
+
 ## What is implemented
 
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
