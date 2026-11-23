@@ -1,0 +1,28 @@
+{
+  "case_id": "SYN-MOBILE-POS-020",
+  "kind": "synthetic",
+  "description": "A synthetic Android app stores a long-lived test access token in an unencrypted shared-preferences file readable after extracting the lab app sandbox; token scope and lifetime are documented.",
+  "expected_finding": true,
+  "vulnerability_type": "MOBILE_INSECURE_STORAGE",
+  "required_evidence": [
+    "platform",
+    "storage_location",
+    "secret_type",
+    "protection_state",
+    "lifetime",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "mobile_insecure_storage",
+    "positive"
+  ],
+  "fixtures": {
+    "platform": "Android lab build",
+    "storage_location": "unencrypted shared preferences",
+    "secret_type": "synthetic long-lived access token",
+    "protection_state": "plaintext in app-private storage; backup policy permits extraction in lab",
+    "lifetime": "30 days",
+    "fixture_only": true
+  }
+}
