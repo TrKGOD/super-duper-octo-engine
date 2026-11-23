@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-IDOR-POS-003",
+  "kind": "synthetic",
+  "description": "A second authenticated test identity reads a private invoice by changing its identifier; server response contains the first identity's invoice.",
+  "expected_finding": true,
+  "vulnerability_type": "IDOR",
+  "required_evidence": [
+    "request_identity",
+    "object_owner_identity",
+    "authorization_decision",
+    "response_observation",
+    "fixture_only"
+  ],
+  "tags": [
+    "web",
+    "idor",
+    "positive"
+  ],
+  "fixtures": {
+    "request_identity": "test-user-B",
+    "object_owner_identity": "test-user-A",
+    "authorization_decision": "no object ownership check",
+    "response_observation": "invoice A returned to user B",
+    "fixture_only": true
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-XSS-NEG-003",
+  "kind": "synthetic",
+  "description": "A reflected value is inserted into a text node and encoded; the browser renders literal characters and no execution occurs.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "input_source",
+    "rendering_context",
+    "encoding_behavior",
+    "execution_observation",
+    "response"
+  ],
+  "tags": [
+    "web",
+    "xss",
+    "negative"
+  ],
+  "fixtures": {
+    "input_source": "search.query",
+    "rendering_context": "HTML text node",
+    "encoding_behavior": "less-than and ampersand encoded",
+    "execution_observation": "no script execution",
+    "response": "literal text displayed"
+  }
+}

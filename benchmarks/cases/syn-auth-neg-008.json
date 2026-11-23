@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-AUTH-NEG-008",
+  "kind": "synthetic",
+  "description": "An expired session token is rejected and the endpoint returns an authentication challenge without protected data.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "credential_state",
+    "endpoint",
+    "authentication_decision",
+    "response_observation"
+  ],
+  "tags": [
+    "web",
+    "auth",
+    "negative"
+  ],
+  "fixtures": {
+    "credential_state": "expired token",
+    "endpoint": "protected account endpoint",
+    "authentication_decision": "token rejected based on exp",
+    "response_observation": "401 and no protected fields"
+  }
+}

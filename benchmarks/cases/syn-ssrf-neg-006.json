@@ -1,0 +1,25 @@
+{
+  "case_id": "SYN-SSRF-NEG-006",
+  "kind": "synthetic",
+  "description": "A URL field is parsed for display only; no outbound request or server-side resolution occurs.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "input_source",
+    "server_side_observation",
+    "destination",
+    "implementation"
+  ],
+  "tags": [
+    "web",
+    "api",
+    "ssrf",
+    "negative"
+  ],
+  "fixtures": {
+    "input_source": "profile website URL",
+    "server_side_observation": "none",
+    "destination": "not fetched",
+    "implementation": "URL stored as text; no HTTP client invocation"
+  }
+}

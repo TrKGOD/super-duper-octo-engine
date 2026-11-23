@@ -1,0 +1,26 @@
+{
+  "collection_id": "public-security-patterns-seed",
+  "version": "0.1.0",
+  "status": "analyst-authored-seed",
+  "created": "2026-11-23",
+  "description": "Original concise vulnerability pattern cards derived from public primary security guidance. No third-party report bodies are redistributed.",
+  "domains": {
+    "web": {"file": "patterns-web-api.md", "patterns": ["WEB-001", "WEB-002", "WEB-003", "WEB-004", "WEB-005"]},
+    "api": {"file": "patterns-web-api.md", "patterns": ["API-001", "API-002", "API-003", "API-004"]},
+    "mobile": {"file": "patterns-mobile-cloud.md", "patterns": ["MOB-001", "MOB-002", "MOB-003", "MOB-004"]},
+    "cloud": {"file": "patterns-mobile-cloud.md", "patterns": ["CLOUD-001", "CLOUD-002", "CLOUD-003", "CLOUD-004"]},
+    "active_directory": {"file": "patterns-active-directory.md", "patterns": ["AD-001", "AD-002", "AD-003", "AD-004"]}
+  },
+  "source_policy": {
+    "source_type": "public_primary_guidance",
+    "redistributed_third_party_report_text": false,
+    "redistributed_exploit_code": false,
+    "public_access_is_not_assumed_to_grant_redistribution_rights": true,
+    "pattern_cards_are_hypotheses_not_target_evidence": true
+  },
+  "review": {
+    "human_review_required": true,
+    "last_source_link_check": "2026-11-23",
+    "note": "Links selected from public project or government documentation during collection creation. Confirm upstream versions and licensing before reproducing source content."
+  }
+}

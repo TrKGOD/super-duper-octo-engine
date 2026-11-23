@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-SQLI-NEG-002",
+  "kind": "synthetic",
+  "description": "Database error text appears in a fixed server-side diagnostic, but controlled input never changes query structure.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "input_source",
+    "baseline",
+    "variant",
+    "query_context",
+    "error"
+  ],
+  "tags": [
+    "web",
+    "sqli",
+    "negative"
+  ],
+  "fixtures": {
+    "input_source": "static application constant",
+    "baseline": "same query shape",
+    "variant": "input variations produce identical parameterized query",
+    "query_context": "prepared statement with bound parameter",
+    "error": "generic database error is logged server-side only"
+  }
+}

@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 CONFIG=ROOT/"config/engagement.local.json"
 DB=".local/state.sqlite3"; KB_DB=".local/knowledge-base.sqlite3"
+KB_ALLOWED_SUBCOMMANDS={"search","search-patterns","show"}
 def deny(message):
  print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":message}})); raise SystemExit(0)
 def safe_local_json(path):
@@ -15,6 +16,7 @@ def allowed_argv(argv):
  if script=="scripts/migrate.py": return argv==[argv[0],script,"--db",DB]
  if script=="scripts/knowledge_base.py":
   a=argv[2:]
+  if len(a)<3 or a[:2]!=["--db",KB_DB] or a[2] not in KB_ALLOWED_SUBCOMMANDS: return False
   if len(a)==7 and a[:3]==["--db",KB_DB,"search"] and a[3]=="--query" and re.fullmatch(r"[A-Za-z0-9 _.-]{1,160}",a[4]) and a[5]=="--limit" and a[6].isdigit(): return 1<=int(a[6])<=10
   if len(a)==7 and a[:3]==["--db",KB_DB,"search-patterns"] and a[3]=="--query" and re.fullmatch(r"[A-Za-z0-9 _.-]{1,160}",a[4]) and a[5]=="--limit" and a[6].isdigit(): return 1<=int(a[6])<=10
   if len(a)==5 and a[:3]==["--db",KB_DB,"show"] and a[3]=="--document-id" and re.fullmatch(r"KB-[A-F0-9]{16}",a[4]): return True
