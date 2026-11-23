@@ -101,7 +101,9 @@ def _headers_map(headers):
     return {str(k).lower(): str(v) for k, v in headers.items()}
 
 
-def _request(executor, engagement_id, task_id, target, purpose, headers=None):
+def _request(executor, engagement_id, task_id, target, purpose, headers=None, method="GET"):
+    if method not in {"GET", "OPTIONS"}:
+        raise ActiveExecutionError("Surface discovery supports only GET and OPTIONS")
     task = executor.workflow.store.connection.execute(
         "SELECT input_json FROM tasks WHERE task_id=? AND engagement_id=?",
         (task_id, engagement_id),
@@ -114,7 +116,7 @@ def _request(executor, engagement_id, task_id, target, purpose, headers=None):
     request_id = "surf-" + uuid.uuid4().hex[:20]
     manifest = {
         "request_id": request_id,
-        "method": "GET",
+        "method": method,
         "url": target,
         "purpose": purpose[:490],
         "headers": headers or {},
@@ -257,11 +259,14 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             for header, label in SECURITY_HEADERS.items():
                 if not headers.get(header):
                     findings.append({"type": label, "url": current, "status": "configuration_observation"})
-            if "set-cookie" in headers:
-                cookie = headers["set-cookie"].lower()
-                for flag in ("secure", "httponly", "samesite"):
-                    if flag not in cookie:
-                        findings.append({"type": "cookie-missing-" + flag, "url": current, "status": "configuration_observation"})
+            for cookie_index, flags in enumerate(result.get("cookie_security_flags", [])):
+                for flag in ("secure", "httponly"):
+                    if flag not in flags:
+                        findings.append({"type": "cookie-missing-" + flag, "url": current,
+                                         "cookie_index": cookie_index, "status": "configuration_observation"})
+                if not any(flag.startswith("samesite=") for flag in flags):
+                    findings.append({"type": "cookie-missing-samesite", "url": current,
+                                     "cookie_index": cookie_index, "status": "configuration_observation"})
         # Fetch only same-origin JavaScript assets already observed in HTML.
         js_results = []
         for script_url in sorted(js_assets)[:min(10, max_pages - page_count)]:
@@ -277,14 +282,27 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                 js_results.append({"url": script_url, "status_code": js_result.get("status_code"), "route_count": len(routes), "indicators": indicators})
             except ActiveExecutionError as exc:
                 js_results.append({"url": script_url, "blocked": str(exc)})
-        # One harmless CORS preflight-style GET observation, never credentials or state changes.
+        # One harmless CORS observation, never credentials or state changes.
         cors = None
+        options = None
         try:
             cors = _request(executor, engagement_id, task_id, target_url,
                             "Read-only CORS policy observation using a non-credentialed synthetic Origin",
                             {"Origin": "https://pentest-agent.invalid"})
         except ActiveExecutionError as exc:
             cors = {"blocked": str(exc)}
+        try:
+            options = _request(executor, engagement_id, task_id, target_url,
+                               "Read-only HTTP OPTIONS capability observation", method="OPTIONS")
+        except ActiveExecutionError as exc:
+            options = {"blocked": str(exc)}
+        if options and options.get("status_code"):
+            option_headers = _headers_map(options.get("response_headers") or {})
+            allowed_methods = option_headers.get("allow") or option_headers.get("access-control-allow-methods")
+            if allowed_methods:
+                findings.append({"type": "http-options-methods-observed", "url": target_url,
+                                 "methods": [item.strip().upper() for item in allowed_methods.split(",") if item.strip()],
+                                 "status": "capability_observation_not_a_vulnerability"})
         if cors and cors.get("status_code"):
             response_headers = _headers_map(cors.get("response_headers") or {})
             allowed_origin = response_headers.get("access-control-allow-origin", "")
@@ -306,8 +324,9 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             "technology_indicators": {k: sorted(v) if isinstance(v, set) else v for k, v in tech.items()},
             "observations": findings,
             "cors_observation": cors,
+            "options_observation": options,
             "limits": {"max_pages": max_pages, "max_depth": max_depth, "same_origin_only": True},
-            "note": "Static indicators and configuration observations are candidates, not confirmed vulnerabilities. All HTTP requests were GET-only and broker-recorded.",
+            "note": "Static indicators and configuration observations are candidates, not confirmed vulnerabilities. All HTTP requests were GET/OPTIONS-only and broker-recorded.",
         }
 
 
