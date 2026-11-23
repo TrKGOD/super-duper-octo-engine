@@ -1,0 +1,18 @@
+{
+  "case_id": "SYN-BOLA-001",
+  "kind": "synthetic",
+  "description": "Synthetic API object-access case: a user can retrieve an object belonging to another test tenant because the server omits an object-level authorization decision.",
+  "expected_finding": true,
+  "vulnerability_type": "BOLA",
+  "required_evidence": [
+    "request_identity",
+    "object_owner_identity",
+    "authorization_decision",
+    "response_observation"
+  ],
+  "tags": [
+    "api",
+    "authorization",
+    "positive"
+  ]
+}
