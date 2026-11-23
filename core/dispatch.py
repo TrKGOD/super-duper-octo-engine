@@ -298,7 +298,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             current_rules = json.loads(current["rules_json"]) if current else {}
             if not current or current["status"] != "active" or current_rules.get("execution_enabled") is not True or current_rules.get("authorization_verified") is not True:
                 handoff["status"] = "needs_operator"
-                handoff["summary"] = "Active testing is blocked pending explicit operator authorization and activation."
+                handoff["summary"] = "Active testing is blocked until the engagement is explicitly approved and activated."
                 handoff.setdefault("limitations", []).append(
                     "Deterministic gate: active-testing-preflight cannot complete before the engagement is explicitly approved."
                 )
