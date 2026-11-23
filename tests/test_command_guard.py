@@ -8,7 +8,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, active_security_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
+from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, active_security_args, passive_framing_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
 
 
 class CommandGuardTests(unittest.TestCase):
@@ -64,6 +64,14 @@ class CommandGuardTests(unittest.TestCase):
         self.assertFalse(allowed_argv(command))
         command[9] = ".local/requests/ssrf-001.json"
         self.assertFalse(allowed_argv(command))
+
+
+    def test_passive_framing_review_only_reads_local_json(self):
+        command = ["python3", "scripts/analyze_http_framing.py", "--input", ".local/http-capture.json"]
+        self.assertTrue(allowed_argv(command))
+        self.assertEqual(passive_framing_args(command), {"input": ".local/http-capture.json"})
+        self.assertFalse(allowed_argv(command[:-1] + ["/etc/passwd"]))
+        self.assertFalse(allowed_argv(command[:-1] + ["../capture.json"]))
 
 
     def test_per_engagement_database_paths_are_strictly_mapped(self):
