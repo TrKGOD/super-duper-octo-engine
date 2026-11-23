@@ -2,7 +2,7 @@
 
 ## Scope of this implementation
 
-The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent can invoke the broker; its Bash access is restricted to the exact broker command. The orchestrator's Bash remains limited to workflow and read-only KB commands.
+The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent can invoke the broker; its Bash access is restricted to the exact broker command. The orchestrator's Bash is limited to workflow lifecycle commands before activation and read-only status/KB queries while active.
 
 The broker supports GET, HEAD, OPTIONS, and individually approved POST requests. PUT, PATCH, DELETE, TRACE, CONNECT, uploads, arbitrary shell, Nmap, Nuclei, sqlmap, browser automation, brute force, DoS, persistence, stealth/evasion, bulk extraction, and real customer-data access are not supported.
 
@@ -69,7 +69,7 @@ Create a JSON manifest under .local/requests/. Example:
 }
 ~~~
 
-Do not use the example hostname as a target. Replace it only with an exact target listed in the engagement allowlist. Never store credentials, cookies, or API keys as literal values in a request manifest. Use secret_headers to reference environment variables set in the operator's shell before launching the dispatcher. The agent sees only the variable names, while the broker resolves values at execution time and redacts sensitive headers from captured evidence. Request and response body redaction is best-effort; review evidence manually. Do not put secrets in URLs or request bodies.
+Do not use the example hostname as a target. Replace it only with an exact target listed in the engagement allowlist. Never store credentials, cookies, or API keys as literal values in a request manifest. Use secret_headers to reference environment variables set in the operator's shell before launching the dispatcher. The active agent does not receive manifest contents or secret values; the broker resolves environment variables at execution time and redacts sensitive headers from captured evidence. Request and response body redaction is best-effort; review evidence manually. Do not put secrets in URLs or request bodies.
 
 The task plan must pin the manifest by SHA-256:
 
