@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-XSS-POS-018",
+  "kind": "synthetic",
+  "description": "A synthetic search parameter reaches an HTML text sink without context-appropriate encoding; controlled lab evidence demonstrates execution in the origin under a disposable test account.",
+  "expected_finding": true,
+  "vulnerability_type": "CROSS_SITE_SCRIPTING",
+  "required_evidence": [
+    "input_source",
+    "output_context",
+    "encoding_behavior",
+    "execution_evidence",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "cross_site_scripting",
+    "positive"
+  ],
+  "fixtures": {
+    "input_source": "search query parameter",
+    "output_context": "HTML text node",
+    "encoding_behavior": "raw attacker-controlled markup inserted",
+    "execution_evidence": "lab-only script execution marker observed",
+    "fixture_only": true
+  }
+}
