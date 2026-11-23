@@ -20,7 +20,7 @@ def validate_execution_limits(rules):
         raise ValueError("max_concurrency must be 1; concurrent broker execution is not implemented")
 
     rps = rules.get("requests_per_second", 1)
-    if isinstance(rps, bool) or not isinstance(rps, (int, float)) or not math.isfinite(rps) or not 0 < rps <= MAX_REQUESTS_PER_SECOND:
+    if isinstance(rps, bool) or not isinstance(rps, (int, float)) or not 0 < rps <= MAX_REQUESTS_PER_SECOND or not math.isfinite(rps):
         raise ValueError(f"requests_per_second must be greater than 0 and at most {MAX_REQUESTS_PER_SECOND:g}")
 
     budget = rules.get("max_requests_per_engagement", 20)
