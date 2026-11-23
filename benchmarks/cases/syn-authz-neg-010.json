@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-AUTHZ-NEG-010",
+  "kind": "synthetic",
+  "description": "A low-privilege user requests an administrator-only export; policy enforcement denies before the operation runs.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "request_identity",
+    "operation",
+    "authorization_decision",
+    "response_observation",
+    "expected_policy"
+  ],
+  "tags": [
+    "api",
+    "authz",
+    "negative"
+  ],
+  "fixtures": {
+    "request_identity": "role=viewer",
+    "operation": "admin export",
+    "authorization_decision": "403 role policy enforced",
+    "response_observation": "no export job created",
+    "expected_policy": "admin only"
+  }
+}
