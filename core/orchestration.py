@@ -167,6 +167,10 @@ class Workflow:
         ):
             raise WorkflowError("Handoff identity does not match persisted task")
         task_input = json.loads(row["input_json"])
+        try:
+            self.store.validate_evidence_refs_for_engagement(row["engagement_id"], handoff["evidence_refs"])
+        except ValueError as exc:
+            raise WorkflowError(str(exc)) from exc
         assigned_scope = set(task_input.get("scope_subset", []))
         if any(asset not in assigned_scope for asset in handoff["scope_subset"]):
             raise WorkflowError("Handoff scope exceeds task scope")
