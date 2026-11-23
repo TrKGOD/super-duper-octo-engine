@@ -71,20 +71,20 @@ def _index_document(db, doc_id, title, content, tags, vuln_types, technologies):
     except sqlite3.OperationalError:
         pass
 
-_DIRECTIVE_RE=re.compile(r'(?i)^\\s*(?:ignore\\s+(?:all\\s+)?(?:previous|prior|above)|disregard\\s+(?:all\\s+)?instructions|you\\s+are\\s+chatgpt|system\\s+prompt|developer\\s+message|act\\s+as\\s+|reveal\\s+(?:the\\s+)?(?:system|hidden)|do\\s+not\\s+follow)\\b')
+_DIRECTIVE_RE=re.compile(r'(?i)^\s*(?:ignore\s+(?:all\s+)?(?:previous|prior|above)|disregard\s+(?:all\s+)?instructions|you\s+are\s+chatgpt|system\s+prompt|developer\s+message|act\s+as\s+|reveal\s+(?:the\s+)?(?:system|hidden)|do\s+not\s+follow)\b')
 
 def sanitize_content(value):
-    text=unicodedata.normalize('NFKC',value).replace('\\r\\n','\\n').replace('\\r','\\n')
+    text=unicodedata.normalize('NFKC',value).replace('\r\n','\n').replace('\r','\n')
     fence=chr(96)*3
-    text=text.replace(fence,'\\\\x60\\\\x60\\\\x60').replace('~~~','\\\\x7e\\\\x7e\\\\x7e')
+    text=text.replace(fence,'\\x60\\x60\\x60').replace('~~~','\\x7e\\x7e\\x7e')
     lines=[]
-    for line in text.split('\\n'):
+    for line in text.split('\n'):
         if _DIRECTIVE_RE.search(line): line='[ESCAPED DIRECTIVE-LIKE SOURCE TEXT] '+line
         lines.append(line)
-    return '\\n'.join(lines).strip()
+    return '\n'.join(lines).strip()
 
 def untrusted_block(value):
-    return chr(96)*3+'UNTRUSTED_KB_CONTENT\\n'+sanitize_content(str(value))+'\\n'+chr(96)*3
+    return chr(96)*3+'UNTRUSTED_KB_CONTENT\n'+sanitize_content(str(value))+'\n'+chr(96)*3
 
 def ingest(db,file,metadata):
     file=Path(file); metadata=Path(metadata)
