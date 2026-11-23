@@ -106,7 +106,12 @@
         "routes",
         "parameters",
         "roles",
-        "authentication-context"
+        "authentication-context",
+        "api-schema",
+        "javascript-analysis",
+        "business-logic",
+        "trust-boundaries",
+        "vulnerability-hypotheses"
       ],
       "compatible_agents": [
         "enumeration-agent",
@@ -115,10 +120,11 @@
       ],
       "prerequisites": [
         "explicit engagement scope",
-        "supplied captures, specifications, or approved artifacts"
+        "supplied captures/specifications or approved active-discovery task"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "methodology_defined_implementation_partial",
+      "description": "Practical Web/API attack-surface enumeration and vulnerability-lead generation"
     },
     {
       "id": "knowledge-base",
