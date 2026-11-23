@@ -1,0 +1,45 @@
+{
+  "predictions": [
+    {
+      "case_id": "SYN-BOLA-001",
+      "detected": true,
+      "vulnerability_type": "BOLA",
+      "evidence_fields": [
+        "request_identity",
+        "object_owner_identity",
+        "authorization_decision"
+      ]
+    },
+    {
+      "case_id": "SYN-AUTH-NEG-001",
+      "detected": false,
+      "vulnerability_type": null,
+      "evidence_fields": [
+        "request_identity",
+        "object_owner_identity",
+        "authorization_decision"
+      ]
+    },
+    {
+      "case_id": "SYN-XSS-NEG-001",
+      "detected": false,
+      "vulnerability_type": null,
+      "evidence_fields": [
+        "input_source",
+        "rendering_context",
+        "encoding_behavior"
+      ]
+    },
+    {
+      "case_id": "SYN-SQLI-001",
+      "detected": true,
+      "vulnerability_type": "SQL_INJECTION",
+      "evidence_fields": [
+        "controlled_input",
+        "baseline_observation",
+        "differential_observation",
+        "query_context"
+      ]
+    }
+  ]
+}
