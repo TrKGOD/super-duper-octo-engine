@@ -1,0 +1,30 @@
+{
+  "case_id": "SYN-CLOUD-POS-022",
+  "kind": "synthetic",
+  "description": "A synthetic cloud role attached to a workload identity grants wildcard administrative actions across all resources although the workload only needs read access to one test bucket.",
+  "expected_finding": true,
+  "vulnerability_type": "CLOUD_IAM_EXCESSIVE_PRIVILEGE",
+  "required_evidence": [
+    "cloud_provider",
+    "principal",
+    "granted_actions",
+    "resource_scope",
+    "required_function",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "cloud_iam_excessive_privilege",
+    "positive"
+  ],
+  "fixtures": {
+    "cloud_provider": "GCP-like synthetic IAM fixture",
+    "principal": "workload-reader",
+    "granted_actions": [
+      "*"
+    ],
+    "resource_scope": "*",
+    "required_function": "read one synthetic storage bucket",
+    "fixture_only": true
+  }
+}
