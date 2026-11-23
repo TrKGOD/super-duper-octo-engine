@@ -213,7 +213,7 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             "UPDATE engagements SET scope_json=? WHERE engagement_id=?",
             (json.dumps({
                 "allowed_domains": ["localhost"], "allowed_ips": [], "allowed_cidrs": [],
-                "allowed_ports": [self.port], "excluded_assets": [], "allowed_applications": [],
+                "allowed_http_ports": [self.port], "excluded_assets": [], "allowed_applications": [],
             }), self.engagement_id),
         )
         self.workflow.store.connection.commit()
