@@ -8,7 +8,7 @@ The intended operator workflow is straightforward: provide an engagement and its
 
 > **Project maturity: early pre-alpha.** The repository implements workflow persistence, specialist dispatch, Skill selection, validated handoffs, evidence integrity checks, and a scope-enforcing HTTP broker. The initial Web/API vertical now performs bounded same-origin reconnaissance/crawling, endpoint and form discovery, static JavaScript analysis, low-impact security checks, and brokered exploitation/independent validation using separately pinned read-only requests. Deeper SQLi/SSRF/authz/OAuth/JWT testing, browser automation, general scanner integrations, and Mobile/Cloud/Active Directory execution remain unfinished. The project purpose is real authorized pentesting; this status statement describes what the current code can and cannot execute today.
 
-## Product objective
+## Autonomous platform roadmap\n\nThe staged delivery plan, architecture invariants, acceptance gates and capability-status vocabulary are maintained in [docs/AUTONOMOUS_PLATFORM_ROADMAP.md](docs/AUTONOMOUS_PLATFORM_ROADMAP.md). This roadmap preserves Model 1 as a separate baseline and distinguishes documented methodology, implemented code, lab-verified behavior and production readiness.\n\n## Product objective
 
 The framework must turn an authorized engagement into an evidence-backed pentest workflow:
 
