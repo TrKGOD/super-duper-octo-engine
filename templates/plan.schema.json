@@ -152,6 +152,13 @@
               },
               "additionalProperties": false
             }
+          },
+          "complexity": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
           }
         },
         "allOf": [
