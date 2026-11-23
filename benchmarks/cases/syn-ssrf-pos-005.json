@@ -1,0 +1,29 @@
+{
+  "case_id": "SYN-SSRF-POS-005",
+  "kind": "synthetic",
+  "description": "A controlled lab callback proves a URL-fetch feature makes a server-side request to an operator-owned canary endpoint after accepting an untrusted URL.",
+  "expected_finding": true,
+  "vulnerability_type": "SSRF",
+  "required_evidence": [
+    "input_source",
+    "server_side_observation",
+    "destination",
+    "dns_resolution",
+    "redirects",
+    "fixture_only"
+  ],
+  "tags": [
+    "web",
+    "api",
+    "ssrf",
+    "positive"
+  ],
+  "fixtures": {
+    "input_source": "webhook test URL field",
+    "server_side_observation": "request received by controlled canary",
+    "destination": "operator-owned isolated canary",
+    "dns_resolution": "server resolver",
+    "redirects": "validated redirect chain",
+    "fixture_only": true
+  }
+}
