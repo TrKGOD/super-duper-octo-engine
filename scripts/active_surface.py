@@ -100,9 +100,15 @@ def _safe_path_url(base, value):
 
 def _is_crawlable_page(url):
     path = urlsplit(url).path.lower()
-    blocked = ("/api/", "/graphql", "/v1/", "/v2/", "/users/", "/account",
-               "/profile", "/orders", "/billing", "/settings", "/admin",
-               "/download", "/export", "/logout", "/signout")
+    blocked = (
+        "/api/", "/graphql", "/v1/", "/v2/", "/users/", "/account",
+        "/profile", "/orders", "/billing", "/settings", "/admin",
+        "/download", "/export", "/upload", "/import", "/logout", "/signout",
+        "/unsubscribe", "/reset", "/activate", "/confirm", "/cancel",
+        "/invite", "/subscribe", "/follow", "/like", "/payment", "/transfer",
+        "/transaction", "/submit", "/execute", "/action", "/approve",
+        "/accept", "/decline", "/session", "/password", "/token",
+    )
     return not any(token in path for token in blocked) and not path.lower().endswith(
         (".json", ".xml", ".pdf", ".zip", ".csv")
     )
