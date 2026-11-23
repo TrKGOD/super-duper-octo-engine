@@ -114,6 +114,7 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             "completion_criteria": ["Capture authentic HTTP evidence and return a handoff"],
             "scope_subset": scope_subset or ["127.0.0.1"],
             "domain": "web",
+            "skill_tags": ["http-read-only"],
             "active_testing": True,
             "request_files": [{
                 "path": relative,
@@ -145,7 +146,8 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             self.workflow.create_plan(self.engagement_id, {"tasks": [{
                 "task_key": "active-http-check", "agent": "active-testing-agent",
                 "objective": "Run a request", "completion_criteria": ["Evidence"],
-                "scope_subset": ["127.0.0.1"], "active_testing": True,
+                "scope_subset": ["127.0.0.1"], "domain": "web",
+                "skill_tags": ["http-read-only"], "active_testing": True,
                 "request_files": [{"path": ".local/requests/req-local-001.json",
                                    "sha256": hashlib.sha256(raw).hexdigest()}],
             }]})
