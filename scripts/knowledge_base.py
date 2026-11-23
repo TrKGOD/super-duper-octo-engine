@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local public security research KB with seed import, provenance and structured patterns."""
 from __future__ import annotations
-import argparse, hashlib, json, re, sqlite3, sys
+import argparse, hashlib, json, re, sqlite3, sys, unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -53,13 +53,12 @@ def init_db(db):
     db.commit()
 
 def validate_meta(meta):
-    schema=json.loads((ROOT/"templates/knowledge-document.schema.json").read_text(encoding="utf-8"))
     try:
         from jsonschema import Draft202012Validator,FormatChecker
-        Draft202012Validator(schema,format_checker=FormatChecker()).validate(meta)
-    except ImportError:
-        required=set(schema["required"])
-        if required-set(meta): raise ValueError("Missing required metadata fields.")
+    except ImportError as exc:
+        raise RuntimeError('jsonschema is required; install requirements-dev.txt') from exc
+    schema=json.loads((ROOT/"templates/knowledge-document.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator(schema,format_checker=FormatChecker()).validate(meta)
     if meta.get("disclosure_status")!="public": raise ValueError("Only explicitly public material is accepted.")
     u=urlparse(meta.get("source_url",""))
     if u.scheme!="https" or not u.netloc: raise ValueError("source_url must be HTTPS.")
@@ -72,12 +71,27 @@ def _index_document(db, doc_id, title, content, tags, vuln_types, technologies):
     except sqlite3.OperationalError:
         pass
 
+_DIRECTIVE_RE=re.compile(r'(?i)^\\s*(?:ignore\\s+(?:all\\s+)?(?:previous|prior|above)|disregard\\s+(?:all\\s+)?instructions|you\\s+are\\s+chatgpt|system\\s+prompt|developer\\s+message|act\\s+as\\s+|reveal\\s+(?:the\\s+)?(?:system|hidden)|do\\s+not\\s+follow)\\b')
+
+def sanitize_content(value):
+    text=unicodedata.normalize('NFKC',value).replace('\\r\\n','\\n').replace('\\r','\\n')
+    fence=chr(96)*3
+    text=text.replace(fence,'\\\\x60\\\\x60\\\\x60').replace('~~~','\\\\x7e\\\\x7e\\\\x7e')
+    lines=[]
+    for line in text.split('\\n'):
+        if _DIRECTIVE_RE.search(line): line='[ESCAPED DIRECTIVE-LIKE SOURCE TEXT] '+line
+        lines.append(line)
+    return '\\n'.join(lines).strip()
+
+def untrusted_block(value):
+    return chr(96)*3+'UNTRUSTED_KB_CONTENT\\n'+sanitize_content(str(value))+'\\n'+chr(96)*3
+
 def ingest(db,file,metadata):
     file=Path(file); metadata=Path(metadata)
     if file.suffix.lower() not in TEXT_EXTS: raise ValueError("Only Markdown and text are supported.")
     raw=file.read_bytes()
     if len(raw)>MAX_BYTES: raise ValueError("Document exceeds 2 MB.")
-    content=raw.decode("utf-8").replace("\r\n","\n").strip()
+    content=sanitize_content(raw.decode("utf-8"))
     if not content: raise ValueError("Empty document.")
     meta=json.loads(metadata.read_text(encoding="utf-8")); validate_meta(meta)
     digest=hashlib.sha256(content.encode()).hexdigest()
@@ -98,17 +112,19 @@ def search(db,query,limit=5):
     if not query.strip(): raise ValueError("Query is empty.")
     limit=max(1,min(int(limit),20))
     try:
-        return db.execute("""SELECT d.document_id,d.title,d.platform,d.source_url,d.content_type,
+        rows=db.execute("""SELECT d.document_id,d.title,d.platform,d.source_url,d.content_type,
           snippet(kb_search,2,'[',']',' … ',18) excerpt
           FROM kb_search JOIN kb_documents d USING(document_id)
           WHERE kb_search MATCH ? ORDER BY rank LIMIT ?""",(_fts_query(query),limit)).fetchall()
+        return [{**dict(row),"excerpt":untrusted_block(row["excerpt"])} for row in rows]
     except sqlite3.OperationalError:
         terms=re.findall(r"[\w.-]+",query)[:8]
         if not terms: return []
         where=" OR ".join("(content LIKE ? OR title LIKE ? OR tags LIKE ? OR vulnerability_types LIKE ? OR technologies LIKE ?)" for _ in terms)
         args=[]
         for term in terms: args.extend(["%"+term+"%"]*5)
-        return db.execute(f"SELECT document_id,title,platform,source_url,content_type,substr(content,1,500) excerpt FROM kb_documents WHERE {where} LIMIT ?",(*args,limit)).fetchall()
+        rows=db.execute(f"SELECT document_id,title,platform,source_url,content_type,substr(content,1,500) excerpt FROM kb_documents WHERE {where} LIMIT ?",(*args,limit)).fetchall()
+        return [{**dict(row),"excerpt":untrusted_block(row["excerpt"])} for row in rows]
 
 def _pattern_values(p):
     domain=p.get("domain","other")
