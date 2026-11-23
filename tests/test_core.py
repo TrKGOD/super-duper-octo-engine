@@ -60,6 +60,8 @@ class CoreTests(unittest.TestCase):
                     "validated",
                 )
                 self.assertEqual(store.transition_finding("f-001", "reported", "reporting-agent"), "reported")
+                validator = store.connection.execute("SELECT validated_by FROM findings WHERE finding_id='f-001'").fetchone()["validated_by"]
+                self.assertEqual(validator, "validation-agent")
                 with self.assertRaises(FindingValidationError):
                     store.transition_finding("f-001", "observation", "operator")
                 events = [event for event in store.audit_events("eng-001") if event["event_type"] == "finding.status_changed"]
