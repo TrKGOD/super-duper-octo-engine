@@ -472,10 +472,21 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
             break
         for item in ready:
             processed.add(item["task_id"])
+            task_row = workflow.store.connection.execute(
+                "SELECT input_json FROM tasks WHERE task_id=?", (item["task_id"],)
+            ).fetchone()
+            task_data = json.loads(task_row["input_json"])
+            task_trigger = "high_complexity" if task_data.get("complexity") == "high" else None
             try:
-                result = dispatch_task(workflow, item["task_id"], primary_model,
+                task_route = select_model(task_data, primary_model, routing_policy,
+                                           attempt=0, trigger=task_trigger)
+            except ModelRoutingError as exc:
+                raise DispatchError("Invalid task model route: " + str(exc)) from exc
+            task_model = task_route["model"]
+            try:
+                result = dispatch_task(workflow, item["task_id"], task_model,
                                        claude_bin, timeout_seconds)
-                result["model_route"] = primary_route
+                result["model_route"] = task_route
             except DispatchError as exc:
                 current = workflow.store.connection.execute(
                     "SELECT t.status,t.input_json FROM tasks t WHERE t.task_id=?", (item["task_id"],)
@@ -486,9 +497,9 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
                     for token in ("json", "handoff", "schema", "invalid result")) else None
                 if current and current["status"] == "failed" and task_input.get("active_testing") is not True:
                     try:
-                        route = select_model(task_input, primary_model, routing_policy,
+                        route = select_model(task_input, task_model, routing_policy,
                                              attempt=1, trigger=trigger)
-                        if route["tier"] == "escalation" and route["model"] != primary_model:
+                        if route["tier"] == "escalation" and route["model"] != task_model:
                             retry_model = route["model"]
                     except ModelRoutingError:
                         retry_model = None
