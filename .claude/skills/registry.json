@@ -123,7 +123,7 @@
         "supplied captures/specifications or approved active-discovery task"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "methodology_defined_implementation_partial",
+      "validation_status": "catalogued_unverified",
       "description": "Practical Web/API attack-surface enumeration and vulnerability-lead generation"
     },
     {
