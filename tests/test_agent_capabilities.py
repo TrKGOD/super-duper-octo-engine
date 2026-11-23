@@ -19,7 +19,7 @@ class AgentCapabilityTests(unittest.TestCase):
   self.assertEqual(build_challenge(finding)["claims"][0]["claim_id"],"c1")
   with self.assertRaises(AdversarialReviewError):
    evaluate_review(finding,{"reviewer":"vulnerability-agent","claim_results":[]})
-  result=evaluate_review(finding,{"reviewer":"validation-agent","claim_results":[{"claim_id":"c1","disposition":"inconclusive","rationale":"No server-side evidence"}]})
+  result=evaluate_review(finding,{"reviewer":"validation-agent","claim_results":[{"claim_id":"c1","disposition":"inconclusive","rationale":"No server-side evidence","evidence_refs":["e1"]}]})
   self.assertEqual(result["decision"],"needs_more_evidence")
 
  def test_subsystem_coverage_counts_not_applicable_separately(self):
