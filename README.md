@@ -1,8 +1,30 @@
 # Pentest Agent Framework
 
-A Claude Code–first scaffold for an evidence-driven assistant supporting authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
+**An execution-oriented, multi-agent framework for conducting authorized penetration tests.**
 
-> **Current status: early pre-alpha implementation.** The repository includes a bounded Claude Code specialist dispatcher, runtime Skill-context selection, SQLite task/run persistence, validated handoffs, a synthetic benchmark, an operator-driven evidence vault, and a scope-enforcing active HTTP broker. Only `active-testing-agent` can invoke the broker, and only for SHA-256-pinned request manifests in an explicitly approved engagement. This is not a general-purpose scanner or a sandbox; Nmap/Nuclei execution, browser automation, and isolated network execution remain unimplemented.
+This project exists to plan, execute, validate, and report real security assessments across **Web applications, APIs, Mobile, Cloud, and Active Directory**. It is a pentesting framework—not a generic chatbot, documentation generator, or collection of agent prompts.
+
+The intended operator workflow is straightforward: provide an engagement and its written rules, verify the exact scope, run reconnaissance and enumeration, investigate vulnerabilities, validate findings with reproducible evidence, and produce a professional report. The framework coordinates specialized agents and deterministic tooling to carry that workflow through.
+
+> **Project maturity: early pre-alpha.** The repository already implements workflow persistence, specialist dispatch, Skill selection, validated handoffs, evidence integrity checks, a synthetic benchmark, and a scope-enforcing HTTP broker. Important execution capabilities are still limited: passive specialists currently run without tools, active HTTP is restricted to reviewed SHA-256-pinned manifests, and general scanner/browser/container integrations are not yet implemented. The project purpose is real authorized pentesting; this status statement describes what the current code can and cannot execute today.
+
+## Product objective
+
+The framework must turn an authorized engagement into an evidence-backed pentest workflow:
+
+1. **Understand authorization:** ingest the program brief, identify explicit in-scope assets, exclusions, allowed test classes, limits, and test windows.
+2. **Discover the attack surface:** perform scoped reconnaissance, service and technology identification, crawling, endpoint and parameter discovery, and API/mobile surface mapping.
+3. **Find vulnerabilities:** use specialist methodology and appropriate testing tools to investigate concrete security hypotheses.
+4. **Validate safely:** reproduce candidate issues with minimal proof, preserve authentic evidence, and require independent validation.
+5. **Report professionally:** produce actionable findings with affected assets, prerequisites, reproduction steps, impact, severity, evidence, and remediation.
+
+The orchestrator is responsible for coordinating actual assessment work—not merely generating a plan. A stage is complete only when its defined work has run and its output is validated. A proposed test, unexecuted request, or LLM hypothesis is not a finding.
+
+## Current execution boundary
+
+The framework is under active development toward that objective. Implemented workflow and safety infrastructure must not be mistaken for a complete autonomous scanner. In the current implementation, passive specialists are tool-disabled and the active-testing specialist can use only the bounded HTTP broker. The broker is not a crawler, scanner, browser, shell sandbox, or general exploitation engine. Missing capabilities should be implemented and tested against controlled local targets rather than claimed in documentation.
+
+All live testing remains restricted to assets explicitly authorized by the relevant engagement. Safety gates are part of the pentesting engine: they must constrain execution without turning the product into a documentation-only workflow.
 
 ## Enumeration-First Multi-Agent Pipeline
 
