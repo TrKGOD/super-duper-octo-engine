@@ -300,5 +300,63 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
 
 
+
+    def test_dispatch_plan_continues_independent_branches_after_operator_gate(self):
+        self.workflow.start_task(self.task_id)
+        self.workflow.accept_handoff(self.task_id, {
+            "task_id": self.task_id, "engagement_id": "eng-dispatch-test",
+            "agent": "vulnerability-agent", "status": "completed",
+            "scope_subset": ["app.example.test"], "summary": "Setup completed",
+            "observations": [], "hypotheses": [], "evidence_refs": [], "limitations": [],
+        })
+        self.workflow.create_plan("eng-dispatch-test", {"tasks": [
+            {"task_key": "gated-recon", "agent": "recon-agent",
+             "objective": "Recon branch requiring an operator dependency",
+             "completion_criteria": ["Return a truthful handoff"],
+             "scope_subset": ["app.example.test"], "domain": "web",
+             "skill_tags": ["passive-recon"]},
+            {"task_key": "independent-recon", "agent": "recon-agent",
+             "objective": "Independent recon branch",
+             "completion_criteria": ["Return a truthful handoff"],
+             "scope_subset": ["app.example.test"], "domain": "web",
+             "skill_tags": ["passive-recon"]},
+            {"task_key": "gated-enumeration", "agent": "enumeration-agent",
+             "objective": "Enumerate only after gated recon completes",
+             "completion_criteria": ["Consume completed recon handoff"],
+             "scope_subset": ["app.example.test"], "domain": "web",
+             "skill_tags": ["routes"], "depends_on": ["gated-recon"]},
+        ]})
+        fake = self.root / "claude-branch-aware-fake"
+        fake.write_text(
+            "#!" + sys.executable + "\\n"
+            "import json, sys\\n"
+            "prompt = sys.stdin.read()\\n"
+            "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\\n"
+            "task = context['task']\\n"
+            "status = 'needs_operator' if task['task_key'] == 'gated-recon' else 'completed'\\n"
+            "handoff = {'task_id': task['task_id'], 'engagement_id': task['engagement_id'],"
+            " 'agent': task['agent'], 'status': status,"
+            " 'scope_subset': task['scope_subset'], 'summary': 'Synthetic branch result',"
+            " 'observations': [], 'hypotheses': [], 'evidence_refs': [], 'limitations': []}\\n"
+            "print(json.dumps({'result': json.dumps(handoff)}))\\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        result = dispatch_plan(
+            self.workflow, "eng-dispatch-test", "pinned-model",
+            claude_bin=str(fake), timeout_seconds=30,
+        )
+        self.assertEqual(result["status"], "needs_operator")
+        self.assertEqual(
+            [item["task_key"] for item in result["results"]],
+            ["gated-recon", "independent-recon"],
+        )
+        self.assertEqual(result["remaining_task_keys"], ["gated-enumeration"])
+        self.assertEqual(result["dependency_blocked_task_keys"], ["gated-enumeration"])
+        final = {item["task_key"]: item["status"] for item in result["workflow_status"]["tasks"]}
+        self.assertEqual(final["gated-recon"], "needs_operator")
+        self.assertEqual(final["independent-recon"], "completed")
+        self.assertEqual(final["gated-enumeration"], "queued")
+
 if __name__ == "__main__":
     unittest.main()
