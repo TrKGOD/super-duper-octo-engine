@@ -25,7 +25,7 @@ Every task must set a valid `domain` and at least one `skill_tags` value that ma
 1. Review the official written authorization, scope, exclusions, permitted test classes, test window and limits. A local active flag is an operator attestation record, not independent proof of authorization.
 2. Ensure the engagement is explicitly active and approved. If it is not, run only the passive prefix and stop at the active-testing preflight gate; do not claim active validation.
 3. Supply operator-reviewed artifacts (for example HAR/Burp exports or API specifications) under the engagement's local evidence workflow. The active discovery runner can crawl a single explicitly scoped origin without prebuilt manifests; exploitation and fresh active validation still require separate request manifests under `.local/requests/`, each pinned by SHA-256.
-4. Validate the plan against `templates/plan.schema.json`, then execute the persisted DAG with `python scripts/run_plan.py --engagement-id ENG-ID --model MODEL`.
+4. Generate and dispatch the persisted DAG with `python3 scripts/run_orchestrator.py --db DB_PATH --engagement-id ENG-ID --model MODEL`. Use the exact engagement-isolated DB path supplied by the workflow. For an already persisted plan, `scripts/run_plan.py` remains available.
 5. Inspect each returned stage: selected Skills, direct prior handoffs, inherited evidence IDs, evidence hashes and task status. Stop on the first blocked, partial or needs-operator handoff.
 
 The active example at `templates/examples/plan.enumeration-first.active.example.json` is a template only. `app.example.test`, the all-zero manifest digest and the placeholder manifest path are not real scope or authorization. Replace them only with exact operator-approved values; never run the example unchanged.
@@ -36,6 +36,6 @@ The active example at `templates/examples/plan.enumeration-first.active.example.
 - Handoffs may reference only evidence registered to the same engagement and verified by the evidence vault.
 - The dispatcher passes only direct dependency handoffs, while inherited evidence references are deduplicated across dependencies.
 - Validation is independent; impact requires a completed validation handoff.
-- Active tasks require `status=active`, `execution_enabled=true`, `authorization_verified=true`, exact task and engagement scope, and operator-reviewed SHA-256-pinned manifests.
+- Active tasks require `status=active`, `execution_enabled=true`, `authorization_verified=true`, and exact task/engagement scope. Discovery tasks generate and pin bounded GET/OPTIONS manifests internally; exploitation and active validation require separately operator-reviewed SHA-256-pinned manifests.
 - The HTTP broker remains a narrow request primitive. `scripts/active_surface.py` layers bounded same-origin crawling, route extraction and safe configuration checks on top of it; it does not invoke Nmap/Nuclei/SQLMap or browser automation. Brute force, DoS, persistence, stealth/evasion, bulk extraction and real-user-data access remain prohibited.
 - CI and the nine-stage integration test use synthetic fixtures only. They do not contact external targets or establish authorization for a live engagement.
