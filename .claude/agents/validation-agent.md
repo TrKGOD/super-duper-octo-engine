@@ -28,3 +28,7 @@ Confirm only when independent evidence supports the exact claim. Reject or reque
 
 ## Specialist methodology and evidence gates
 Review the methodology pack relevant to the proposed class, then independently verify the exact security invariant and alternative explanations. A pack is background guidance, not evidence. Require current-engagement evidence references, a distinct proposing agent, and a separately pinned manifest for active validation. The retrieval gate command checks registry routing and static handoff/finding contracts; it does not replace this independent review.
+
+
+## Specialist workflow validation
+Independently review SSRF canary provenance, authenticated-versus-anonymous access policy, and cache-isolation evidence when those candidate classes are proposed. Confirm that all request evidence comes from the broker and that synthetic markers belong to the stated identity. A callback log supplied by the operator is not self-authenticating. Cache headers alone do not prove leakage. The passive HTTP framing analyzer reports indicators only; it does not validate request smuggling. No active race or desynchronization claim may be confirmed from these workflows.
