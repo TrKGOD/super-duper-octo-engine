@@ -1,1 +1,2 @@
-# Standard-library-only bootstrap. Add dependencies only with a documented need.
+jsonschema==4.23.0
+pre-commit==4.0.1

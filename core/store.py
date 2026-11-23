@@ -1,0 +1,101 @@
+"""SQLite state store for engagements, tasks, agent runs, findings and audit events."""
+import json
+import sqlite3
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from core.validation import validate_finding
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def new_id(prefix):
+    return prefix + "_" + uuid.uuid4().hex
+
+
+class StateStore:
+    def __init__(self, db_path):
+        self.connection = sqlite3.connect(str(db_path))
+        self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys=ON")
+
+    def close(self):
+        self.connection.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        self.close()
+
+    def append_audit(self, engagement_id, actor, event_type, details):
+        self.connection.execute(
+            "INSERT INTO audit_events(engagement_id,actor,event_type,details_json,created_at) VALUES(?,?,?,?,?)",
+            (engagement_id, actor, event_type, json.dumps(details, sort_keys=True), utc_now()))
+
+    def create_engagement(self, engagement_id, authorization_reference, scope, rules, status="draft"):
+        now = utc_now()
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO engagements VALUES(?,?,?,?,?,?,?)",
+                (engagement_id, authorization_reference, status, json.dumps(scope), json.dumps(rules), now, now))
+            self.append_audit(engagement_id, "operator", "engagement.created", {"status": status})
+
+    def create_task(self, engagement_id, agent, input_data):
+        task_id, now = new_id("task"), utc_now()
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO tasks(task_id,engagement_id,agent,status,input_json,started_at) VALUES(?,?,?,'queued',?,?)",
+                (task_id, engagement_id, agent, json.dumps(input_data), now))
+            self.append_audit(engagement_id, agent, "task.created", {"task_id": task_id})
+        return task_id
+
+    def update_task(self, task_id, status, output_data=None):
+        transitions = {"queued":{"running","blocked","needs_operator","failed"}, "running":{"completed","blocked","needs_operator","failed"}, "blocked":{"queued"}, "needs_operator":{"queued"}, "failed":{"queued"}, "completed":set()}
+        row = self.connection.execute("SELECT engagement_id,agent,status FROM tasks WHERE task_id=?", (task_id,)).fetchone()
+        if row is None:
+            raise KeyError(task_id)
+        if status not in transitions or (status != row["status"] and status not in transitions[row["status"]]):
+            raise ValueError("Invalid task status transition: " + row["status"] + " -> " + status)
+        terminal = status in {"completed","blocked","needs_operator","failed"}
+        with self.connection:
+            self.connection.execute("UPDATE tasks SET status=?,output_json=?,completed_at=? WHERE task_id=?",
+                (status, json.dumps(output_data) if output_data is not None else None, utc_now() if terminal else None, task_id))
+            self.append_audit(row["engagement_id"], row["agent"], "task.status_changed", {"task_id":task_id,"from":row["status"],"to":status})
+
+    def start_agent_run(self, engagement_id, agent, model=None):
+        run_id, now = new_id("run"), utc_now()
+        with self.connection:
+            self.connection.execute("INSERT INTO agent_runs(run_id,engagement_id,agent,model,status,started_at) VALUES(?,?,?,?,'running',?)",
+                (run_id, engagement_id, agent, model, now))
+            self.append_audit(engagement_id, agent, "agent_run.started", {"run_id":run_id,"model":model})
+        return run_id
+
+    def finish_agent_run(self, run_id, status, input_tokens=None, output_tokens=None, cost_usd=None):
+        if status not in {"completed","failed","blocked","needs_operator"}:
+            raise ValueError("Unsupported agent run status")
+        row = self.connection.execute("SELECT engagement_id,agent,status FROM agent_runs WHERE run_id=?", (run_id,)).fetchone()
+        if row is None:
+            raise KeyError(run_id)
+        if row["status"] != "running":
+            raise ValueError("Only running agent runs can be finished")
+        with self.connection:
+            self.connection.execute("UPDATE agent_runs SET status=?,input_tokens=?,output_tokens=?,cost_usd=?,completed_at=? WHERE run_id=?",
+                (status,input_tokens,output_tokens,cost_usd,utc_now(),run_id))
+            self.append_audit(row["engagement_id"], row["agent"], "agent_run.finished", {"run_id":run_id,"status":status})
+
+    def record_finding(self, finding):
+        validate_finding(finding)
+        now = utc_now()
+        with self.connection:
+            self.connection.execute("""INSERT INTO findings
+                (finding_id,engagement_id,title,status,severity,asset,method,parameter,description,impact,evidence_refs_json,proposed_by,validated_by,created_at,updated_at,preconditions_json)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (finding["finding_id"],finding["engagement_id"],finding["title"],finding["status"],finding.get("severity","unknown"),finding["asset"],finding.get("method"),finding.get("parameter"),finding["description"],finding.get("impact"),json.dumps(finding.get("evidence_refs",[])),finding["proposed_by"],finding.get("validated_by"),now,now,json.dumps(finding.get("preconditions",[]))))
+            self.append_audit(finding["engagement_id"], finding["proposed_by"], "finding.recorded", {"finding_id":finding["finding_id"],"status":finding["status"]})
+
+    def audit_events(self, engagement_id):
+        rows = self.connection.execute("SELECT event_id,actor,event_type,details_json,created_at FROM audit_events WHERE engagement_id=? ORDER BY event_id", (engagement_id,)).fetchall()
+        return [{**dict(row), "details":json.loads(row["details_json"])} for row in rows]

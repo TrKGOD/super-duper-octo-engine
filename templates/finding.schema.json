@@ -4,12 +4,18 @@
   "type": "object",
   "required": ["finding_id","engagement_id","title","status","asset","description","evidence_refs","proposed_by"],
   "properties": {
-    "finding_id":{"type":"string"}, "engagement_id":{"type":"string"}, "title":{"type":"string"},
+    "finding_id":{"type":"string","minLength":1}, "engagement_id":{"type":"string","minLength":1}, "title":{"type":"string","minLength":1},
     "status":{"enum":["observation","hypothesis","validation_pending","validated","rejected","needs_more_evidence","reported","retest_pending","resolved"]},
-    "asset":{"type":"string"}, "method":{"type":["string","null"]}, "parameter":{"type":["string","null"]},
+    "asset":{"type":"string","minLength":1}, "method":{"type":["string","null"]}, "parameter":{"type":["string","null"]},
     "severity":{"enum":["informational","low","medium","high","critical","unknown"]}, "cvss_vector":{"type":["string","null"]},
-    "description":{"type":"string"}, "impact":{"type":["string","null"]}, "preconditions":{"type":"array","items":{"type":"string"}},
-    "evidence_refs":{"type":"array","items":{"type":"string"}}, "proposed_by":{"type":"string"}, "validated_by":{"type":["string","null"]},
+    "description":{"type":"string","minLength":1}, "impact":{"type":["string","null"]},
+    "preconditions":{"type":"array","items":{"type":"string"}}, "evidence_refs":{"type":"array","items":{"type":"string"}},
+    "proposed_by":{"type":"string","minLength":1}, "validated_by":{"type":["string","null"]}, "validation_notes":{"type":["string","null"]},
     "created_at":{"type":"string","format":"date-time"}, "updated_at":{"type":"string","format":"date-time"}
-  }, "additionalProperties": false
+  },
+  "allOf":[
+    {"if":{"properties":{"status":{"enum":["validated","reported"]}},"required":["status"]},"then":{"properties":{"validated_by":{"type":"string","minLength":1},"evidence_refs":{"minItems":1}},"required":["validated_by"]}},
+    {"if":{"properties":{"status":{"const":"rejected"}},"required":["status"]},"then":{"properties":{"validation_notes":{"type":"string","minLength":1}},"required":["validation_notes"]}}
+  ],
+  "additionalProperties":false
 }

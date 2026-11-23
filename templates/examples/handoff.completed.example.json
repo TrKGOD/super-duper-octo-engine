@@ -1,0 +1,13 @@
+{
+  "task_id":"task_example_recon_001",
+  "engagement_id":"eng_example_local_lab",
+  "agent":"recon-agent",
+  "status":"completed",
+  "scope_subset":["https://app.example.test"],
+  "summary":"Passive review of supplied inventory completed; no active requests were sent.",
+  "observations":[{"id":"obs_001","type":"technology_hint","asset":"https://app.example.test","detail":"A supplied header capture indicates a reverse proxy."}],
+  "hypotheses":[{"id":"hyp_001","statement":"The application may expose additional API routes.","requires_validation":true}],
+  "evidence_refs":["evidence://local-lab/header-capture-001"],
+  "limitations":["Only operator-supplied artifacts were reviewed."],
+  "next_steps":["Ask the operator to approve a scoped API inventory review."]
+}
