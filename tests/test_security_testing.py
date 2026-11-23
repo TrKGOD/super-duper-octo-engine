@@ -117,9 +117,9 @@ class SecurityAnalysisTests(unittest.TestCase):
 
     def test_cacheability_header_is_candidate_not_confirmation(self):
         pair = {"status": "comparison_completed",
-                "first_response": {"status_code": 200, "response_excerpt": "A",
+                "first_response": {"status_code": 200, "response_excerpt": "private-A data",
                     "response_headers": {"Cache-Control": "public, max-age=60"}},
-                "second_response": {"status_code": 200, "response_excerpt": "B",
+                "second_response": {"status_code": 200, "response_excerpt": "private-B data",
                     "response_headers": {"Cache-Control": "public, max-age=60"}},
                 "evidence_refs": []}
         result = analyze_cache_pair(pair, first_private_marker="private-A",
