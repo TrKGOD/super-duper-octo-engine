@@ -61,6 +61,10 @@ class SecurityAnalysisTests(unittest.TestCase):
         with self.assertRaisesRegex(ActiveExecutionError, "one authenticated"):
             _validate_readonly_pair(self.first, self.second, "authenticated_vs_anonymous")
 
+    def test_pair_allows_different_non_wire_purpose_metadata(self):
+        second = {**self.second, "purpose": "Compare the same synthetic resource as identity B"}
+        _validate_readonly_pair(self.first, second, "two_identities")
+
     def test_pair_rejects_non_get_method_or_changed_request_context(self):
         bad = {**self.second, "method": "POST"}
         with self.assertRaisesRegex(ActiveExecutionError, "only GET"):
