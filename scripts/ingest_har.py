@@ -154,7 +154,7 @@ def ingest_har(db, engagement_id, har_path, scope_host=None, project_root=ROOT):
             ("id-inventory.json", {"engagement_id": engagement_id, "identifiers": id_rows}),
         ):
             target = outdir / name
-            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             target.chmod(0o600)
         return {"engagement_id": engagement_id, "entries_seen": len(entries),
                 "endpoints": len(endpoint_rows), "identifiers": len(id_rows),
