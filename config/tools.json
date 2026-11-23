@@ -2,6 +2,7 @@
   "default_agent_tools": ["Read","Grep","Glob"],
   "bash_enabled_for_agents": false,
   "network_tools_enabled": false,
+  "active_http_broker_enabled": true,
   "human_approval_for_active_testing": true,
-  "note": "Least privilege. Enable tools only after threat-model review and external isolation."
+  "note": "Raw shell/network tools remain disabled. Only active-testing-agent receives Bash, and the PreToolUse guard permits the scoped active HTTP broker command only."
 }

@@ -1,8 +1,9 @@
 """Deterministic workflow coordinator for plans, agent tasks and handoffs."""
+import hashlib
 import json
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
-from core.store import StateStore
+from core.store import StateStore, utc_now
 from core.evidence import EvidenceVault, EvidenceError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,7 +13,7 @@ PLAN_SCHEMA = json.loads((ROOT / "templates/plan.schema.json").read_text(encodin
 PLAN_VALIDATOR = Draft202012Validator(PLAN_SCHEMA, format_checker=FormatChecker())
 ALLOWED_AGENTS = {
     "recon-agent", "enumeration-agent", "technology-profiler", "scope-analyst",
-    "vulnerability-agent", "validation-agent", "exploitation-agent",
+    "vulnerability-agent", "validation-agent", "exploitation-agent", "active-testing-agent",
     "impact-analyst", "duplicate-checker", "reporting-agent",
 }
 
@@ -47,8 +48,18 @@ def _validate_plan(plan, scope):
         subset = task.get("scope_subset", [])
         if not isinstance(subset, list) or any(item not in allowed_scope for item in subset):
             raise WorkflowError("Task scope exceeds the explicit engagement allowlist: " + key)
-        if task.get("active_testing", False):
-            raise WorkflowError("Active-testing tasks are disabled in this runtime")
+        active = task.get("active_testing", False)
+        if active and task.get("agent") != "active-testing-agent":
+            raise WorkflowError("Active tasks must use the dedicated active-testing-agent")
+        if active and not task.get("request_files"):
+            raise WorkflowError("Active tasks require at least one pinned request manifest")
+        if not active and task.get("agent") == "active-testing-agent":
+            raise WorkflowError("active-testing-agent requires active_testing=true")
+        if active:
+            for item in task.get("request_files", []):
+                path = Path(item.get("path", ""))
+                if path.is_absolute() or ".." in path.parts or path.parts[:2] != (".local", "requests") or path.suffix.lower() != ".json":
+                    raise WorkflowError("Active request manifests must be JSON files under .local/requests/")
     for task in tasks:
         dependencies = task.get("depends_on", [])
         if not isinstance(dependencies, list) or any(dep not in keys or dep == task["task_key"] for dep in dependencies):
@@ -94,21 +105,125 @@ class Workflow:
         ).fetchone()
         if exists:
             raise WorkflowError("Engagement already exists: " + engagement_id)
+        rules = dict(config["rules_of_engagement"])
+        configured_window = rules.get("testing_window") or {}
+        if not configured_window.get("start") and not configured_window.get("end") and config.get("testing_window"):
+            rules["testing_window"] = config["testing_window"]
         self.store.create_engagement(
             engagement_id, config["authorization_reference"], config["scope"],
-            config["rules_of_engagement"], status="draft"
+            rules, status="draft"
         )
         return engagement_id
 
+    def approve_engagement(self, engagement_id, operator, authorization_reference,
+                           confirm_written_authorization=False, confirm_scope=False,
+                           confirm_rules=False):
+        if not all((confirm_written_authorization, confirm_scope, confirm_rules)):
+            raise WorkflowError("Approval requires explicit confirmation of written authorization, scope, and rules")
+        if not isinstance(operator, str) or not operator.strip():
+            raise WorkflowError("A named operator is required for approval")
+        row = self.store.connection.execute(
+            "SELECT status,authorization_reference,scope_json,rules_json FROM engagements WHERE engagement_id=?",
+            (engagement_id,),
+        ).fetchone()
+        if row is None:
+            raise WorkflowError("Unknown engagement: " + engagement_id)
+        if row["status"] not in {"draft", "approved"}:
+            raise WorkflowError("Only draft engagements can be approved")
+        if authorization_reference != row["authorization_reference"] or not authorization_reference.strip() or "REQUIRED" in authorization_reference.upper() or "REPLACE" in authorization_reference.upper():
+            raise WorkflowError("The supplied authorization reference must exactly match a real, non-placeholder reference")
+        scope = json.loads(row["scope_json"])
+        scope_keys = ("allowed_domains", "allowed_ips", "allowed_cidrs", "allowed_applications")
+        if not any(scope.get(key) for key in scope_keys):
+            raise WorkflowError("Cannot approve an engagement with an empty target allowlist")
+        rules = json.loads(row["rules_json"])
+        allowed_classes = set(rules.get("allowed_test_classes", []))
+        if "http-read-only" not in allowed_classes:
+            raise WorkflowError("Active HTTP requires http-read-only in allowed_test_classes")
+        if rules.get("max_concurrency", 1) != 1:
+            raise WorkflowError("The current active broker requires max_concurrency=1")
+        rps = rules.get("requests_per_second", 1)
+        if not isinstance(rps, (int, float)) or rps <= 0 or rps > 1:
+            raise WorkflowError("The current active broker requires requests_per_second between 0 and 1")
+        request_budget = rules.get("max_requests_per_engagement", 20)
+        if not isinstance(request_budget, int) or request_budget < 1 or request_budget > 50:
+            raise WorkflowError("max_requests_per_engagement must be between 1 and 50")
+        rules["max_requests_per_engagement"] = request_budget
+        rules.update({
+            "execution_enabled": True,
+            "authorization_verified": True,
+            "approved_by": operator.strip(),
+            "approved_at": utc_now(),
+        })
+        with self.store.connection:
+            self.store.connection.execute(
+                "UPDATE engagements SET status='active',rules_json=?,updated_at=? WHERE engagement_id=?",
+                (json.dumps(rules, sort_keys=True), utc_now(), engagement_id),
+            )
+            self.store.append_audit(
+                engagement_id, operator.strip(), "engagement.active_approved",
+                {"authorization_reference": authorization_reference, "scope_confirmed": True,
+                 "rules_confirmed": True, "allowed_test_classes": sorted(allowed_classes)},
+            )
+        return {"engagement_id": engagement_id, "status": "active", "approved_by": operator.strip()}
+
+    def pause_engagement(self, engagement_id, operator, reason):
+        if not isinstance(operator, str) or not operator.strip() or not isinstance(reason, str) or len(reason.strip()) < 5:
+            raise WorkflowError("Pausing requires a named operator and a reason")
+        row = self.store.connection.execute(
+            "SELECT status,rules_json FROM engagements WHERE engagement_id=?", (engagement_id,)
+        ).fetchone()
+        if row is None:
+            raise WorkflowError("Unknown engagement: " + engagement_id)
+        if row["status"] != "active":
+            raise WorkflowError("Only active engagements can be paused")
+        rules = json.loads(row["rules_json"])
+        rules["execution_enabled"] = False
+        with self.store.connection:
+            self.store.connection.execute(
+                "UPDATE engagements SET status='paused',rules_json=?,updated_at=? WHERE engagement_id=?",
+                (json.dumps(rules, sort_keys=True), utc_now(), engagement_id),
+            )
+            self.store.append_audit(
+                engagement_id, operator.strip(), "engagement.paused", {"reason": reason.strip()},
+            )
+        return {"engagement_id": engagement_id, "status": "paused"}
+
     def create_plan(self, engagement_id, plan):
         row = self.store.connection.execute(
-            "SELECT scope_json,status FROM engagements WHERE engagement_id=?", (engagement_id,)
+            "SELECT scope_json,status,rules_json,authorization_reference FROM engagements WHERE engagement_id=?", (engagement_id,)
         ).fetchone()
         if not row:
             raise WorkflowError("Unknown engagement: " + engagement_id)
         if row["status"] not in {"draft", "approved", "active"}:
             raise WorkflowError("Engagement is not available for planning")
         tasks = _validate_plan(plan, json.loads(row["scope_json"]))
+        rules = json.loads(row["rules_json"])
+        for task in tasks:
+            if task.get("active_testing"):
+                if row["status"] != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
+                    raise WorkflowError("Active tasks require an explicitly approved active engagement")
+                if not row["authorization_reference"] or "REQUIRED" in row["authorization_reference"].upper():
+                    raise WorkflowError("Active tasks require a non-placeholder written authorization reference")
+                from core.active_executor import _validate_request
+                for manifest in task.get("request_files", []):
+                    candidate = self.project_root / manifest["path"]
+                    if candidate.is_symlink():
+                        raise WorkflowError("Active request manifests must not be symlinks")
+                    try:
+                        resolved = candidate.resolve(strict=True)
+                        requests_root = (self.project_root / ".local" / "requests").resolve(strict=True)
+                    except OSError as exc:
+                        raise WorkflowError("Active request manifest is missing: " + manifest["path"]) from exc
+                    if self.project_root.joinpath(".local").is_symlink() or self.project_root.joinpath(".local", "requests").is_symlink() or not requests_root.is_relative_to(self.project_root) or not resolved.is_file() or not resolved.is_relative_to(requests_root) or resolved.stat().st_size > 65536:
+                        raise WorkflowError("Active request manifest must be a regular file under .local/requests and at most 64 KiB")
+                    raw = resolved.read_bytes()
+                    if hashlib.sha256(raw).hexdigest() != manifest["sha256"]:
+                        raise WorkflowError("Active request manifest SHA-256 does not match plan: " + manifest["path"])
+                    try:
+                        _validate_request(json.loads(raw))
+                    except Exception as exc:
+                        raise WorkflowError("Invalid active request manifest " + manifest["path"] + ": " + str(exc)) from exc
         for task in tasks:
             try:
                 self.store.validate_evidence_refs_for_engagement(
@@ -134,10 +249,12 @@ class Workflow:
                     "scope_subset": task.get("scope_subset", []),
                     "expected_outputs": task.get("expected_outputs", []),
                     "completion_criteria": task["completion_criteria"],
-                    "constraints": task.get("constraints", ["passive analysis only", "no network requests"]),
+                    "constraints": task.get("constraints", ["active HTTP broker only"] if task.get("active_testing") else ["passive analysis only", "no network requests"]),
                     "domain": task.get("domain"),
                     "skill_tags": task.get("skill_tags", []),
                     "evidence_refs": task.get("evidence_refs", []),
+                    "active_testing": task.get("active_testing", False),
+                    "request_files": task.get("request_files", []),
                 }
             )
         return [
@@ -154,6 +271,13 @@ class Workflow:
         if row["status"] != "queued":
             raise WorkflowError("Task is not queued: " + row["status"])
         task_input = json.loads(row["input_json"])
+        if task_input.get("active_testing"):
+            gate = self.store.connection.execute(
+                "SELECT status,rules_json FROM engagements WHERE engagement_id=?", (row["engagement_id"],)
+            ).fetchone()
+            active_rules = json.loads(gate["rules_json"]) if gate else {}
+            if not gate or gate["status"] != "active" or active_rules.get("execution_enabled") is not True or active_rules.get("authorization_verified") is not True:
+                raise WorkflowError("Active task cannot start without a currently approved engagement")
         for dependency_key in task_input.get("depends_on", []):
             dependency = self.store.connection.execute(
                 "SELECT status FROM tasks WHERE engagement_id=? AND json_extract(input_json,'$.task_key')=?",

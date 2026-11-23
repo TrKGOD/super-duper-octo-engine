@@ -28,7 +28,9 @@ if engagement:
 if models and models.get("default") != "inherit":
     errors.append("Bootstrap model default must be inherit.")
 if tools and tools.get("bash_enabled_for_agents") is not False:
-    errors.append("Bash must be disabled for agents in bootstrap.")
+    errors.append("General Bash must be disabled for agents in bootstrap.")
+if tools and tools.get("active_http_broker_enabled") is not True:
+    errors.append("The controlled active HTTP broker must be enabled in the tool registry.")
 
 schema = ROOT / "database" / "schema.sql"
 if not schema.exists():
@@ -40,4 +42,4 @@ if errors:
         print(f"- {error}")
     sys.exit(1)
 
-print("Configuration validation passed. Execution remains disabled by default.")
+print("Configuration validation passed. Active mode is available but execution remains disabled until explicit operator approval.")

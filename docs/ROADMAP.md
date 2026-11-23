@@ -12,7 +12,8 @@
 - [x] CI, Gitleaks hook configuration and schema examples
 - [x] Workflow runner for plan validation, scope subsets, dependency gates and handoff persistence
 - [x] Orchestrator contract wired to persisted task lifecycle
-- [x] Bounded one-task Claude Code specialist dispatch with validated persisted handoff (tools disabled)
+- [x] Bounded one-task Claude Code specialist dispatch with validated persisted handoff
+- [x] Dedicated active-testing-agent with broker-only Bash access and command-guard enforcement
 - [x] Sequential dependency-aware multi-specialist plan runner with persisted handoffs
 - [x] LLM-assisted passive plan generation with exact-scope validation and deterministic sequential dispatch
 - [ ] Native Claude Task-tool delegation with live subagent handoffs and runtime permission verification
@@ -43,12 +44,14 @@
 
 ## Phase 4 — Runtime hardening
 - [ ] Isolated execution container and network egress allowlisting
-- [ ] Runtime permission broker and auditable operator approval for any future active-test tool
-- [ ] Per-tool approval broker for explicitly authorized active tests
+- [x] Auditable operator attestation and kill switch for active engagements
+- [x] Scope-enforcing active HTTP broker with pinned manifests, DNS/IP checks, redirects, rate limits, evidence capture and audit logging
+- [ ] Broker integrations for scanners and non-HTTP tools
 - [x] Best-effort text redaction helper with mandatory manual review
 - [x] Optional AES-256-GCM evidence encryption with external key and ciphertext integrity checks
 - [ ] KMS integration, key rotation/multi-key support, automated redaction review and retention/deletion controls
-- [ ] Concurrency and resource budgets
+- [x] Single-concurrency and per-engagement HTTP request-rate budget
+- [ ] Broader CPU, memory, and multi-tool resource budgets
 
 ## Phase 5 — Benchmark
 - [ ] Expand fixed lab corpus with known ground truth, including adversarial/prompt-injection cases

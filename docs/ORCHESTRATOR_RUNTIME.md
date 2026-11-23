@@ -2,7 +2,7 @@
 
 ## Current implementation status
 
-The Python workflow runner persists and validates plans and handoffs. The bounded dispatcher now invokes one explicitly queued Claude Code specialist at a time using the CLI, with tools disabled. This is a real model invocation and handoff persistence path for passive analysis of supplied artifacts, but it is not autonomous orchestrator planning or Task-tool delegation.
+The Python workflow runner persists and validates plans and handoffs. Passive specialists are invoked with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access for operator-reviewed HTTP request manifests; it does not receive general shell or network tools. This is not autonomous scanner execution or native Task-tool delegation.
 
 The following are separate capabilities and must not be conflated:
 
@@ -20,7 +20,7 @@ python scripts/migrate.py --db .local/state.sqlite3
 python scripts/workflow.py --db .local/state.sqlite3 init --engagement config/engagement.local.json
 ```
 
-Initialization requires engagement_id, written-authorization reference, explicit scope, and rules_of_engagement.execution_enabled=false. It creates a draft engagement; it does not verify the underlying authorization document or approve active testing.
+Initialization requires engagement_id, written-authorization reference, explicit scope, and rules_of_engagement.execution_enabled=false. It creates a draft engagement. The operator must then run `workflow.py approve` with explicit attestations for written authorization, scope, and rules before active tasks can be planned.
 
 ## Plan and persistence
 
@@ -44,7 +44,7 @@ The runner checks schema, task/engagement/agent identity, assigned scope, regist
 
 ## LLM-assisted plan generation
 
-The orchestrator can propose a passive plan from the persisted engagement scope:
+The orchestrator can propose a plan from the persisted engagement scope:
 
 ```bash
 python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME --plan-only --plan-out .local/generated-plan.json
@@ -56,17 +56,17 @@ To generate the plan and then run its dependency graph sequentially:
 python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
 ```
 
-The planner is invoked with tools disabled. Its JSON output is validated against the plan schema and then checked against the exact engagement allowlist and `execution_enabled=false` before persistence. It cannot run commands, use Task, or access targets. The Python dispatcher then runs the resulting tasks one by one. This is LLM-assisted planning plus deterministic dispatch, not native Claude Task delegation.
+The planner is invoked with tools disabled. Its JSON output is validated against the plan schema and the exact engagement allowlist. Active tasks are accepted only for an already approved active engagement and must reference operator-reviewed, SHA-256-pinned request manifests. The planner cannot access targets. The Python dispatcher then runs the resulting tasks one by one. This is LLM-assisted planning plus deterministic dispatch, not native Claude Task delegation.
 
 ## Specialist dispatch
 
-After creating a passive plan, dispatch a queued task:
+After creating a plan, dispatch a queued task:
 
 ```bash
 python scripts/dispatch_task.py --db .local/state.sqlite3 --task-id TASK-ID --model MODEL_NAME
 ```
 
-The dispatcher reads the persisted task and engagement, verifies `execution_enabled=false`, selects Skills using task `domain`, `skill_tags`, and agent compatibility, and injects the selected Skill files into the specialist context. It invokes `claude -p --agent <name>` with tools disabled and a bounded turn count. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
+The dispatcher reads the persisted task and engagement, selects Skills using task `domain`, `skill_tags`, and agent compatibility, and injects the selected Skill files. Passive specialists run with tools disabled. For an active task, only `active-testing-agent` is accepted; it receives Read/Grep/Glob/Bash with a bounded turn count, and the PreToolUse guard permits only `scripts/active_http.py` for a request file pinned in that task. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
 
 The dispatcher rejects evidence IDs that were not supplied in the task. Handoff artifacts marked `collected` or `redacted_copy` must match a registered evidence record by engagement, path and SHA-256. Proposed or missing artifacts remain explicitly non-proof. Failed CLI calls or invalid handoffs fail the task and agent run closed.
 
@@ -76,7 +76,7 @@ This is operator-authored sequential dispatch, not an autonomous planning agent.
 python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
 ```
 
-The runner stops on the first task that does not complete and does not skip failed dependencies. No tools, shell, network, scanners, or target interaction are enabled. The operator still authors the plan, confirms authorization/scope, supplies artifacts and evidence, and triggers the run.
+The runner stops on the first task that does not complete and does not skip failed dependencies. Passive tasks have no tools or target interaction. Active tasks can issue only bounded HTTP requests from pre-reviewed manifests through the broker; no general shell, scanner, or arbitrary network tool is exposed. The operator approves the engagement and request manifests before dispatch.
 
 ## Specialist runtime smoke
 
@@ -101,12 +101,13 @@ The benchmark runner passes prompts through stdin because the Claude CLI's `--to
 
 Read `docs/EVIDENCE_PROTOCOL.md` and use `templates/evidence-manifest.schema.json`. Each finding should have a local evidence directory under `.local/evidence/<finding-id>/`, a manifest, sanitized request artifacts where applicable, authentic response evidence, and a screenshot capture plan.
 
-In this bootstrap, the exploitation-agent drafts reproduction requests and screenshot requirements but does not execute network requests or capture screenshots. The validation-agent must not treat a proposed request as proof. Automated evidence capture is not implemented.
+The active-testing-agent can collect bounded HTTP request/response artifacts through the broker. The exploitation-agent still drafts reproduction requests and screenshot requirements; browser screenshot capture is not implemented. The validation-agent must independently review authentic broker evidence and must not treat an unexecuted proposal as proof.
 
 ## Safety boundaries
 
-- The runner requires `execution_enabled=false` and rejects active-testing plans.
-- It does not issue network requests, execute pentest tools, spawn agents, or verify legal authorization.
+- Active execution requires `status=active`, `execution_enabled=true`, `authorization_verified=true`, exact scope, and a pinned request manifest.
+- The broker supports only bounded HTTP(S) requests; it does not execute Nmap/Nuclei or arbitrary pentest tools.
+- The approval command records operator attestation; it does not independently verify the authorization document.
 - The specialist smoke and synthetic benchmark run without tools or network access.
 - Bash in the orchestrator contract is intended only for workflow/migration scripts and local JSON file handling.
 - Keep database, local engagement config and evidence out of Git.

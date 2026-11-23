@@ -42,7 +42,11 @@ def validate_agents(root=AGENTS):
         except ValueError as exc:
             errors.append(str(exc))
             continue
-        if name == "pentest-orchestrator":
+        if name == "active-testing-agent":
+            expected = {"Read", "Grep", "Glob", "Bash"}
+            if tools != expected:
+                errors.append(f"{path.relative_to(ROOT)}: active-testing-agent tools must be exactly {sorted(expected)}")
+        elif name == "pentest-orchestrator":
             unexpected = tools - ORCHESTRATOR_TOOLS
             missing = {"Task"} - tools
             if unexpected:
