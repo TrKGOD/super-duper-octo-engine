@@ -200,7 +200,7 @@ def import_seed(db,seed_dir):
             digest=hashlib.sha256(card["content"].encode()).hexdigest()
             doc_id="KB-"+digest[:16].upper()
             source_url=card["source_urls"][0]
-            platform={"web":"OWASP","mobile":"OWASP MAS","cloud":"Cloud provider security guidance","active_directory":"Microsoft and government AD guidance","other":"Public security guidance"}.get(card["domain"],"OWASP API Security")
+            platform={"web":"OWASP WSTG/ASVS","api":"OWASP API Security Top 10","mobile":"OWASP MAS","cloud":"Cloud provider security guidance","active_directory":"Microsoft and government AD guidance","other":"Public security guidance"}.get(card["domain"],"OWASP API Security")
             meta={"title":card["pattern_id"]+" — "+card["title"],"platform":platform,"source_url":source_url,
               "disclosure_status":"public","rights_basis":"Original analyst-authored summary with source attribution; no third-party report text is redistributed.",
               "collected_at":now(),"published_at":None,"content_type":"research_summary",
