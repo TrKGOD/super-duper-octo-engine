@@ -53,8 +53,9 @@ def _validate_plan(plan, scope):
         active_agents = {"active-testing-agent", "recon-agent", "enumeration-agent", "vulnerability-agent", "exploitation-agent", "validation-agent"}
         if active and task.get("agent") not in active_agents:
             raise WorkflowError("Active tasks require an allowlisted scoped assessment specialist")
-        if active and not task.get("request_files"):
-            raise WorkflowError("Active tasks require at least one pinned request manifest")
+        scanner_agents = {"recon-agent", "enumeration-agent", "vulnerability-agent", "active-testing-agent"}
+        if active and not task.get("request_files") and task.get("agent") not in scanner_agents:
+            raise WorkflowError("Active reproduction/validation tasks require pinned request manifests")
         if not active and task.get("agent") == "active-testing-agent":
             raise WorkflowError("active-testing-agent requires active_testing=true")
         if active:
