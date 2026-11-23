@@ -1,0 +1,17 @@
+{
+  "case_id": "SYN-XSS-NEG-001",
+  "kind": "synthetic",
+  "description": "Synthetic web case: user-controlled text is rendered as inert text after context-appropriate output encoding; no script execution evidence exists.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "input_source",
+    "rendering_context",
+    "encoding_behavior"
+  ],
+  "tags": [
+    "web",
+    "output-encoding",
+    "negative"
+  ]
+}
