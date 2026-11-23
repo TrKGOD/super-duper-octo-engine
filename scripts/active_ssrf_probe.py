@@ -32,7 +32,6 @@ def main():
         callback_host = validate_scoped_callback_url(args.callback_url, json.loads(row["scope_json"]))
         executor = ActiveHTTPExecutor(workflow, ROOT)
         manifest = _load_manifest(executor, args.request_file)
-        serialized = json.dumps(manifest, sort_keys=True)
         if str(manifest.get("method", "")).upper() not in {"GET", "HEAD", "OPTIONS"} or manifest.get("body") not in (None, ""):
             raise ActiveExecutionError("SSRF canary workflow permits only read-only GET, HEAD or OPTIONS manifests without a body")
         request_url = str(manifest.get("url", ""))
