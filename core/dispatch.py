@@ -14,6 +14,8 @@ from core.orchestration import ALLOWED_AGENTS, WorkflowError
 from core.evidence import EvidenceVault, EvidenceError
 from core.store import utc_now
 from scripts.skill_registry import load_registry, select_skills
+from core.subsystem_coverage import summarize_coverage, CoverageError
+from core.design_intent import assess_design_intent
 from core.model_router import select_model, ModelRoutingError
 from core.design_intent import assess_design_intent
 
@@ -216,6 +218,19 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
         "agent": row["agent"],
         **task_input,
     }
+    if task_input.get("subsystem_inventory"):
+        try:
+            task["subsystem_coverage"] = summarize_coverage(task_input["subsystem_inventory"])
+        except CoverageError as exc:
+            raise DispatchError("Invalid subsystem inventory: " + str(exc)) from exc
+    if task_input.get("feature_key"):
+        try:
+            task["design_intent_context"] = assess_design_intent({
+                "asset": task_input.get("asset") or (task_input.get("scope_subset") or [None])[0],
+                "feature_key": task_input["feature_key"],
+            }, rules.get("expected_behavior_registry", []))
+        except Exception as exc:
+            raise DispatchError("Invalid operator expected-behavior registry: " + str(exc)) from exc
     engagement = {
         "authorization_reference": row["authorization_reference"],
         "scope": json.loads(row["scope_json"]),
