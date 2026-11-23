@@ -117,6 +117,12 @@ class Workflow:
             raise WorkflowError("execution_mode must be either active or passive")
         rules = dict(config["rules_of_engagement"])
         rules["execution_mode"] = execution_mode
+        try:
+            validate_design_registry(rules.get("expected_behavior_registry", []))
+            if "model_routing" in rules:
+                validate_policy(rules["model_routing"])
+        except (DesignIntentError, ModelRoutingError) as exc:
+            raise WorkflowError("Invalid operator configuration: " + str(exc)) from exc
         configured_window = rules.get("testing_window") or {}
         if not configured_window.get("start") and not configured_window.get("end") and config.get("testing_window"):
             rules["testing_window"] = config["testing_window"]
@@ -370,10 +376,11 @@ class Workflow:
                 validate_inventory(inventory)
             except CoverageError as exc:
                 raise WorkflowError("Subsystem inventory is invalid: " + str(exc)) from exc
-            known = {item["subsystem_id"] for item in inventory}
+            try:
+                apply_updates(inventory, handoff["subsystem_updates"])
+            except CoverageError as exc:
+                raise WorkflowError("Subsystem coverage update rejected: " + str(exc)) from exc
             for update in handoff["subsystem_updates"]:
-                if update["subsystem_id"] not in known:
-                    raise WorkflowError("Subsystem update references an unknown subsystem")
                 if not set(update["evidence_refs"]) <= set(handoff["evidence_refs"]):
                     raise WorkflowError("Subsystem updates may reference only handoff evidence")
         # Artifact claims are metadata, not proof. Any artifact marked collected must
