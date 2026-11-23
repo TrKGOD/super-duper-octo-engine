@@ -24,7 +24,7 @@ Build and operate a maintainable, evidence-driven assistant for authorized secur
 - Keep databases and source content under .local/ and out of Git.
 
 ## Tooling and change management
-- Raw network-capable commands and scanners are never exposed to specialists. Only active-testing-agent receives Bash, and the PreToolUse guard permits the dedicated HTTP broker with an approved task and SHA-256-pinned request manifest.
+- Raw network-capable commands and scanners are never exposed to specialists. The orchestrator's Bash is limited to workflow lifecycle commands before activation and read-only status/KB queries while active; active-testing-agent's Bash is limited by the PreToolUse guard to the dedicated HTTP broker with an approved task and SHA-256-pinned request manifest.
 - Research-feed discovery is a separate, operator-run public-content workflow; it must use the configured host allowlist and must not fetch target assets or private content.
 - Do not bypass hooks, permissions, container restrictions, or scope controls. The HTTP broker is not a sandbox; use external process isolation and network egress controls.
 - Read relevant files before changing them; add tests for behavior changes; never weaken controls to pass CI.

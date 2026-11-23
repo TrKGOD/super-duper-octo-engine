@@ -171,7 +171,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
     if active_task:
         if row["agent"] != "active-testing-agent":
             raise DispatchError("Active tasks require the dedicated active-testing-agent")
-        if row["engagement_status"] != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
+        if row["engagement_status"] != "active" or rules.get("execution_mode", "active") != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
             raise DispatchError("Active execution requires an explicitly approved engagement")
         if not task_input.get("request_files"):
             raise DispatchError("Active task has no pinned request manifests")

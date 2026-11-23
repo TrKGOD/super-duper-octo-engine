@@ -128,6 +128,7 @@ def _active_request_is_approved(args, config):
         )
         return bool(
             engagement["status"] == "active"
+            and rules.get("execution_mode", "active") == "active"
             and rules.get("execution_enabled") is True
             and rules.get("authorization_verified") is True
             and task["agent"] == "active-testing-agent"
@@ -167,8 +168,31 @@ def main():
             "hookEventName": "PreToolUse", "permissionDecision": "allow",
         }}))
         return
-    if engagement.get("rules_of_engagement", {}).get("execution_enabled") is not False:
-        deny("Non-broker agent commands are disabled while active execution is enabled.")
+    db_status = None
+    try:
+        with sqlite3.connect(ROOT / DB) as connection:
+            row = connection.execute(
+                "SELECT status FROM engagements WHERE engagement_id=?",
+                (engagement.get("engagement_id"),),
+            ).fetchone()
+            db_status = row[0] if row else None
+    except sqlite3.Error:
+        deny("Unable to verify engagement state; default deny.")
+    if db_status == "active":
+        safe_read_only = (
+            argv[1] == "scripts/knowledge_base.py"
+            or (
+                argv[1] == "scripts/workflow.py"
+                and len(argv) == 7
+                and argv[4] == "status"
+                and argv[5] == "--engagement-id"
+                and argv[6] == engagement.get("engagement_id")
+            )
+        )
+        if not safe_read_only:
+            deny("Only the active HTTP broker and allowlisted read-only status/KB commands are permitted during active execution.")
+    elif engagement.get("rules_of_engagement", {}).get("execution_enabled") is not False:
+        deny("Local config cannot enable active execution; operator approval must be recorded in the engagement database.")
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse", "permissionDecision": "allow",
     }}))

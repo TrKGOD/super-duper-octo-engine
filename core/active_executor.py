@@ -104,7 +104,8 @@ def _is_ip_literal(host):
         return False
 
 
-def _resolve_and_authorize(url, scope, task_scope):
+def _validate_request_scope(url, scope, task_scope):
+    """Validate the URL against allowlists without performing DNS or network activity."""
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ActiveExecutionError("Only absolute HTTP/HTTPS URLs are permitted")
@@ -112,14 +113,32 @@ def _resolve_and_authorize(url, scope, task_scope):
         raise ActiveExecutionError("URL userinfo and fragments are not permitted")
     host = parsed.hostname.encode("idna").decode("ascii").lower().rstrip(".")
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    allowed_ports = {int(p) for p in scope.get("allowed_http_ports", [])}
     domain_allowed = any(_host_matches(host, item) for item in scope.get("allowed_domains", []))
     app_allowed = _application_match(url, scope.get("allowed_applications", []))
     literal_allowed = _ip_in_scope(host, scope) if _is_ip_literal(host) else False
+    allowed_ports = {int(item) for item in scope.get("allowed_http_ports", [])}
     if port not in {80, 443} and port not in allowed_ports and not app_allowed:
         raise ActiveExecutionError("Destination port is not explicitly allowed")
     if not (domain_allowed or app_allowed or literal_allowed):
         raise ActiveExecutionError("Target hostname/IP is not explicitly in the engagement allowlist")
+    literal_addresses = [host] if _is_ip_literal(host) else []
+    if _is_excluded(host, literal_addresses, scope):
+        raise ActiveExecutionError("Target matches an excluded asset")
+    task_host_allowed = any(
+        _application_match(url, [item]) if "://" in str(item) else _host_matches(host, item)
+        for item in task_scope
+    )
+    task_ip_allowed = any(
+        _ip_in_scope(address, {"allowed_ips": list(task_scope), "allowed_cidrs": list(task_scope)})
+        for address in literal_addresses
+    )
+    if not (task_host_allowed or task_ip_allowed):
+        raise ActiveExecutionError("Target is outside this task's assigned scope subset")
+    return host, port, parsed
+
+
+def _resolve_and_authorize(url, scope, task_scope):
+    host, port, parsed = _validate_request_scope(url, scope, task_scope)
 
     try:
         literal_ip = ipaddress.ip_address(host)
@@ -376,6 +395,7 @@ class ActiveHTTPExecutor:
         rules = json.loads(task_row["rules_json"])
         if (
             task_row["engagement_status"] != "active"
+            or rules.get("execution_mode", "active") != "active"
             or rules.get("execution_enabled") is not True
             or rules.get("authorization_verified") is not True
             or not task_row["authorization_reference"]

@@ -259,11 +259,8 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
                 "reason": "Approved one synthetic account creation request",
             },
         )
-        task_id, manifest = self._plan_and_start(request)
-        with self.assertRaisesRegex(ActiveExecutionError, "not authorized by engagement rules"):
-            ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
-                self.engagement_id, task_id, manifest
-            )
+        with self.assertRaisesRegex(WorkflowError, "POST is not authorized by the engagement rules"):
+            self._plan_and_start(request)
 
     def test_task_scope_subset_is_enforced_in_addition_to_engagement_scope(self):
         self.workflow.store.connection.execute(
@@ -276,11 +273,8 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
         )
         self.workflow.store.connection.commit()
         self._approve()
-        task_id, manifest = self._plan_and_start(self._request(), scope_subset=["192.0.2.10"])
-        with self.assertRaisesRegex(ActiveExecutionError, "outside this task"):
-            ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
-                self.engagement_id, task_id, manifest
-            )
+        with self.assertRaisesRegex(WorkflowError, "outside this task"):
+            self._plan_and_start(self._request(), scope_subset=["192.0.2.10"])
 
     def test_operator_approved_post_executes_when_engagement_allows_it(self):
         self._approve()

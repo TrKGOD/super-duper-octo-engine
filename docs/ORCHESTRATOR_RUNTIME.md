@@ -66,7 +66,7 @@ After creating a plan, dispatch a queued task:
 python scripts/dispatch_task.py --db .local/state.sqlite3 --task-id TASK-ID --model MODEL_NAME
 ```
 
-The dispatcher reads the persisted task and engagement, selects Skills using task `domain`, `skill_tags`, and agent compatibility, and injects the selected Skill files. Passive specialists run with tools disabled. For an active task, only `active-testing-agent` is accepted; it receives Read/Grep/Glob/Bash with a bounded turn count, and the PreToolUse guard permits only `scripts/active_http.py` for a request file pinned in that task. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
+The dispatcher reads the persisted task and engagement, selects Skills using task `domain`, `skill_tags`, and agent compatibility, and injects the selected Skill files. Passive specialists run with tools disabled. For an active task, only `active-testing-agent` is accepted; it receives Bash only with a bounded turn count, and the PreToolUse guard permits only `scripts/active_http.py` for a request file pinned in that task. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
 
 The dispatcher rejects evidence IDs that were not supplied in the task. Handoff artifacts marked `collected` or `redacted_copy` must match a registered evidence record by engagement, path and SHA-256. Proposed or missing artifacts remain explicitly non-proof. Failed CLI calls or invalid handoffs fail the task and agent run closed.
 
@@ -109,7 +109,7 @@ The active-testing-agent can collect bounded HTTP request/response artifacts thr
 - The broker supports only bounded HTTP(S) requests; it does not execute Nmap/Nuclei or arbitrary pentest tools.
 - The approval command records operator attestation; it does not independently verify the authorization document.
 - The specialist smoke and synthetic benchmark run without tools or network access.
-- Bash in the orchestrator contract is intended only for workflow/migration scripts and local JSON file handling.
+- The orchestrator's Bash is restricted to workflow lifecycle commands before activation and read-only status/KB queries while active; active-testing-agent's Bash is restricted to the scoped HTTP broker.
 - Keep database, local engagement config and evidence out of Git.
 - Runner and hooks are not a sandbox; external process isolation and egress restrictions remain necessary.
 - No live-target test should run until authorization, explicit scope, exclusions, rate limits, test window, and permitted methods are confirmed by an operator.

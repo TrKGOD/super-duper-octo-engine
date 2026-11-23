@@ -98,6 +98,14 @@ python scripts/workflow.py --db .local/state.sqlite3 approve --engagement-id ENG
 
 Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Request manifests live under `.local/requests/`; their SHA-256 must be included in an active task's `request_files`. The initial broker supports bounded HTTP(S) GET/HEAD/OPTIONS and individually approved POST. It does not run arbitrary scanners, Nmap, Nuclei, or browser automation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
 
+After approval, place operator-reviewed request manifests in `.local/requests/` and run the LLM planner/dispatcher:
+
+```bash
+python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
+```
+
+In active mode, the planner receives only sanitized manifest metadata and their SHA-256 pins; it cannot read credentials or execute requests. Python validates each manifest against engagement and task scope before dispatch.
+
 ## Architecture comparison benchmark
 
 Run both fixed specialist sequences against the exact same synthetic corpus and model identifier:
@@ -122,7 +130,7 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 
 ## Planned / not yet implemented
 
-- Orchestrator-level autonomous planning and native Task-tool delegation; current multi-specialist plan execution is sequential and operator-authored.
+- Native Claude Task-tool delegation; the LLM planner creates validated plans and Python dispatches specialists sequentially.
 - Isolated execution container and network egress allowlisting; broker integrations for scanners and non-HTTP tools.
 - Managed KMS integration, key rotation/multi-key support, automated redaction review, retention/deletion and immutable evidence storage.
 - Hardened multi-user filesystem isolation and crash/recovery reconciliation between filesystem and SQLite.

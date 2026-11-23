@@ -5,6 +5,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 from core.store import StateStore, utc_now
 from core.evidence import EvidenceVault, EvidenceError
+from core.active_executor import _validate_request, _validate_request_scope
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -105,7 +106,7 @@ class Workflow:
         ).fetchone()
         if exists:
             raise WorkflowError("Engagement already exists: " + engagement_id)
-        execution_mode = config.get("execution_mode", "active")
+        execution_mode = config.get("execution_mode", config["rules_of_engagement"].get("execution_mode", "active"))
         if execution_mode not in {"active", "passive"}:
             raise WorkflowError("execution_mode must be either active or passive")
         rules = dict(config["rules_of_engagement"])
@@ -141,9 +142,13 @@ class Workflow:
         if not any(scope.get(key) for key in scope_keys):
             raise WorkflowError("Cannot approve an engagement with an empty target allowlist")
         rules = json.loads(row["rules_json"])
+        if rules.get("execution_mode", "active") != "active":
+            raise WorkflowError("Active execution is disabled by this engagement's execution_mode")
         allowed_classes = set(rules.get("allowed_test_classes", []))
         if "http-read-only" not in allowed_classes:
             raise WorkflowError("Active HTTP requires http-read-only in allowed_test_classes")
+        if "state-changing-http" in allowed_classes and rules.get("human_approval_required_for_state_changes") is not True:
+            raise WorkflowError("State-changing HTTP must require per-request human approval")
         if rules.get("max_concurrency", 1) != 1:
             raise WorkflowError("The current active broker requires max_concurrency=1")
         rps = rules.get("requests_per_second", 1)
@@ -203,13 +208,20 @@ class Workflow:
             raise WorkflowError("Engagement is not available for planning")
         tasks = _validate_plan(plan, json.loads(row["scope_json"]))
         rules = json.loads(row["rules_json"])
+        active_request_ids = {
+            item["request_id"] for item in self.store.connection.execute(
+                "SELECT request_id FROM active_request_log WHERE engagement_id=?", (engagement_id,)
+            ).fetchall()
+        }
+        planned_request_ids = set()
+        planned_request_count = 0
+        if any(task.get("active_testing") for task in tasks):
+            if row["status"] != "active" or rules.get("execution_mode", "active") != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
+                raise WorkflowError("Active tasks require an explicitly approved active engagement")
+            if not row["authorization_reference"] or "REQUIRED" in row["authorization_reference"].upper():
+                raise WorkflowError("Active tasks require a non-placeholder written authorization reference")
         for task in tasks:
             if task.get("active_testing"):
-                if row["status"] != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
-                    raise WorkflowError("Active tasks require an explicitly approved active engagement")
-                if not row["authorization_reference"] or "REQUIRED" in row["authorization_reference"].upper():
-                    raise WorkflowError("Active tasks require a non-placeholder written authorization reference")
-                from core.active_executor import _validate_request
                 for manifest in task.get("request_files", []):
                     candidate = self.project_root / manifest["path"]
                     if candidate.is_symlink():
@@ -225,9 +237,26 @@ class Workflow:
                     if hashlib.sha256(raw).hexdigest() != manifest["sha256"]:
                         raise WorkflowError("Active request manifest SHA-256 does not match plan: " + manifest["path"])
                     try:
-                        _validate_request(json.loads(raw))
+                        request_data = json.loads(raw)
+                        if request_data["request_id"] in active_request_ids or request_data["request_id"] in planned_request_ids:
+                            raise WorkflowError("Active request_id has already been used or is duplicated in this plan")
+                        planned_request_ids.add(request_data["request_id"])
+                        planned_request_count += 1
+                        method = _validate_request(request_data)
+                        allowed_classes = set(rules.get("allowed_test_classes", []))
+                        if method == "POST":
+                            if "state-changing-http" not in allowed_classes or rules.get("human_approval_required_for_state_changes") is not True:
+                                raise WorkflowError("POST is not authorized by the engagement rules")
+                        elif "http-read-only" not in allowed_classes:
+                            raise WorkflowError("Read-only HTTP is not authorized by the engagement rules")
+                        _validate_request_scope(request_data["url"], json.loads(row["scope_json"]), task.get("scope_subset", []))
                     except Exception as exc:
-                        raise WorkflowError("Invalid active request manifest " + manifest["path"] + ": " + str(exc)) from exc
+                        raise WorkflowError("Invalid or out-of-scope active request manifest " + manifest["path"] + ": " + str(exc)) from exc
+        if planned_request_count:
+            request_budget = rules.get("max_requests_per_engagement", 20)
+            used_count = len(active_request_ids)
+            if planned_request_count > request_budget - used_count:
+                raise WorkflowError("Active plan exceeds the remaining engagement HTTP request budget")
         for task in tasks:
             try:
                 self.store.validate_evidence_refs_for_engagement(
@@ -280,7 +309,7 @@ class Workflow:
                 "SELECT status,rules_json FROM engagements WHERE engagement_id=?", (row["engagement_id"],)
             ).fetchone()
             active_rules = json.loads(gate["rules_json"]) if gate else {}
-            if not gate or gate["status"] != "active" or active_rules.get("execution_enabled") is not True or active_rules.get("authorization_verified") is not True:
+            if not gate or gate["status"] != "active" or active_rules.get("execution_mode", "active") != "active" or active_rules.get("execution_enabled") is not True or active_rules.get("authorization_verified") is not True:
                 raise WorkflowError("Active task cannot start without a currently approved engagement")
         for dependency_key in task_input.get("depends_on", []):
             dependency = self.store.connection.execute(

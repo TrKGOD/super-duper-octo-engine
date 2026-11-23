@@ -2,18 +2,21 @@
 
 ## Scope of this implementation
 
-The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent receives Bash, and the PreToolUse hook permits only the exact broker command.
+The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent can invoke the broker; its Bash access is restricted to the exact broker command. The orchestrator's Bash remains limited to workflow and read-only KB commands.
 
 The broker supports GET, HEAD, OPTIONS, and individually approved POST requests. PUT, PATCH, DELETE, TRACE, CONNECT, uploads, arbitrary shell, Nmap, Nuclei, sqlmap, browser automation, brute force, DoS, persistence, stealth/evasion, bulk extraction, and real customer-data access are not supported.
 
 ## Engagement activation
 
-The engagement configuration defaults to execution_mode=active. This is the default planning preference only; initialization still forces execution_enabled=false and status=draft.\n\nInitialize from a local config with:
+The engagement configuration defaults to execution_mode=active. This is the default planning preference only; initialization still forces execution_enabled=false and status=draft.
+
+Initialize from a local config with:
 - a non-placeholder written authorization reference;
 - explicit allowlisted domains, IPs, CIDRs, or applications;
 - explicit http-read-only in allowed_test_classes;
 - max_concurrency: 1;
-- requests_per_second from 0 to 1;\n- max_requests_per_engagement from 1 to 50 (default 20);
+- requests_per_second from 0 to 1;
+- max_requests_per_engagement from 1 to 50 (default 20);
 - execution_enabled: false and authorization_verified: false.
 
 Initialization always creates a draft engagement and does not enable execution.
