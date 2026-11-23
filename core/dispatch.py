@@ -187,22 +187,24 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             raise DispatchError("Active tasks require an allowlisted scoped assessment specialist")
         if row["engagement_status"] != "active" or rules.get("execution_mode", "active") != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
             raise DispatchError("Active execution requires an explicitly approved engagement")
-        if not task_input.get("request_files"):
-            raise DispatchError("Active task has no pinned request manifests")
-        request_root = (workflow.project_root / ".local" / "requests").resolve(strict=True)
-        for manifest in task_input["request_files"]:
-            candidate = workflow.project_root / manifest["path"]
-            if candidate.is_symlink():
-                raise DispatchError("Active request manifests must not be symlinks")
-            resolved = candidate.resolve(strict=True)
-            if not resolved.is_relative_to(request_root) or not resolved.is_file():
-                raise DispatchError("Active request manifest escaped .local/requests")
-            raw_manifest = resolved.read_bytes()
-            if hashlib.sha256(raw_manifest).hexdigest() != manifest["sha256"]:
-                raise DispatchError("Active request manifest SHA-256 changed after plan creation")
-            request_data = json.loads(raw_manifest)
-            if request_data.get("method") not in {"GET", "HEAD", "OPTIONS"}:
-                raise DispatchError("Enumeration-First active testing permits only GET, HEAD and OPTIONS")
+        scanner_agents = {"recon-agent", "enumeration-agent", "vulnerability-agent", "active-testing-agent"}
+        if not task_input.get("request_files") and row["agent"] not in scanner_agents:
+            raise DispatchError("Active reproduction/validation tasks require pinned request manifests")
+        if task_input.get("request_files"):
+            request_root = (workflow.project_root / ".local" / "requests").resolve(strict=True)
+            for manifest in task_input["request_files"]:
+                candidate = workflow.project_root / manifest["path"]
+                if candidate.is_symlink():
+                    raise DispatchError("Active request manifests must not be symlinks")
+                resolved = candidate.resolve(strict=True)
+                if not resolved.is_relative_to(request_root) or not resolved.is_file():
+                    raise DispatchError("Active request manifest escaped .local/requests")
+                raw_manifest = resolved.read_bytes()
+                if hashlib.sha256(raw_manifest).hexdigest() != manifest["sha256"]:
+                    raise DispatchError("Active request manifest SHA-256 changed after plan creation")
+                request_data = json.loads(raw_manifest)
+                if request_data.get("method") not in {"GET", "HEAD", "OPTIONS"}:
+                    raise DispatchError("Active assessment tasks permit only GET, HEAD and OPTIONS")
     elif row["agent"] == "active-testing-agent":
         raise DispatchError("active-testing-agent requires an active task")
     task = {
