@@ -60,10 +60,9 @@ def _available_request_manifests(project_root, scope, exact_assets, budget, allo
             method = _validate_request(request)
             if request["request_id"] in used_request_ids:
                 continue
-            if method == "POST":
-                if "state-changing-http" not in allowed_classes:
-                    continue
-            elif "http-read-only" not in allowed_classes:
+            if method not in {"GET", "HEAD", "OPTIONS"}:
+                continue
+            if "http-read-only" not in allowed_classes:
                 continue
             _validate_request_scope(request["url"], scope, exact_assets)
             parsed = urlsplit(request["url"])
