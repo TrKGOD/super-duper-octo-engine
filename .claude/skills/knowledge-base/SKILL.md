@@ -22,7 +22,7 @@ Use the local knowledge base only as research context. It is not evidence about 
 7. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
 8. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
 
-The committed seed is imported into SQLite by the explicit `import-seed` command. Search is available by full-text terms, domain and tag. The current Claude Code agent contracts receive selected pattern context from the operator; autonomous tool-driven retrieval/dispatch is not implemented in this passive-only scaffold.
+The committed seed is imported into SQLite by the explicit `import-seed` command. Search is available by full-text terms, domain and tag. The skill registry supports deterministic retrieval by domain, agent and tags. The seven-wave retrieval gate checks that each specialist methodology can be selected for representative scenarios. KB pattern search remains a separate operator-controlled action; this gate does not ingest external sources or claim autonomous KB retrieval.
 
 ## Agent-specific use
 - vulnerability-agent: use patterns to generate testable hypotheses and list preconditions/evidence still required.

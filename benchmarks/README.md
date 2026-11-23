@@ -52,3 +52,16 @@ The CI agent-benchmark job is separate and non-blocking. Configure the repositor
 - Evidence completeness: mean fraction of required evidence fields present on detected positive cases
 
 The evaluator reports counts and percentages. It does **not** claim model accuracy from unit tests or from this synthetic fixture set. The corpus currently contains 19 synthetic cases across SQLi, XSS, IDOR/BOLA, SSRF, authentication and authorization, including near-positive negatives. Compare agent versions on the same cases and treat results as directional until the corpus is independently reviewed and substantially expanded.
+
+
+## Seven-wave retrieval and capability gates
+
+Run deterministic registry retrieval and agent-contract checks:
+
+```bash
+python scripts/retrieval_gate.py --json-out .local/retrieval-gate-results.json
+```
+
+The seven synthetic retrieval scenarios cover SSRF, BOLA/IDOR/BAC, authentication/MFA, XSS/CSRF/injection, information disclosure/secrets, HTTP/cache/race conditions, and remaining vulnerability classes. The capability gates verify evidence-bearing handoffs, validator attribution for validated findings, and basic agent contract requirements.
+
+These are routing/schema regression gates, not a test of whether an LLM can discover or exploit a vulnerability. For actual model capability comparisons, run the agent benchmark with a pinned model and identical synthetic cases as described above. Keep deterministic gate results and model-produced benchmark metrics separate.

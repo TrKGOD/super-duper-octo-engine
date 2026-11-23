@@ -24,3 +24,7 @@ Replace the DB placeholder with the exact engagement.state_db_path from task con
 
 # Decision
 Confirm only when independent evidence supports the exact claim. Reject or request more evidence otherwise.
+
+
+## Specialist methodology and evidence gates
+Review the methodology pack relevant to the proposed class, then independently verify the exact security invariant and alternative explanations. A pack is background guidance, not evidence. Require current-engagement evidence references, a distinct proposing agent, and a separately pinned manifest for active validation. The retrieval gate command checks registry routing and static handoff/finding contracts; it does not replace this independent review.

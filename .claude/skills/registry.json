@@ -499,6 +499,223 @@
       ],
       "risk_class": "controlled_read_only_http",
       "validation_status": "implemented_unverified"
+    },
+    {
+      "id": "web-ssrf-advanced",
+      "name": "web-testing-ssrf-advanced",
+      "path": ".claude/skills/web-testing/ssrf-advanced/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "ssrf",
+        "url-fetching",
+        "dns-rebinding",
+        "redirect-validation",
+        "egress"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for ssrf advanced investigation"
+    },
+    {
+      "id": "web-authn-mfa",
+      "name": "web-testing-authentication-advanced",
+      "path": ".claude/skills/web-testing/authn-mfa/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "authentication",
+        "sessions",
+        "mfa",
+        "otp",
+        "recovery",
+        "rate-limit"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for authn mfa investigation"
+    },
+    {
+      "id": "web-authorization-bac",
+      "name": "web-testing-authorization-bac",
+      "path": ".claude/skills/web-testing/authorization-bac/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "authorization",
+        "bola",
+        "idor",
+        "bac",
+        "tenant-isolation",
+        "function-level"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for authorization bac investigation"
+    },
+    {
+      "id": "web-injection-csrf",
+      "name": "web-testing-injection-csrf",
+      "path": ".claude/skills/web-testing/injection-csrf/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "xss",
+        "csrf",
+        "sqli",
+        "nosql-injection",
+        "ssti",
+        "command-injection"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for injection csrf investigation"
+    },
+    {
+      "id": "web-information-disclosure",
+      "name": "web-information-disclosure",
+      "path": ".claude/skills/web-testing/disclosure-secrets/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "information-disclosure",
+        "secrets",
+        "sourcemaps",
+        "debug",
+        "metadata",
+        "exposure"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for information disclosure investigation"
+    },
+    {
+      "id": "web-http-cache-race",
+      "name": "web-http-cache-race",
+      "path": ".claude/skills/web-testing/http-cache-race/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "http-smuggling",
+        "request-desynchronization",
+        "cache-poisoning",
+        "cache-deception",
+        "race-condition",
+        "concurrency"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for http cache race investigation"
+    },
+    {
+      "id": "web-remaining-classes",
+      "name": "web-remaining-vulnerability-classes",
+      "path": ".claude/skills/web-testing/remaining-classes/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "xxe",
+        "open-redirect",
+        "cors",
+        "file-upload",
+        "path-traversal",
+        "deserialization",
+        "business-logic"
+      ],
+      "compatible_agents": [
+        "vulnerability-agent",
+        "exploitation-agent",
+        "validation-agent",
+        "reporting-agent"
+      ],
+      "prerequisites": [
+        "written authorization",
+        "explicit engagement scope",
+        "supplied evidence or approved isolated lab"
+      ],
+      "risk_class": "controlled_validation_guidance",
+      "validation_status": "catalogued_unverified",
+      "description": "Specialist methodology pack for remaining classes investigation"
     }
   ]
 }

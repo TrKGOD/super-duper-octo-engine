@@ -10,7 +10,7 @@ from scripts import skill_registry
 class SkillRegistryTests(unittest.TestCase):
     def test_repository_registry_is_valid(self):
         registry = skill_registry.load_registry()
-        self.assertEqual(len(registry["skills"]), 17)
+        self.assertEqual(len(registry["skills"]), 24)
 
     def test_select_by_domain_and_agent(self):
         registry = skill_registry.load_registry()
@@ -48,7 +48,7 @@ class SkillRegistryTests(unittest.TestCase):
     def test_tag_filter_uses_any_requested_tag(self):
         registry = skill_registry.load_registry()
         selected = skill_registry.select_skills(registry, tags=["ssrf"])
-        self.assertEqual([item["id"] for item in selected], ["web-ssrf"])
+        self.assertEqual([item["id"] for item in selected], ["web-ssrf", "web-ssrf-advanced"])
 
     def test_rejects_path_traversal(self):
         registry = skill_registry.load_registry()

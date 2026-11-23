@@ -74,7 +74,7 @@ class DispatchTests(unittest.TestCase):
             claude_bin=self._fake_cli(), timeout_seconds=30,
         )
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(result["selected_skills"], ["web-ssrf"])
+        self.assertEqual(result["selected_skills"], ["web-ssrf", "web-ssrf-advanced"])
         status = self.workflow.status("eng-dispatch-test")
         self.assertEqual(status["tasks"][0]["status"], "completed")
         run = self.workflow.store.connection.execute(
