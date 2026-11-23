@@ -458,6 +458,37 @@
       ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified"
+    },
+    {
+      "id": "active-web-api-discovery",
+      "name": "active-web-api-surface-discovery",
+      "path": ".claude/skills/active-web-api-discovery/SKILL.md",
+      "domains": [
+        "web",
+        "api"
+      ],
+      "tags": [
+        "active-recon",
+        "same-origin-crawling",
+        "endpoint-discovery",
+        "javascript-analysis",
+        "security-headers",
+        "cors"
+      ],
+      "compatible_agents": [
+        "recon-agent",
+        "enumeration-agent",
+        "vulnerability-agent",
+        "active-testing-agent"
+      ],
+      "prerequisites": [
+        "explicit written authorization",
+        "active engagement approval",
+        "exact task scope subset",
+        "request budget and testing window"
+      ],
+      "risk_class": "controlled_read_only_http",
+      "validation_status": "implemented_unverified"
     }
   ]
 }
