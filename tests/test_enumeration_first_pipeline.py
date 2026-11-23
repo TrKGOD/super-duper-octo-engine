@@ -59,7 +59,7 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
         (requests / "synthetic-pipeline-get-001.json").write_bytes(raw)
 
         tasks = [
-            ("scope", "scope-analyst", [], "passive-recon", False),
+            ("scope", "scope-analyst", [], "authorization", False),
             ("recon", "recon-agent", ["scope"], "passive-recon", False),
             ("enumeration", "enumeration-agent", ["recon"], "routes", False),
             ("vulnerability", "vulnerability-agent", ["enumeration"], "attack-surface", False),
