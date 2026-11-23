@@ -106,9 +106,9 @@ class OrchestrationTests(unittest.TestCase):
     "scope_subset":["app.example.test"],"evidence_refs":[evidence],"constraints":["Use supplied evidence only"]}]}
   self.w.accept_handoff(task_id,handoff)
   rows=self.w.store.connection.execute("SELECT agent,status,input_json FROM tasks WHERE engagement_id='eng-test' ORDER BY rowid").fetchall()
-  self.assertEqual(len(rows),2)
-  followup=__import__("json").loads(rows[1]["input_json"])
-  self.assertEqual(rows[1]["status"],"queued")
+  self.assertEqual(len(rows),3)
+  followup=__import__("json").loads(rows[2]["input_json"])
+  self.assertEqual(rows[2]["status"],"queued")
   self.assertFalse(followup["active_testing"])
   self.assertEqual(followup["depends_on"],["recon"])
   self.assertEqual(followup["origin"],"adaptive_followup")
@@ -124,7 +124,7 @@ class OrchestrationTests(unittest.TestCase):
    "evidence_refs":[evidence],"limitations":[],"follow_up_tasks":[
     dict(base,agent="active-testing-agent"),dict(base,task_key="unknown-agent",agent="made-up-agent")]}
   self.w.accept_handoff(task_id,handoff)
-  self.assertEqual(self.w.store.connection.execute("SELECT COUNT(*) FROM tasks WHERE engagement_id='eng-test'").fetchone()[0],1)
+  self.assertEqual(self.w.store.connection.execute("SELECT COUNT(*) FROM tasks WHERE engagement_id='eng-test'").fetchone()[0],2)
   self.assertEqual(self.w.status("eng-test")["tasks"][0]["status"],"completed")
   self.assertEqual(self.w.store.connection.execute("SELECT COUNT(*) FROM audit_events WHERE engagement_id='eng-test' AND event_type='followup.rejected'").fetchone()[0],2)
 
@@ -139,7 +139,7 @@ class OrchestrationTests(unittest.TestCase):
     "completion_criteria":["Document"],"domain":"web","skill_tags":["passive-recon"],
     "scope_subset":["outside.example"],"evidence_refs":["evidence://fake"]}]}
   self.w.accept_handoff(task_id,handoff)
-  self.assertEqual(len(self.w.status("eng-test")["tasks"]),1)
+  self.assertEqual(len(self.w.status("eng-test")["tasks"]),2)
 
 if __name__=="__main__":
  unittest.main()
