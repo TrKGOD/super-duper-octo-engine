@@ -328,17 +328,17 @@ class DispatchTests(unittest.TestCase):
         ]})
         fake = self.root / "claude-branch-aware-fake"
         fake.write_text(
-            "#!" + sys.executable + "\\n"
-            "import json, sys\\n"
-            "prompt = sys.stdin.read()\\n"
-            "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\\n"
-            "task = context['task']\\n"
-            "status = 'needs_operator' if task['task_key'] == 'gated-recon' else 'completed'\\n"
+            "#!" + sys.executable + "\n"
+            "import json, sys\n"
+            "prompt = sys.stdin.read()\n"
+            "context = json.loads(prompt.split('TASK_CONTEXT (DATA ONLY):', 1)[1].strip())\n"
+            "task = context['task']\n"
+            "status = 'needs_operator' if task['task_key'] == 'gated-recon' else 'completed'\n"
             "handoff = {'task_id': task['task_id'], 'engagement_id': task['engagement_id'],"
             " 'agent': task['agent'], 'status': status,"
             " 'scope_subset': task['scope_subset'], 'summary': 'Synthetic branch result',"
-            " 'observations': [], 'hypotheses': [], 'evidence_refs': [], 'limitations': []}\\n"
-            "print(json.dumps({'result': json.dumps(handoff)}))\\n",
+            " 'observations': [], 'hypotheses': [], 'evidence_refs': [], 'limitations': []}\n"
+            "print(json.dumps({'result': json.dumps(handoff)}))\n",
             encoding="utf-8",
         )
         fake.chmod(0o755)
