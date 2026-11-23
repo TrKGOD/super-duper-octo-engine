@@ -116,12 +116,12 @@ class DispatchTests(unittest.TestCase):
             {"task_key": "recon", "agent": "recon-agent",
              "objective": "Review supplied passive inventory",
              "completion_criteria": ["Return handoff"],
-             "scope_subset": ["app.example.test"], "domain": "web"},
+             "scope_subset": ["app.example.test"], "domain": "web", "skill_tags": ["passive-recon"]},
             {"task_key": "enum", "agent": "enumeration-agent",
              "objective": "Normalize supplied routes",
              "completion_criteria": ["Return handoff"],
              "scope_subset": ["app.example.test"], "domain": "web",
-             "depends_on": ["recon"]}
+             "depends_on": ["recon"], "skill_tags": ["routes"]}
         ]})
         fake = self.root / "claude-dynamic-fake"
         fake.write_text(
