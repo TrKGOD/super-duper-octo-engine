@@ -4,7 +4,7 @@ This runtime is the execution and coordination layer of the Pentest Agent Framew
 
 ## Current implementation status
 
-The Python workflow runner persists and validates plans and handoffs. In the current implementation, passive specialists are invoked with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access for operator-reviewed HTTP request manifests; it does not receive general shell or network tools. Therefore, the current runtime is not yet a full autonomous reconnaissance or scanner engine, and native Task-tool delegation is not implemented. These are implementation gaps against the framework's pentesting objective, not a change in product purpose.
+The Python workflow runner persists and validates plans and handoffs. Passive tasks remain tool-disabled. The initial Web/API vertical gives recon, enumeration and vulnerability specialists Bash only for the guarded same-origin discovery runner; exploitation and validation specialists receive broker-only Bash for separately pinned read-only request manifests. No specialist receives general shell or unrestricted network tools. The runtime now performs bounded crawling, endpoint/form discovery, static JavaScript analysis, low-impact configuration checks and evidence-backed reproduction. It is not yet a full autonomous scanner, and native Task-tool delegation is not implemented.
 
 The following are separate capabilities and must not be conflated:
 
@@ -58,7 +58,7 @@ To generate the plan and then run its dependency graph sequentially:
 python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
 ```
 
-The planner is invoked with tools disabled. Its JSON output is validated against the plan schema and the exact engagement allowlist. Active tasks are accepted only for an already approved active engagement and must reference operator-reviewed, SHA-256-pinned request manifests. The planner cannot access targets. The Python dispatcher then runs the resulting tasks one by one. This is LLM-assisted planning plus deterministic dispatch, not native Claude Task delegation.
+The planner is invoked with tools disabled. Its JSON output is validated against the plan schema and the exact engagement allowlist. Active plans are accepted only for an already approved active engagement. Bounded discovery tasks may omit prebuilt manifests because the discovery runner generates and SHA-256-pins GET/OPTIONS manifests internally before broker execution. Exploitation and active validation tasks require operator-reviewed, separately pinned manifests. The planner cannot access targets. The Python dispatcher then runs the resulting tasks one by one. This is LLM-assisted planning plus deterministic dispatch, not native Claude Task delegation.
 
 ## Specialist dispatch
 
@@ -68,7 +68,7 @@ After creating a plan, dispatch a queued task:
 python scripts/dispatch_task.py --db .local/state.sqlite3 --task-id TASK-ID --model MODEL_NAME
 ```
 
-The dispatcher reads the persisted task and engagement, requires a non-empty `domain` and `skill_tags`, selects compatible Skills, and injects the selected Skill files. It fails closed when selection is empty. Direct dependency handoffs and deduplicated inherited evidence references are passed to the next specialist; evidence is re-verified from the engagement project root. Passive specialists run with tools disabled. For an active task, only `active-testing-agent` is accepted; it receives Bash only with a bounded turn count, and the PreToolUse guard permits only `scripts/active_http.py` for a request file pinned in that task. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
+The dispatcher reads the persisted task and engagement, requires a non-empty `domain` and `skill_tags`, selects compatible Skills, and injects the selected Skill files. It fails closed when selection is empty. Direct dependency handoffs and deduplicated inherited evidence references are passed to the next specialist; evidence is re-verified from the engagement project root. Passive tasks run with tools disabled. Active tasks are accepted only for the allowlisted recon, enumeration, vulnerability, active-testing, exploitation and validation specialists. The PreToolUse guard permits only `scripts/active_surface.py` for bounded same-origin discovery or `scripts/active_http.py` for a request pinned to the running task. The discovery runner can create manifests only inside the task's isolated engagement context and pins their hashes before broker execution. The specialist must return a JSON handoff matching `templates/handoff.schema.json`; task identity, engagement identity, agent identity, scope subset, and evidence references are checked before persistence.
 
 The dispatcher rejects evidence IDs that were not supplied in the task. Handoff artifacts marked `collected` or `redacted_copy` must match a registered evidence record by engagement, path and SHA-256. Proposed or missing artifacts remain explicitly non-proof. Failed CLI calls or invalid handoffs fail the task and agent run closed.
 
@@ -78,7 +78,7 @@ This is operator-authored sequential dispatch, not an autonomous planning agent.
 python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME
 ```
 
-The runner stops on the first task that does not complete and does not skip failed dependencies. Passive tasks have no tools or target interaction. Active tasks can issue only bounded HTTP requests from pre-reviewed manifests through the broker; no general shell, scanner, or arbitrary network tool is exposed. The operator approves the engagement and request manifests before dispatch.
+The runner stops on the first task that does not complete and does not skip failed dependencies. Passive tasks have no tools or target interaction. Active discovery tasks can issue only bounded same-origin GET/OPTIONS requests through the broker; active reproduction and validation tasks can issue only GET/HEAD/OPTIONS from separately reviewed manifests. No general shell, third-party scanner or arbitrary network tool is exposed. The operator approves the engagement before dispatch and reviews every reproduction/validation manifest.
 
 ## Specialist runtime smoke
 
@@ -103,15 +103,15 @@ The benchmark runner passes prompts through stdin because the Claude CLI's `--to
 
 Read `docs/EVIDENCE_PROTOCOL.md` and use `templates/evidence-manifest.schema.json`. Each finding should have a local evidence directory under `.local/evidence/<finding-id>/`, a manifest, sanitized request artifacts where applicable, authentic response evidence, and a screenshot capture plan.
 
-The active-testing-agent can collect bounded HTTP request/response artifacts through the broker. The exploitation-agent still drafts reproduction requests and screenshot requirements; browser screenshot capture is not implemented. The validation-agent must independently review authentic broker evidence and must not treat an unexecuted proposal as proof.
+The active discovery runner collects bounded HTTP request/response artifacts through the broker. The exploitation-agent can execute a minimal pinned read-only reproduction request. The validation-agent must be different from the proposer and can perform a fresh brokered reproduction only with its own separately pinned manifest; otherwise it reviews supplied evidence and must not claim fresh active reproduction. Browser screenshot capture is not implemented.
 
 ## Safety boundaries
 
-- Active execution requires `status=active`, `execution_enabled=true`, `authorization_verified=true`, exact scope, and a pinned request manifest.
+- Active execution requires `status=active`, `execution_enabled=true`, `authorization_verified=true`, exact task/engagement scope, and either a bounded discovery task that generates pinned manifests internally or an operator-pinned reproduction/validation manifest.
 - The broker supports only bounded HTTP(S) requests; it does not execute Nmap/Nuclei or arbitrary pentest tools.
 - The approval command records operator attestation; it does not independently verify the authorization document.
 - The specialist smoke and synthetic benchmark run without tools or network access.
-- The orchestrator's Bash is restricted to workflow lifecycle commands before activation and read-only status/KB queries while active; active-testing-agent's Bash is restricted to the scoped HTTP broker.
+- The orchestrator's Bash is restricted to the exact plan-and-dispatch entrypoint and allowlisted workflow commands. Specialist Bash is restricted to the guarded discovery runner or scoped HTTP broker.
 - Keep database, local engagement config and evidence out of Git.
 - Runner and hooks are not a sandbox; external process isolation and egress restrictions remain necessary.
 - No live-target test should run until authorization, explicit scope, exclusions, rate limits, test window, and permitted methods are confirmed by an operator.
