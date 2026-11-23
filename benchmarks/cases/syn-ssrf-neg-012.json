@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-SSRF-NEG-012",
+  "kind": "synthetic",
+  "description": "The service rejects non-allowlisted destinations before making a request; a supplied internal-looking URL is not fetched.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "input_source",
+    "validation",
+    "server_side_observation",
+    "response_observation"
+  ],
+  "tags": [
+    "api",
+    "ssrf",
+    "negative"
+  ],
+  "fixtures": {
+    "input_source": "callback URL",
+    "validation": "strict allowlist rejects host",
+    "server_side_observation": "no outbound request",
+    "response_observation": "400 validation error"
+  }
+}
