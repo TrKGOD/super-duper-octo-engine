@@ -159,6 +159,14 @@
               "medium",
               "high"
             ]
+          },
+          "feature_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "allOf": [
