@@ -150,7 +150,7 @@ def analyze_authentication_pair(pair: dict, *, authenticated_label: str,
 def _body_fingerprint(body: Any) -> str | None:
     if not isinstance(body, str) or not body:
         return None
-    return hashlib.sha256(re.sub(r"\\s+", " ", body).strip().encode()).hexdigest()
+    return hashlib.sha256(re.sub(r"\s+", " ", body).strip().encode()).hexdigest()
 
 
 def analyze_cache_pair(pair: dict, *, first_private_marker: str,
