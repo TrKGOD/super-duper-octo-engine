@@ -17,7 +17,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
             fake.chmod(0o755)
             predictions,manifest=run(cases,'vulnerability-agent','pinned-model',60,'synthetic-lab-v1',str(fake))
             self.assertEqual(predictions['predictions'][0]['case_id'],'SYN-TEST-001')
-            self.assertEqual(manifest['execution'],'real_claude_code_agent')
+            self.assertEqual(manifest['execution'],'claude_code_cli_agent_prompt')
             self.assertEqual(manifest['model'],'pinned-model')
 
 if __name__=='__main__': unittest.main()
