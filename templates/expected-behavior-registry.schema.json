@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Operator Expected Behavior Registry",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "asset",
+      "feature_key",
+      "expected_behavior",
+      "approved_by",
+      "source_ref"
+    ],
+    "properties": {
+      "asset": {
+        "type": "string",
+        "minLength": 1
+      },
+      "feature_key": {
+        "type": "string",
+        "minLength": 1
+      },
+      "expected_behavior": {
+        "type": "string",
+        "minLength": 1
+      },
+      "approved_by": {
+        "type": "string",
+        "minLength": 1
+      },
+      "source_ref": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "additionalProperties": false
+  }
+}
