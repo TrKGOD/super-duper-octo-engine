@@ -74,7 +74,7 @@ class EvidenceAdapterTests(unittest.TestCase):
             "assertion":"The response is accessible to the test identity","supporting_refs":refs}]}
         decision=review_finding(self.store,self.vault,"F-REVIEW",{"reviewer":"validation-agent",
             "evidence_contract":contract,"claim_results":[{"claim_id":"c1","disposition":"supported",
-            "rationale":"The captured paired exchange supports the claim."}]})
+            "rationale":"The captured paired exchange supports the claim.","evidence_refs":refs}]})
         self.assertEqual(decision["decision"],"eligible_for_independent_validation")
         status=self.store.connection.execute("SELECT status,validated_by FROM findings WHERE finding_id='F-REVIEW'").fetchone()
         self.assertEqual(status["status"],"validated")
@@ -92,7 +92,7 @@ class EvidenceAdapterTests(unittest.TestCase):
             "supporting_refs":refs}]}
         decision=review_finding(self.store,self.vault,"F-REFUTED",{"reviewer":"validation-agent",
             "evidence_contract":contract,"claim_results":[{"claim_id":"c1","disposition":"refuted",
-            "rationale":"The documented endpoint is intentionally public and no security boundary is crossed."}]})
+            "rationale":"The documented endpoint is intentionally public and no security boundary is crossed.","evidence_refs":refs}]})
         self.assertEqual(decision["decision"],"rejected")
         with self.assertRaises(ValueError):
             self.store.transition_finding("F-REFUTED","reported","reporting-agent")
