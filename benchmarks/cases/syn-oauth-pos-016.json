@@ -1,0 +1,28 @@
+{
+  "case_id": "SYN-OAUTH-POS-016",
+  "kind": "synthetic",
+  "description": "A public client flow capture shows no PKCE S256 challenge, a mismatched state value and an unregistered redirect URI; the relying-party configuration and synthetic callback capture corroborate the exact mismatch.",
+  "expected_finding": true,
+  "vulnerability_type": "OAUTH_MISCONFIGURATION",
+  "required_evidence": [
+    "client_type",
+    "registered_redirect_uri",
+    "requested_redirect_uri",
+    "pkce_method",
+    "state_binding",
+    "fixture_only"
+  ],
+  "tags": [
+    "synthetic",
+    "oauth_misconfiguration",
+    "positive"
+  ],
+  "fixtures": {
+    "client_type": "public synthetic client",
+    "registered_redirect_uri": "https://client.lab/callback",
+    "requested_redirect_uri": "https://attacker.lab/callback",
+    "pkce_method": "plain",
+    "state_binding": "callback state differs from request state",
+    "fixture_only": true
+  }
+}
