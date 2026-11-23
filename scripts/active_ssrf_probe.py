@@ -33,8 +33,11 @@ def main():
         executor = ActiveHTTPExecutor(workflow, ROOT)
         manifest = _load_manifest(executor, args.request_file)
         serialized = json.dumps(manifest, sort_keys=True)
-        if args.marker not in args.callback_url or args.marker not in serialized or args.callback_url not in serialized:
-            raise ActiveExecutionError("Pinned request manifest must contain the exact callback URL and unique marker")
+        if str(manifest.get("method", "")).upper() not in {"GET", "HEAD", "OPTIONS"} or manifest.get("body") not in (None, ""):
+            raise ActiveExecutionError("SSRF canary workflow permits only read-only GET, HEAD or OPTIONS manifests without a body")
+        request_url = str(manifest.get("url", ""))
+        if args.marker not in args.callback_url or args.marker not in request_url or args.callback_url not in request_url:
+            raise ActiveExecutionError("Pinned request URL must contain the exact HTTPS callback URL and unique marker")
         response = executor.execute_request_file(args.engagement_id, args.task_id, args.request_file)
         events = []
         callback_evidence = []
