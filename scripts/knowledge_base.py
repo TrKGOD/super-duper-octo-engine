@@ -116,7 +116,7 @@ def search(db,query,limit=5):
           snippet(kb_search,2,'[',']',' … ',18) excerpt
           FROM kb_search JOIN kb_documents d USING(document_id)
           WHERE kb_search MATCH ? ORDER BY rank LIMIT ?""",(_fts_query(query),limit)).fetchall()
-        return [{**dict(row),"title":untrusted_block(row["title"]),"platform":untrusted_block(row["platform"]),"excerpt":untrusted_block(row["excerpt"])} for row in rows]
+        return [{**dict(row),"title":untrusted_block(row["title"]),"platform":untrusted_block(row["platform"]),"source_url":untrusted_block(row["source_url"]),"excerpt":untrusted_block(row["excerpt"])} for row in rows]
     except sqlite3.OperationalError:
         terms=re.findall(r"[\w.-]+",query)[:8]
         if not terms: return []
@@ -213,6 +213,7 @@ def import_seed(db,seed_dir):
             if not re.match(r"##\s+[A-Z]+-\d+\s+—",block.strip()): continue
             card=_parse_seed_card(block)
             if not card: continue
+            card["content"]=sanitize_content(card["content"])
             digest=hashlib.sha256(card["content"].encode()).hexdigest()
             doc_id="KB-"+digest[:16].upper()
             source_url=card["source_urls"][0]
@@ -288,14 +289,14 @@ def search_patterns(db,query,limit=5,domain=None,tag=None):
 
 def _wrap_pattern_row(row):
     result=dict(row)
-    for key in ("title","platform","vulnerability_type","root_cause","preconditions","reproduction_summary","evidence_summary","impact","remediation","false_positives"):
+    for key in ("title","platform","tags","source_url","vulnerability_type","root_cause","preconditions","reproduction_summary","evidence_summary","impact","remediation","false_positives"):
         result[key]=untrusted_block(result[key])
     return result
 
 def show_document(db,document_id):
     row=db.execute("SELECT document_id,title,platform,source_url,content_type,content,content_sha256,created_at FROM kb_documents WHERE document_id=? AND disclosure_status='public'",(document_id,)).fetchone()
     if not row: raise ValueError("Public source document not found.")
-    result=dict(row); result["title"]=untrusted_block(result["title"]); result["platform"]=untrusted_block(result["platform"]); result["content"]=untrusted_block(result["content"]); return result
+    result=dict(row); result["title"]=untrusted_block(result["title"]); result["platform"]=untrusted_block(result["platform"]); result["source_url"]=untrusted_block(result["source_url"]); result["content"]=untrusted_block(result["content"]); return result
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__); ap.add_argument("--db",type=Path,default=DEFAULT_DB)
