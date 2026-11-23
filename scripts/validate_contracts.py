@@ -10,7 +10,8 @@ checks=[
 ("templates/plan.schema.json",["templates/examples/plan.passive.example.json"]),
 ("templates/evidence-manifest.schema.json",["templates/examples/evidence-manifest.example.json"]),
 ("templates/knowledge-document.schema.json",[]),
-("templates/knowledge-pattern.schema.json",["templates/examples/knowledge-pattern.example.json"])
+("templates/knowledge-pattern.schema.json",["templates/examples/knowledge-pattern.example.json"]),
+("templates/prediction.schema.json",["benchmarks/predictions.example.json"])
 ]
 for schema_name,examples in checks:
  schema=json.loads((ROOT/schema_name).read_text(encoding="utf-8")); Draft202012Validator.check_schema(schema)
