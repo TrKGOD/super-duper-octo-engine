@@ -25,3 +25,26 @@ def validate_finding(finding):
             raise FindingValidationError("A validated/reported finding requires at least one evidence reference")
     if finding["status"] == "rejected" and not finding.get("validation_notes"):
         raise FindingValidationError("A rejected finding requires validation_notes")
+
+
+FINDING_TRANSITIONS = {
+    "observation": {"hypothesis", "rejected", "needs_more_evidence"},
+    "hypothesis": {"validation_pending", "rejected", "needs_more_evidence"},
+    "validation_pending": {"validated", "rejected", "needs_more_evidence"},
+    "needs_more_evidence": {"validation_pending", "rejected"},
+    "validated": {"reported", "retest_pending", "resolved"},
+    "reported": {"retest_pending", "resolved"},
+    "retest_pending": {"validated", "needs_more_evidence", "resolved"},
+    "rejected": set(),
+    "resolved": set(),
+}
+
+
+def validate_finding_transition(current_status, next_status):
+    """Reject lifecycle transitions not explicitly allowed by the finding state machine."""
+    if current_status not in FINDING_TRANSITIONS:
+        raise FindingValidationError("Unsupported current finding status: " + str(current_status))
+    if next_status not in FINDING_TRANSITIONS[current_status]:
+        raise FindingValidationError(
+            "Invalid finding status transition: " + current_status + " -> " + str(next_status)
+        )
