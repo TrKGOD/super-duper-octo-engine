@@ -32,3 +32,11 @@ HTTP framing review is passive-only:
 python3 scripts/analyze_http_framing.py --input .local/http-request-capture.json
 ```
 No request-smuggling payloads, ambiguous framing, cache poisoning, concurrent race traffic or state-changing requests are sent. Active desynchronization and race-condition validation requires an isolated lab and a dedicated approved harness; the current broker's single-concurrency/read-only constraints intentionally remain intact.
+
+
+## Passive race-capture analysis
+When an isolated lab has already produced a sanitized timing/state log, analyze it without generating traffic:
+```bash
+python3 scripts/analyze_race_capture.py --input .local/race-capture.json
+```
+The JSON must contain 2–100 events, unique request IDs, timezone-aware start/end timestamps, one object reference prefixed `synthetic-`, and an explicit `invariant_violation: true` on an event before the analyzer emits a candidate. Overlap alone is only an observation. This workflow does not create concurrency or validate a production race.
