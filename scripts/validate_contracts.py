@@ -7,7 +7,9 @@ ROOT=Path(__file__).resolve().parents[1]
 checks=[
  ("templates/finding.schema.json",[]),
  ("templates/handoff.schema.json",["templates/examples/handoff.completed.example.json"]),
- ("templates/plan.schema.json",["templates/examples/plan.passive.example.json"])
+ ("templates/plan.schema.json",["templates/examples/plan.passive.example.json"]),
+ ("templates/evidence-manifest.schema.json",["templates/examples/evidence-manifest.example.json"]),
+ ("templates/knowledge-document.schema.json",["templates/examples/knowledge-document.example.meta.json"])
 ]
 for schema_name,examples in checks:
  schema=json.loads((ROOT/schema_name).read_text(encoding="utf-8"))
