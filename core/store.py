@@ -302,6 +302,11 @@ class StateStore:
                 "validation_notes": notes,
             }
             validate_finding(candidate)
+            for evidence_id in refs:
+                self.connection.execute(
+                    "UPDATE evidence SET finding_id=? WHERE evidence_id=? AND finding_id IS NULL",
+                    (finding_id, evidence_id),
+                )
             self.connection.execute(
                 """UPDATE findings SET status=?,validated_by=?,validation_notes=?,
                    evidence_refs_json=?,updated_at=? WHERE finding_id=?""",
