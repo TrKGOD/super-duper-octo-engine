@@ -1,8 +1,17 @@
-# Active HTTP Execution
+# Active Web/API Assessment Execution
 
 ## Scope of this implementation
 
-The first active-execution release adds a narrow HTTP(S) broker. It is not a general shell, scanner, or exploit runner. Passive specialists remain tool-disabled. Only active-testing-agent can invoke the broker; its Bash access is restricted to the exact broker command. The orchestrator's Bash is limited to workflow lifecycle commands before activation and read-only status/KB queries while active.
+The active Web/API vertical now includes bounded same-origin reconnaissance, HTML crawling, endpoint/form discovery, static JavaScript route and sink analysis, low-impact HTTP configuration checks, brokered reproduction, and independent validation. These capabilities are exposed through `scripts/active_surface.py` and `scripts/active_http.py`.
+
+Recon, enumeration and vulnerability specialists receive Bash only for active tasks. The PreToolUse guard permits only the exact discovery runner or HTTP broker command, and verifies the engagement state, running task and exact target scope before discovery. Exploitation-agent and validation-agent can execute only separately SHA-256-pinned GET/HEAD/OPTIONS manifests. No specialist receives general shell or unrestricted network access.
+
+The discovery runner performs same-origin GET crawling with a maximum of 25 pages and depth 3, statically parses downloaded JavaScript, records observed and inferred endpoints separately, and checks response security headers, cookie attributes, CORS behavior and OPTIONS capabilities. It does not execute JavaScript in a browser or invoke third-party scanners. All network requests are brokered, rate-limited and evidence-captured.
+
+The per-engagement path mapping is:
+- Default: `config/engagement.local.json` with `.local/state.sqlite3`.
+- Isolated: `config/engagement.SLUG.local.json` with `.local/engagements/SLUG/state.sqlite3`.
+The command guard resolves only these strict path patterns and fails closed on symlinks or mismatched engagement IDs.
 
 The general broker supports GET, HEAD, OPTIONS, and individually approved POST requests. The Enumeration-First pipeline applies a stricter policy and dispatches only GET, HEAD, and OPTIONS; POST and all other methods are rejected for that pipeline even if separately approved. PUT, PATCH, DELETE, TRACE, CONNECT, uploads, arbitrary shell, Nmap, Nuclei, sqlmap, browser automation, brute force, DoS, persistence, stealth/evasion, bulk extraction, and real customer-data access are not supported.
 
@@ -69,7 +78,7 @@ Create a JSON manifest under .local/requests/. Example:
 }
 ~~~
 
-Do not use the example hostname as a target. Replace it only with an exact target listed in the engagement allowlist. Never store credentials, cookies, or API keys as literal values in a request manifest. Use secret_headers to reference environment variables set in the operator's shell before launching the dispatcher. The active agent does not receive manifest contents or secret values; the broker resolves environment variables at execution time and redacts sensitive headers from captured evidence. Request and response body redaction is best-effort; review evidence manually. Do not put secrets in URLs or request bodies.
+Do not use the example hostname as a target. Replace it only with an exact target listed in the engagement allowlist. Never store credentials, cookies, or API keys as literal values in a request manifest. Use secret_headers to reference environment variables set in the operator's shell before launching the dispatcher. Active agents do not receive secret values; the broker resolves environment variables at execution time and redacts sensitive headers from captured evidence. Request and response body redaction is best-effort; review evidence manually. Do not put secrets in URLs or request bodies.
 
 The task plan must pin the manifest by SHA-256:
 
@@ -144,7 +153,7 @@ The broker:
 - stores best-effort redacted request/response evidence with SHA-256 and audit events;
 - prevents replay of a request ID within the same engagement.
 
-The command guard denies all other Bash commands. The active broker is not a sandbox or a replacement for OS/container network controls. Run it in an isolated environment with outbound network egress restricted to the approved scope.
+The command guard denies all other Bash commands. The active broker is not a sandbox or a replacement for OS/container network controls. Run it in an isolated environment with outbound network egress restricted to the approved scope. Static JavaScript sink matches and missing headers/cookie flags are observations, not proof of exploitability. The exploitation-agent requires operator-pinned reproduction requests, and active validation requires a different validator with a separate request manifest. If no independent reproduction is available, the finding remains a hypothesis or needs_more_evidence.
 
 ## Local regression tests
 
