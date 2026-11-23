@@ -140,7 +140,7 @@ Do not approve destructive or irreversible operations. The broker does not suppo
 
 The broker:
 - requires an active engagement with operator attestation;
-- requires the active-testing-agent to be running the exact task;
+- requires an allowlisted scoped assessment specialist to be running the exact task;
 - requires the request manifest to be pinned in that task;
 - checks both engagement-wide scope and task scope;
 - supports exact domain entries and explicit *.domain entries; it does not infer wildcard scope from a base domain;
