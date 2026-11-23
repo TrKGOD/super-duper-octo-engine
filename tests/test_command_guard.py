@@ -5,7 +5,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from hooks.command_guard import allowed_argv, main, safe_local_json
+from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, allowed_argv, main, safe_local_json
 
 
 class CommandGuardTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class CommandGuardTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / 'scripts' / 'knowledge_base.py').read_text(encoding='utf-8')
         tree = ast.parse(source)
         cli = {node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'add_parser' and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)}
-        self.assertTrue({'search', 'search-patterns', 'show'}.issubset(cli))
+        self.assertEqual(KB_ALLOWED_SUBCOMMANDS, cli.intersection(KB_ALLOWED_SUBCOMMANDS))
         self.assertTrue(allowed_argv(['python3', 'scripts/knowledge_base.py', '--db', '.local/knowledge-base.sqlite3', 'show', '--document-id', 'KB-' + 'A'*16]))
 
 
