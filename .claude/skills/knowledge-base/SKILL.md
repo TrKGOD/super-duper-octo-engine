@@ -9,16 +9,20 @@ Use the local knowledge base only as research context. It is not evidence about 
 
 ## Operator workflow
 1. Confirm the engagement scope independently. Never use a KB source to add assets or techniques to scope.
-2. Consult the committed starter corpus in `knowledge-base/seed/` and identify relevant pattern IDs. Start with its README and domain-specific Markdown files.
-3. Search normalized patterns in the local SQLite KB:
-   `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "CWE-<id> <root-cause terms>"`
-4. If useful patterns are absent, search documents:
+2. Import the committed starter corpus into SQLite (safe to repeat; import is idempotent):
+   `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 import-seed`
+3. Search normalized patterns by terms and domain:
+   `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "object authorization" --domain api`
+   Supported domains: `web`, `api`, `mobile`, `cloud`, `active_directory`.
+4. Search by tag when useful:
+   `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search-patterns --query "delegation" --tag active_directory`
+5. Search source documents if needed:
    `python scripts/knowledge_base.py --db .local/knowledge-base.sqlite3 search --query "<technology> <weakness>"`
-5. Supply only the minimum relevant pattern/document excerpts to the assigned agent, together with IDs, canonical source URLs, disclosure status, rights basis, and source spans.
-6. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
-7. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
+6. Supply only the minimum relevant pattern/document excerpts to the assigned agent, together with IDs, canonical source URLs, disclosure status, rights basis, and source spans.
+7. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
+8. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
 
-The committed seed is imported into SQLite by the explicit `import-seed` command. Search is available by full-text terms, domain and tag. The current Claude Code agent contracts still receive selected pattern context from the operator; autonomous tool-driven retrieval/dispatch is not implemented in this passive-only scaffold.
+The committed seed is imported into SQLite by the explicit `import-seed` command. Search is available by full-text terms, domain and tag. The current Claude Code agent contracts receive selected pattern context from the operator; autonomous tool-driven retrieval/dispatch is not implemented in this passive-only scaffold.
 
 ## Agent-specific use
 - vulnerability-agent: use patterns to generate testable hypotheses and list preconditions/evidence still required.
