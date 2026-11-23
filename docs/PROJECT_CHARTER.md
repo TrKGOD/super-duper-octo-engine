@@ -40,12 +40,18 @@ The repository is early pre-alpha. Product purpose and current implementation ma
 | Workflow persistence and dependency validation | Implemented |
 | Skill registry and methodology injection | Implemented |
 | Evidence registration and integrity verification | Implemented |
-| Scope-enforcing bounded HTTP broker | Implemented with narrow methods and manifest requirements |
+| Scope-enforcing bounded HTTP broker | Implemented with exact scope, DNS/IP pinning, rate limits, evidence capture and manifest pinning |
 | LLM-assisted plan generation | Implemented; planner runs without tools |
 | Sequential specialist dispatch | Implemented |
-| Passive specialist tool execution | Not currently enabled in the dispatcher |
-| General autonomous subdomain reconnaissance | Not implemented as an integrated execution stage |
-| Web crawling and broad endpoint discovery | Not implemented as an integrated execution stage |
+| Bounded same-origin Web/API reconnaissance | Initial implementation; GET/OPTIONS only, max 25 pages/depth 3 |
+| HTML crawling and observed endpoint/form discovery | Initial implementation; same-origin only |
+| Static JavaScript endpoint and sink analysis | Implemented; static parsing only, no JS execution |
+| Automated low-impact vulnerability checks | Initial implementation; headers, cookie attributes, CORS and OPTIONS |
+| Executable exploitation-agent | Implemented for separately pinned, non-destructive GET/HEAD/OPTIONS reproduction requests |
+| Independent validation-agent | Implemented; distinct validator and optional fresh, separately pinned broker reproduction |
+| General autonomous subdomain reconnaissance | Not implemented |
+| Broad multi-host/API schema discovery | Not implemented |
+| Deeper vulnerability workflows (SQLi, SSRF, authz/IDOR, OAuth/JWT) | Not implemented by the initial Web/API vertical |
 | General scanner integration (for example Nuclei) | Not implemented |
 | Browser-driven authenticated testing | Not implemented |
 | Native Claude Task-tool delegation | Not implemented |
@@ -57,11 +63,11 @@ Never describe an unimplemented capability as available. Conversely, do not let 
 
 When improving the framework, prioritize functional pentesting capabilities over documentation-only changes:
 
-1. Make reconnaissance and enumeration stages execute real, scope-aware tools.
-2. Give specialists least-privilege access to the tools required by their responsibility.
-3. Add controlled vulnerability-testing modules with explicit method and rate policies.
+1. Extend the initial same-origin discovery runner into broader authorized asset and API schema discovery.
+2. Expand specialist least-privilege broker tools without granting unrestricted shell or network access.
+3. Add deeper vulnerability-testing modules (SQLi, SSRF, authz/IDOR, OAuth/JWT) with explicit method and rate policies.
 4. Preserve evidence automatically from actual tool executions.
-5. Support independent validation and reproducible reporting.
+5. Expand independent validation and reproducible reporting, including lab-based end-to-end seeded findings.
 6. Demonstrate each capability against intentionally vulnerable local applications before claiming operational readiness.
 
 ## Authorization and safety
