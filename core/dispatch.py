@@ -118,6 +118,7 @@ def _build_prompt(task, engagement, skills, evidence, prior_handoffs, active=Fal
             "Your only execution tool is Bash. The command guard permits only the bounded "
             "scripts/active_surface.py discovery workflow or scripts/active_http.py broker requests.\n"
             "The discovery tool performs same-origin GET-only crawling and static JavaScript analysis; generated manifests are SHA-256 pinned before broker execution.\n"
+            "Always pass the exact engagement.state_db_path from TASK_CONTEXT as the --db argument; never substitute another engagement database.\n"
             "For reproduction/validation tasks, execute only the exact manifests pinned to this task. Do not construct shell pipelines or use other commands.\n"
             "The broker enforces engagement scope, task scope, DNS/IP restrictions, redirects, "
             "rate limits, response limits, approval and evidence capture. Never work around a block.\n"
