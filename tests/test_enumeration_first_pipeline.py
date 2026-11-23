@@ -160,7 +160,7 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             from core.dispatch import dispatch_task
             dispatch_task(
                 self.workflow, created[0]["task_id"], "pinned-test-model",
-                claude_bin=str(self.root / "missing-cli"),
+                claude_bin=sys.executable,
             )
 
 
