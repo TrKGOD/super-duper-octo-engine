@@ -36,7 +36,7 @@
       ],
       "domain": "active_directory",
       "skill_tags": [
-        "windows"
+        "technology-fingerprinting"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -62,8 +62,7 @@
       ],
       "domain": "active_directory",
       "skill_tags": [
-        "identity",
-        "kerberos"
+        "routes"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -89,8 +88,7 @@
       ],
       "domain": "active_directory",
       "skill_tags": [
-        "delegation",
-        "group-policy"
+        "identity"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -116,8 +114,7 @@
       ],
       "domain": "active_directory",
       "skill_tags": [
-        "independent-review",
-        "evidence-quality"
+        "independent-review"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -143,7 +140,7 @@
       ],
       "domain": "active_directory",
       "skill_tags": [
-        "reporting"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
