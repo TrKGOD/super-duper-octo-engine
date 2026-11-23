@@ -165,6 +165,11 @@ class CoreTests(unittest.TestCase):
             columns = {row[1] for row in con.execute("PRAGMA table_info(findings)")}
             self.assertIn("preconditions_json", columns)
             self.assertIn("validation_notes", columns)
+            evidence_indexes = {row[1] for row in con.execute("PRAGMA index_list(evidence)")}
+            self.assertIn("idx_evidence_engagement", evidence_indexes)
+            self.assertIn("idx_evidence_finding", evidence_indexes)
+            trigger_names = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
+            self.assertIn("evidence_finding_engagement_insert", trigger_names)
             con.close()
 
 
