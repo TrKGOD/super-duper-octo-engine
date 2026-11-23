@@ -278,6 +278,8 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                         "status": "surface_observation_not_a_finding",
                     })
             for header, label in SECURITY_HEADERS.items():
+                if header == "strict-transport-security" and urlsplit(current).scheme != "https":
+                    continue
                 if not headers.get(header):
                     findings.append({"type": label, "url": current, "status": "configuration_observation"})
             for cookie_index, flags in enumerate(result.get("cookie_security_flags", [])):
