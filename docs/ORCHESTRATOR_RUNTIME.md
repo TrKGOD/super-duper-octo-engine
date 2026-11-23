@@ -20,7 +20,7 @@ python scripts/migrate.py --db .local/state.sqlite3
 python scripts/workflow.py --db .local/state.sqlite3 init --engagement config/engagement.local.json
 ```
 
-Initialization requires engagement_id, written-authorization reference, explicit scope, and rules_of_engagement.execution_enabled=false. It creates a draft engagement. The operator must then run `workflow.py approve` with explicit attestations for written authorization, scope, and rules before active tasks can be planned.
+Initialization requires engagement_id, written-authorization reference, explicit scope, and rules_of_engagement.execution_enabled=false. The config's execution_mode defaults to active and is persisted with the engagement; this sets planning preference, not permission to execute. It creates a draft engagement. The operator must then run `workflow.py approve` with explicit attestations for written authorization, scope, and rules before active tasks can be planned.
 
 ## Plan and persistence
 

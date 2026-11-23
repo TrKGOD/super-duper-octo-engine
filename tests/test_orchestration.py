@@ -21,6 +21,20 @@ class OrchestrationTests(unittest.TestCase):
    {"task_key":"recon","agent":"recon-agent","objective":"Review supplied inventory","depends_on":[],"scope_subset":["app.example.test"],"completion_criteria":["Cite source evidence"]},
    {"task_key":"enum","agent":"enumeration-agent","objective":"Map supplied routes","depends_on":["recon"],"scope_subset":["app.example.test"],"completion_criteria":["Cite route sources"]}
   ]}
+ def test_engagement_persists_active_execution_mode_by_default(self):
+  row=self.w.store.connection.execute(
+   "SELECT rules_json FROM engagements WHERE engagement_id='eng-test'"
+  ).fetchone()
+  self.assertEqual(__import__("json").loads(row["rules_json"])["execution_mode"],"active")
+
+ def test_invalid_execution_mode_is_rejected(self):
+  config={"engagement_id":"eng-invalid-mode","authorization_reference":"AUTH-LAB-002",
+          "scope":{"allowed_domains":["app.example.test"]},
+          "rules_of_engagement":{"execution_enabled":False},
+          "execution_mode":"unrestricted"}
+  with self.assertRaisesRegex(WorkflowError,"execution_mode"):
+   self.w.initialize(config)
+
  def test_dependency_gate_and_run_link(self):
   tasks=self.w.create_plan("eng-test",self.plan())
   with self.assertRaises(WorkflowError):

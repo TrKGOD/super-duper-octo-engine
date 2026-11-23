@@ -8,7 +8,7 @@ The broker supports GET, HEAD, OPTIONS, and individually approved POST requests.
 
 ## Engagement activation
 
-Initialize from a local config with:
+The engagement configuration defaults to execution_mode=active. This is the default planning preference only; initialization still forces execution_enabled=false and status=draft.\n\nInitialize from a local config with:
 - a non-placeholder written authorization reference;
 - explicit allowlisted domains, IPs, CIDRs, or applications;
 - explicit http-read-only in allowed_test_classes;

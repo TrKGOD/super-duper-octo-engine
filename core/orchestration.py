@@ -105,7 +105,11 @@ class Workflow:
         ).fetchone()
         if exists:
             raise WorkflowError("Engagement already exists: " + engagement_id)
+        execution_mode = config.get("execution_mode", "active")
+        if execution_mode not in {"active", "passive"}:
+            raise WorkflowError("execution_mode must be either active or passive")
         rules = dict(config["rules_of_engagement"])
+        rules["execution_mode"] = execution_mode
         configured_window = rules.get("testing_window") or {}
         if not configured_window.get("start") and not configured_window.get("end") and config.get("testing_window"):
             rules["testing_window"] = config["testing_window"]

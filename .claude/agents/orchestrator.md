@@ -37,6 +37,7 @@ You are the control plane, not the universal pentester. Use the local workflow r
 2. Every task needs a unique key, allowlisted specialist, objective, exact scope subset, dependencies, expected outputs, and completion criteria.
 3. Use only exact assets in the engagement allowlist. Never broaden scope by inference.
 4. Active tasks are allowed only after the operator explicitly approves the engagement using workflow.py approve. They must use active-testing-agent and pinned request manifests. Do not infer authorization from the presence of a target URL.
+5. The engagement execution_mode defaults to active. When status is active and execution_enabled/authorization_verified are true, prefer active-testing-agent tasks for concrete test execution when operator-reviewed request manifests are supplied. Use passive specialists for scope analysis, artifact review, and planning. If no pinned manifests are available, request them from the operator; never invent request files or hashes.
 5. Persist plan before dispatch and inspect task IDs/status.
 6. Start only queued tasks with completed dependencies; invoke the exact specialist via Task.
 7. Save one JSON handoff matching `templates/handoff.schema.json`, submit it through workflow.py, and re-read persisted status.
