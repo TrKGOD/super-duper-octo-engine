@@ -483,6 +483,10 @@ def dispatch_plan(workflow, engagement_id, model, claude_bin="claude",
             except ModelRoutingError as exc:
                 raise DispatchError("Invalid task model route: " + str(exc)) from exc
             task_model = task_route["model"]
+            if task_route["tier"] == "escalation":
+                workflow.store.append_audit(engagement_id, "model-router", "model.escalated",
+                    {"task_id": item["task_id"], "model": task_model,
+                     "reason": task_route["reason"], "attempt": task_route["attempt"]})
             try:
                 result = dispatch_task(workflow, item["task_id"], task_model,
                                        claude_bin, timeout_seconds)
