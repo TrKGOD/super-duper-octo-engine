@@ -1,6 +1,6 @@
 import json,tempfile,unittest
 from pathlib import Path
-from scripts.knowledge_base import connect,init_db,ingest,search,import_pattern,search_patterns
+from scripts.knowledge_base import connect,init_db,ingest,search,import_pattern,search_patterns,import_seed
 
 class KnowledgeBaseTests(unittest.TestCase):
  def setUp(self):
@@ -21,4 +21,17 @@ class KnowledgeBaseTests(unittest.TestCase):
   pattern={"pattern_id":"PATTERN-TEST-01","document_id":docid,"vulnerability_type":"BOLA","root_cause":"Missing object-level authorization check.","preconditions":["Two test identities"],"reproduction_summary":"Compare object access using two synthetic identities in a lab.","evidence_summary":"Source describes cross-identity object response.","impact":"Unauthorized access to another tenant object.","remediation":"Enforce server-side object authorization.","false_positives":[],"confidence":"medium","source_spans":["BOLA section"]}
   p.write_text(json.dumps(pattern),encoding="utf-8"); import_pattern(self.db,p)
   self.assertEqual(len(search_patterns(self.db,"BOLA")),1)
-if __name__=="__main__": unittest.main()
+
+ def test_seed_import_is_complete_idempotent_and_searchable(self):
+  seed=Path(__file__).resolve().parents[1]/"knowledge-base"/"seed"
+  first=import_seed(self.db,seed)
+  second=import_seed(self.db,seed)
+  self.assertEqual(len(first),21)
+  self.assertEqual(first,second)
+  self.assertEqual(self.db.execute("SELECT COUNT(*) FROM kb_patterns").fetchone()[0],21)
+  self.assertTrue(search_patterns(self.db,"object authorization",domain="api"))
+  self.assertTrue(search_patterns(self.db,"replication rights",domain="active_directory"))
+  self.assertTrue(search_patterns(self.db,"biometric",domain="mobile"))
+  self.assertTrue(search_patterns(self.db,"public access",domain="cloud"))
+
+\nif __name__=="__main__": unittest.main()\n
