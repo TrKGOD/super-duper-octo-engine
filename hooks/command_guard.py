@@ -118,11 +118,19 @@ def orchestrator_args(argv):
 
 
 def passive_framing_args(argv):
-    if len(argv) != 4 or argv[0] not in {"python", "python3"} or argv[1] not in {"scripts/analyze_http_framing.py", "scripts/analyze_race_capture.py", "scripts/analyze_protocol_artifacts.py"}:
+    if argv[0] not in {"python", "python3"}:
         return None
-    if argv[2] != "--input" or not safe_local_json(argv[3]):
-        return None
-    return {"input": argv[3]}
+    if len(argv) == 4 and argv[1] in {"scripts/analyze_http_framing.py", "scripts/analyze_race_capture.py"}:
+        if argv[2] != "--input" or not safe_local_json(argv[3]):
+            return None
+        return {"input": argv[3]}
+    if len(argv) == 5 and argv[1] == "scripts/analyze_protocol_artifacts.py":
+        if argv[2] not in {"oidc-discovery", "oauth-flow", "jwt", "sqli-pair"}:
+            return None
+        if argv[3] != "--input" or not safe_local_json(argv[4]):
+            return None
+        return {"input": argv[4], "kind": argv[2]}
+    return None
 
 
 def active_security_args(argv):
