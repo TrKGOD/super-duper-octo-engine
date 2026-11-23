@@ -262,7 +262,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                             endpoints.add(path_url)
                 continue
             if current_path.endswith("/sitemap.xml") or current_path == "/sitemap.xml":
-                for location in re.findall(r"<loc>\\s*(.*?)\\s*</loc>", body, re.I | re.S):
+                for location in re.findall(r"<loc>\s*(.*?)\s*</loc>", body, re.I | re.S):
                     sitemap_url = _safe_path_url(target_url, location)
                     if sitemap_url:
                         endpoints.add(sitemap_url)
