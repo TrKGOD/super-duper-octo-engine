@@ -121,6 +121,13 @@
         "Use exact allowlisted assets only",
         "No arbitrary shell or scanners",
         "Respect engagement rate and request budget"
+      ],
+      "active_testing": true,
+      "request_files": [
+        {
+          "path": ".local/requests/REPLACE-WITH-OPERATOR-REVIEWED-MANIFEST.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
       ]
     },
     {
