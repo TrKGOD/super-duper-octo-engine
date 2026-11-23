@@ -96,6 +96,7 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             "#!" + sys.executable + "\n"
             "import json, sys\n"
             "from pathlib import Path\n"
+            "sys.path.insert(0, " + repr(str(Path(__file__).resolve().parents[1])) + ")\n"
             "from core.orchestration import Workflow\n"
             "from core.evidence import EvidenceVault\n"
             "prompt = sys.stdin.read()\n"
