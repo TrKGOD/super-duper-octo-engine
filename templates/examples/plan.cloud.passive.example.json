@@ -36,7 +36,7 @@
       ],
       "domain": "cloud",
       "skill_tags": [
-        "configuration"
+        "technology-fingerprinting"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -62,8 +62,7 @@
       ],
       "domain": "cloud",
       "skill_tags": [
-        "iam",
-        "storage"
+        "routes"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -89,8 +88,7 @@
       ],
       "domain": "cloud",
       "skill_tags": [
-        "iam",
-        "network-controls"
+        "iam"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -116,8 +114,7 @@
       ],
       "domain": "cloud",
       "skill_tags": [
-        "independent-review",
-        "evidence-quality"
+        "independent-review"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
@@ -143,7 +140,7 @@
       ],
       "domain": "cloud",
       "skill_tags": [
-        "reporting"
+        "evidence-quality"
       ],
       "completion_criteria": [
         "Return a schema-valid handoff",
