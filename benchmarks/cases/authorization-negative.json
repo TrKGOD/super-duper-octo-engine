@@ -1,0 +1,17 @@
+{
+  "case_id": "SYN-AUTH-NEG-001",
+  "kind": "synthetic",
+  "description": "Synthetic API case: the server checks tenant ownership before returning an object; the second test identity receives an authorization denial.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "request_identity",
+    "object_owner_identity",
+    "authorization_decision"
+  ],
+  "tags": [
+    "api",
+    "authorization",
+    "negative"
+  ]
+}
