@@ -1,6 +1,6 @@
 import json,tempfile,unittest
 from pathlib import Path
-from scripts.knowledge_base import connect,init_db,ingest,search,import_pattern,search_patterns,import_seed
+from scripts.knowledge_base import connect,init_db,ingest,search,import_pattern,search_patterns,import_seed,show_document
 
 class KnowledgeBaseTests(unittest.TestCase):
  def setUp(self):
