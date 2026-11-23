@@ -1,0 +1,24 @@
+{
+  "case_id": "SYN-IDOR-NEG-014",
+  "kind": "synthetic",
+  "description": "A user changes a resource identifier but the API verifies tenant ownership and returns no foreign object fields.",
+  "expected_finding": false,
+  "vulnerability_type": null,
+  "required_evidence": [
+    "request_identity",
+    "object_owner_identity",
+    "authorization_decision",
+    "response_observation"
+  ],
+  "tags": [
+    "api",
+    "idor",
+    "negative"
+  ],
+  "fixtures": {
+    "request_identity": "tenant-B user",
+    "object_owner_identity": "tenant-A",
+    "authorization_decision": "tenant ownership enforced",
+    "response_observation": "404 with no object fields"
+  }
+}
