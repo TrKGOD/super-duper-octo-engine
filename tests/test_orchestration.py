@@ -40,7 +40,8 @@ class OrchestrationTests(unittest.TestCase):
   tasks=self.w.create_plan("eng-test",self.plan())
   task=tasks[0]
   run=self.w.start_task(task["task_id"])
-  handoff={"task_id":task["task_id"],"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Reviewed supplied artifacts.","observations":[],"hypotheses":[],"evidence_refs":["evidence://lab/recon-1"],"limitations":[],"next_steps":[]}
+  evidence=self.w.store.record_evidence("eng-test","reproduction_notes",".local/evidence/recon.txt","recon-agent")
+  handoff={"task_id":task["task_id"],"engagement_id":"eng-test","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"Reviewed supplied artifacts.","observations":[],"hypotheses":[],"evidence_refs":[evidence],"limitations":[],"next_steps":[]}
   self.w.accept_handoff(task["task_id"],handoff)
   self.assertEqual(self.w.status("eng-test")["tasks"][0]["status"],"completed")
   self.assertEqual(self.w.store.connection.execute("SELECT status FROM agent_runs WHERE run_id=?",(run,)).fetchone()["status"],"completed")
@@ -52,11 +53,14 @@ class OrchestrationTests(unittest.TestCase):
    self.w.create_plan("eng-test",plan)
   task_id=self.w.create_plan("eng-test",self.plan())[0]["task_id"]
   self.w.start_task(task_id)
-  handoff={"task_id":task_id,"engagement_id":"wrong","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"x","observations":[],"hypotheses":[],"evidence_refs":[],"limitations":[]}
+  evidence=self.w.store.record_evidence("eng-test","reproduction_notes",".local/evidence/bad-handoff.txt","recon-agent")
+  handoff={"task_id":task_id,"engagement_id":"wrong","agent":"recon-agent","status":"completed","scope_subset":["app.example.test"],"summary":"x","observations":[],"hypotheses":[],"evidence_refs":[evidence],"limitations":[]}
   with self.assertRaises(WorkflowError):
    self.w.accept_handoff(task_id,handoff)
  def test_finding_write_uses_deterministic_validator(self):
   finding={"finding_id":"f1","engagement_id":"eng-test","title":"Synthetic hypothesis","status":"hypothesis","asset":"app.example.test","description":"Lab hypothesis only","evidence_refs":["evidence://lab/h1"],"proposed_by":"vulnerability-agent"}
+  evidence=self.w.store.record_evidence("eng-test","reproduction_notes",".local/evidence/finding.txt","operator")
+  finding["evidence_refs"]=[evidence]
   self.w.record_finding("eng-test",finding)
   self.assertEqual(self.w.store.connection.execute("SELECT status FROM findings WHERE finding_id='f1'").fetchone()["status"],"hypothesis")
 if __name__=="__main__":
