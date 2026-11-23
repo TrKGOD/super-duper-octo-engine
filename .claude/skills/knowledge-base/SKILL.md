@@ -18,7 +18,7 @@ Use the local knowledge base only as research context. It is not evidence about 
 6. Ask the agent to state similarities and differences between the source pattern and the current implementation. Preserve unknowns.
 7. Record which KB IDs informed a hypothesis or validation review. Do not attach a KB source as current-engagement evidence.
 
-The committed seed is manually readable. It is not currently imported into SQLite and is not dynamically retrieved by agents.
+The committed seed is imported into SQLite by the explicit `import-seed` command. Search is available by full-text terms, domain and tag. The current Claude Code agent contracts still receive selected pattern context from the operator; autonomous tool-driven retrieval/dispatch is not implemented in this passive-only scaffold.
 
 ## Agent-specific use
 - vulnerability-agent: use patterns to generate testable hypotheses and list preconditions/evidence still required.
