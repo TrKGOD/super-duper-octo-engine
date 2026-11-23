@@ -13,7 +13,7 @@ Only run in an active, explicitly approved engagement with active_testing=true a
 
 # Execution
 Use only the guarded command:
-`python3 scripts/active_surface.py --db .local/state.sqlite3 --engagement-id ENGAGEMENT_ID --task-id TASK_ID --target-url https://IN_SCOPE_HOST/ --max-pages 20 --max-depth 2`
+`python3 scripts/active_surface.py --db {engagement.state_db_path} --engagement-id ENGAGEMENT_ID --task-id TASK_ID --target-url https://IN_SCOPE_HOST/ --max-pages 20 --max-depth 2`
 
 The runner performs GET-only crawling, same-origin link extraction, form/parameter mapping and static JS route/sink analysis. It records every HTTP request/response in the evidence vault. It does not execute JavaScript in a browser.
 
