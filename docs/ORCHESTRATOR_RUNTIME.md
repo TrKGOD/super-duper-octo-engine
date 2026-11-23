@@ -121,3 +121,8 @@ The active discovery runner collects bounded HTTP request/response artifacts thr
 `scripts/run_plan.py` drains every currently runnable task in dependency order. Completing a task immediately unlocks its dependent tasks. A non-completed handoff blocks only that task's descendants; unrelated branches continue and the runner returns a consolidated status (`completed`, `needs_operator`, `failed`, or `incomplete`) with blocker lists. These are expected workflow outcomes and are emitted as JSON; process exit code 2 is reserved for an execution/runtime error.
 
 The dispatcher does not automatically retry failed or interrupted active tasks. Reconcile broker request logs, evidence and engagement budget before any manual retry to avoid duplicate traffic. Framework unit tests, synthetic benchmarks, secret scanning and CI are engineering checks, not pentest stages, and must never be inserted into an engagement DAG or run between target-assessment stages.
+
+
+## Cumulative request quota removal
+
+There is no `max_requests_per_engagement` quota and no plan-level reservation/count check. The broker remains rate-limited (maximum 5 requests/second), single-concurrency, scope-enforced, test-window-aware, method-restricted and evidence-logged. Per-run discovery page/depth and response-size bounds remain intentional controls.

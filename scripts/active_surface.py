@@ -184,9 +184,9 @@ def _analyse_js(text):
     return sorted(routes), indicators
 
 
-def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_depth=2):
-    if not 1 <= max_pages <= 25 or not 0 <= max_depth <= 3:
-        raise ActiveExecutionError("Bounds are max_pages 1..25 and max_depth 0..3")
+def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3):
+    if not 1 <= max_pages <= 100 or not 0 <= max_depth <= 4:
+        raise ActiveExecutionError("Bounds are max_pages 1..100 and max_depth 0..4")
     target_url = _canonical(target_url)
     with Workflow(db, project_root=ROOT) as workflow:
         row = workflow.store.connection.execute(
@@ -208,8 +208,18 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
         scope = json.loads(row["scope_json"])
         _resolve_and_authorize(target_url, scope, task["scope_subset"])
         executor = ActiveHTTPExecutor(workflow, ROOT)
+        # Small fixed metadata set: useful discovery, not directory brute force.
+        metadata_paths = (
+            "/robots.txt", "/sitemap.xml", "/openapi.json", "/swagger.json",
+            "/api-docs", "/.well-known/openid-configuration",
+        )
         queue = deque([(target_url, 0)])
+        for metadata_path in metadata_paths:
+            candidate = _safe_path_url(target_url, metadata_path)
+            if candidate and candidate != target_url:
+                queue.append((candidate, 1))
         visited, endpoints, inferred_endpoints, js_assets, findings, tech = set(), set(), set(), set(), [], {}
+        api_operations, identity_metadata = [], {}
         evidence_refs = []
         page_count = 0
         blocked_requests = 0
@@ -234,6 +244,64 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
                     tech[header] = headers[header][:200]
             body = result.get("response_excerpt") or ""
             content_type = headers.get("content-type", "")
+            current_path = urlsplit(current).path.lower()
+            if current_path.endswith("/robots.txt") or current_path == "/robots.txt":
+                for line in body.splitlines():
+                    key, sep, value = line.partition(":")
+                    if not sep:
+                        continue
+                    if key.strip().lower() == "sitemap":
+                        sitemap = _safe_path_url(target_url, value.strip())
+                        if sitemap:
+                            endpoints.add(sitemap)
+                            if sitemap not in visited:
+                                queue.append((sitemap, 1))
+                    elif key.strip().lower() in {"allow", "disallow"} and value.strip().startswith("/"):
+                        path_url = _safe_path_url(target_url, value.strip())
+                        if path_url:
+                            endpoints.add(path_url)
+                continue
+            if current_path.endswith("/sitemap.xml") or current_path == "/sitemap.xml":
+                for location in re.findall(r"<loc>\s*(.*?)\s*</loc>", body, re.I | re.S):
+                    sitemap_url = _safe_path_url(target_url, location)
+                    if sitemap_url:
+                        endpoints.add(sitemap_url)
+                        if _is_crawlable_page(sitemap_url) and sitemap_url not in visited and len(visited) + len(queue) < max_pages:
+                            queue.append((sitemap_url, 1))
+                continue
+            if current_path.endswith(("/openapi.json", "/swagger.json", "/api-docs")) or "openapi" in content_type or "swagger" in content_type:
+                try:
+                    spec = json.loads(body)
+                    for api_path, operations in spec.get("paths", {}).items():
+                        resolved_api = _safe_path_url(target_url, api_path)
+                        if not resolved_api:
+                            continue
+                        endpoints.add(resolved_api)
+                        for method_name, operation in operations.items():
+                            if method_name.lower() in {"get", "head", "post", "put", "patch", "delete", "options"} and isinstance(operation, dict):
+                                api_operations.append({
+                                    "url": resolved_api, "method": method_name.upper(),
+                                    "operation_id": operation.get("operationId"),
+                                    "parameters": [
+                                        {"name": p.get("name"), "in": p.get("in")}
+                                        for p in operation.get("parameters", []) if isinstance(p, dict)
+                                    ],
+                                    "status": "documented_operation_not_executed",
+                                })
+                except (ValueError, TypeError):
+                    findings.append({"type": "api-spec-parse-failed", "url": current, "status": "observation"})
+                continue
+            if current_path.endswith("/.well-known/openid-configuration"):
+                try:
+                    identity_metadata = {
+                        key: value for key, value in json.loads(body).items()
+                        if key in {"issuer", "authorization_endpoint", "token_endpoint", "userinfo_endpoint",
+                                   "jwks_uri", "end_session_endpoint", "registration_endpoint",
+                                   "response_types_supported", "grant_types_supported", "scopes_supported"}
+                    }
+                except (ValueError, TypeError):
+                    findings.append({"type": "oidc-discovery-parse-failed", "url": current, "status": "observation"})
+                continue
             if "javascript" in content_type or current.lower().endswith(".js"):
                 routes, indicators = _analyse_js(body)
                 for route in routes:
@@ -353,6 +421,8 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=20, max_dept
             "endpoints": sorted(endpoints),
             "javascript_assets": sorted(js_assets),
             "javascript_analysis": js_results,
+            "api_operations": api_operations,
+            "identity_metadata": identity_metadata,
             "technology_indicators": {k: sorted(v) if isinstance(v, set) else v for k, v in tech.items()},
             "observations": findings,
             "evidence_refs": list(dict.fromkeys(evidence_refs)),
@@ -369,8 +439,8 @@ def main():
     parser.add_argument("--engagement-id", required=True)
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--target-url", required=True)
-    parser.add_argument("--max-pages", type=int, default=20)
-    parser.add_argument("--max-depth", type=int, default=2)
+    parser.add_argument("--max-pages", type=int, default=50)
+    parser.add_argument("--max-depth", type=int, default=3)
     args = parser.parse_args()
     print(json.dumps(run_discovery(args.db, args.engagement_id, args.task_id, args.target_url,
                                    args.max_pages, args.max_depth), ensure_ascii=False, indent=2))

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor, _validate_request, _strip_sensitive_query
+from core.execution_policy import validate_execution_limits
 from core.orchestration import Workflow, WorkflowError
 from scripts.migrate import migrate
 
@@ -329,6 +330,16 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
                 self.engagement_id, task_id, manifest
             )
+
+    def test_legacy_cumulative_request_budget_is_ignored(self):
+        self.assertEqual(
+            validate_execution_limits({
+                "max_concurrency": 1,
+                "requests_per_second": 1,
+                "max_requests_per_engagement": 1,
+            }),
+            (1, 1.0),
+        )
 
     def test_request_id_cannot_be_replayed(self):
         self._approve()

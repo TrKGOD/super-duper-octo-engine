@@ -153,10 +153,9 @@ class Workflow:
         if "state-changing-http" in allowed_classes and rules.get("human_approval_required_for_state_changes") is not True:
             raise WorkflowError("State-changing HTTP must require per-request human approval")
         try:
-            _, _, request_budget = validate_execution_limits(rules)
+            validate_execution_limits(rules)
         except ValueError as exc:
             raise WorkflowError(str(exc)) from exc
-        rules["max_requests_per_engagement"] = request_budget
         rules.update({
             "execution_enabled": True,
             "authorization_verified": True,
@@ -213,7 +212,6 @@ class Workflow:
             ).fetchall()
         }
         planned_request_ids = set()
-        planned_request_count = 0
         if any(task.get("active_testing") for task in tasks):
             if row["status"] != "active" or rules.get("execution_mode", "active") != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
                 raise WorkflowError("Active tasks require an explicitly approved active engagement")
@@ -240,7 +238,6 @@ class Workflow:
                         if request_data["request_id"] in active_request_ids or request_data["request_id"] in planned_request_ids:
                             raise WorkflowError("Active request_id has already been used or is duplicated in this plan")
                         planned_request_ids.add(request_data["request_id"])
-                        planned_request_count += 1
                         method = _validate_request(request_data)
                         allowed_classes = set(rules.get("allowed_test_classes", []))
                         if method == "POST":
@@ -251,11 +248,6 @@ class Workflow:
                         _validate_request_scope(request_data["url"], json.loads(row["scope_json"]), task.get("scope_subset", []))
                     except Exception as exc:
                         raise WorkflowError("Invalid or out-of-scope active request manifest " + manifest["path"] + ": " + str(exc)) from exc
-        if planned_request_count:
-            request_budget = rules.get("max_requests_per_engagement", 20)
-            used_count = len(active_request_ids)
-            if planned_request_count > request_budget - used_count:
-                raise WorkflowError("Active plan exceeds the remaining engagement HTTP request budget")
         for task in tasks:
             try:
                 self.store.validate_evidence_refs_for_engagement(
