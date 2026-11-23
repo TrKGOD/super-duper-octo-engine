@@ -8,7 +8,19 @@
     "status": {"enum":["completed","blocked","needs_operator","partial"]},
     "scope_subset": {"type":"array","items":{"type":"string"}}, "summary": {"type":"string"},
     "observations": {"type":"array","items":{"type":"object"}}, "hypotheses": {"type":"array","items":{"type":"object"}},
-    "evidence_refs": {"type":"array","items":{"type":"string"}}, "limitations": {"type":"array","items":{"type":"string"}},
+    "evidence_refs": {"type":"array","items":{"type":"string"}},
+    "evidence_artifacts": {"type":"array","items":{"type":"object","required":["artifact_id","type","path","collection_status","description"],"properties":{
+      "artifact_id":{"type":"string","minLength":1},
+      "type":{"enum":["screenshot","http_request","http_response","curl_command","burp_request","reproduction_notes","other"]},
+      "path":{"type":"string","minLength":1},
+      "collection_status":{"enum":["collected","proposed_not_executed","missing","redacted_copy"]},
+      "description":{"type":"string","minLength":1},
+      "source":{"type":["string","null"]},
+      "collected_at":{"type":["string","null"],"format":"date-time"},
+      "redacted":{"type":"boolean"},
+      "sha256":{"type":["string","null"],"pattern":"^[a-fA-F0-9]{64}$"}
+    },"additionalProperties":false}},
+    "limitations": {"type":"array","items":{"type":"string"}},
     "next_steps": {"type":"array","items":{"type":"string"}}
   }, "additionalProperties": false
 }

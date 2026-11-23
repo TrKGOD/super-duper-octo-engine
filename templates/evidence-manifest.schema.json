@@ -1,0 +1,27 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Evidence Manifest",
+  "type":"object",
+  "required":["finding_id","engagement_id","artifacts"],
+  "properties":{
+    "finding_id":{"type":"string","minLength":1},
+    "engagement_id":{"type":"string","minLength":1},
+    "artifacts":{"type":"array","items":{
+      "type":"object",
+      "required":["artifact_id","type","path","collection_status","description"],
+      "properties":{
+        "artifact_id":{"type":"string","minLength":1},
+        "type":{"enum":["screenshot","http_request","http_response","curl_command","burp_request","reproduction_notes","other"]},
+        "path":{"type":"string","minLength":1},
+        "collection_status":{"enum":["collected","proposed_not_executed","missing","redacted_copy"]},
+        "description":{"type":"string","minLength":1},
+        "source":{"type":["string","null"]},
+        "collected_at":{"type":["string","null"],"format":"date-time"},
+        "redacted":{"type":"boolean"},
+        "sha256":{"type":["string","null"],"pattern":"^[a-fA-F0-9]{64}$"}
+      },
+      "additionalProperties":false
+    }}
+  },
+  "additionalProperties":false
+}

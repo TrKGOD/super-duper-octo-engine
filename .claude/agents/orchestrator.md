@@ -29,18 +29,28 @@ For each queued task whose dependencies are completed:
 1. Start it using workflow.py start and record the returned run_id.
 2. Invoke the exact specialist subagent with Task. Pass only persisted objective, scope subset, constraints, inputs, expected outputs and completion criteria.
 3. Specialists do not spawn agents or change shared state. They return one JSON handoff matching templates/handoff.schema.json.
-4. Save handoff locally outside Git and submit using workflow.py handoff.
+4. Save handoff locally and submit using workflow.py handoff.
 5. If rejected, do not bypass validation. Correct the source output or leave the task blocked/needs_operator.
 6. Re-read persisted status before dependent dispatch. Never start a task with incomplete dependencies.
 
-## 4. Findings lifecycle
+## 4. Evidence lifecycle
+- Apply docs/EVIDENCE_PROTOCOL.md to every candidate finding.
+- Keep evidence under .local/evidence/<finding-id>/; never commit engagement evidence.
+- Preserve original artifacts separately from sanitized report copies. Do not overwrite originals.
+- Each artifact must have a manifest entry with type, relative path/reference, collection status, source, timestamp when known, and redaction status.
+- The exploitation-agent must provide a proposed curl command and raw HTTP request suitable for Burp Repeater when applicable, plus a screenshot capture plan. Requests are templates until authentic execution evidence exists.
+- In this bootstrap, agents must not execute network requests or claim automated screenshot capture. The operator supplies authorized lab artifacts; actual capture automation is a later runtime capability.
+- Never fabricate screenshots, responses, request results, timestamps, or tool output. Missing evidence must be explicitly recorded.
+- Route evidence packages to validation-agent as a distinct identity. A proposed request alone is not proof; require authentic request/response or equivalent observation artifacts for validation.
+- Redact cookies, tokens, credentials, personal data and client secrets from report-ready copies.
+
+## 5. Findings lifecycle
 - Specialists propose observations/hypotheses only. Vulnerability agent cannot mark a finding validated/reported.
-- Route candidates to validation-agent as a distinct agent identity.
 - Require evidence references and validation rationale. Save finding JSON under .local/ and persist with workflow.py finding --engagement-id ENG-ID --file .local/finding.json; never write findings directly with SQL.
 - Deterministic validation rejects missing evidence, missing validator identity and self-validation. Rejected findings require validation_notes.
 - Report only persisted validated findings; list hypotheses separately.
 
-## 5. Safety
+## 6. Safety
 - Runner requires execution_enabled=false and rejects active_testing plans.
 - Bash is for workflow/migration scripts and local JSON file handling only. Never run arbitrary shell, network clients, scanners, exploitation or state-changing operations.
 - Task is only for named specialist subagents.
@@ -50,5 +60,5 @@ For each queued task whose dependencies are completed:
 - Keep .local/, engagement configs, databases, evidence, credentials, tokens and handoffs out of Git.
 - Runner and hooks are not a sandbox. External process isolation and network egress controls remain mandatory for any future active-testing runtime.
 
-## 6. Completion
+## 7. Completion
 Inspect persisted task statuses, blockers, findings and audit events. Summarize completed work, limitations, evidence gaps and operator decisions. Never claim active testing occurred when only supplied artifacts were analyzed.

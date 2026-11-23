@@ -31,6 +31,12 @@ python scripts/workflow.py --db .local/state.sqlite3 handoff --task-id TASK-ID -
 
 The runner checks schema, task/engagement/agent identity, and assigned scope. It updates task and agent-run state and writes audit events. Partial handoffs are retained as blocked, not completed.
 
+## Evidence package
+
+Read `docs/EVIDENCE_PROTOCOL.md` and use `templates/evidence-manifest.schema.json`. Each finding should have a local evidence directory under `.local/evidence/<finding-id>/`, a manifest, sanitized curl/Burp request artifacts where applicable, authentic response evidence, and a screenshot capture plan. Handoffs may include `evidence_artifacts` with explicit collection states.
+
+In this bootstrap, the exploitation-agent drafts reproduction requests and screenshot requirements but does not execute network requests or capture screenshots. The validation-agent must not treat a proposed request as proof. Automated evidence capture is not yet implemented.
+
 ## Safety boundaries
 
 - The runner requires execution_enabled=false and rejects active_testing plans.

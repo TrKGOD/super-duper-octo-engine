@@ -1,0 +1,28 @@
+{
+  "finding_id":"FINDING-001",
+  "engagement_id":"ENG-LAB-001",
+  "artifacts":[
+    {
+      "artifact_id":"EVID-001",
+      "type":"curl_command",
+      "path":"requests/reproduction.curl",
+      "collection_status":"proposed_not_executed",
+      "description":"Sanitized reproduction request template; not executed.",
+      "source":"exploitation-agent",
+      "collected_at":null,
+      "redacted":true,
+      "sha256":null
+    },
+    {
+      "artifact_id":"EVID-002",
+      "type":"screenshot",
+      "path":"screenshots/01-vulnerable-behavior.png",
+      "collection_status":"missing",
+      "description":"Capture target behavior and visible result after operator-approved lab reproduction.",
+      "source":null,
+      "collected_at":null,
+      "redacted":false,
+      "sha256":null
+    }
+  ]
+}
