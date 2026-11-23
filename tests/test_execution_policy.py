@@ -1,4 +1,3 @@
-import math
 import unittest
 
 from core.execution_policy import (
@@ -35,6 +34,8 @@ class ExecutionPolicyTests(unittest.TestCase):
                     validate_execution_limits({"requests_per_second": value})
         with self.assertRaisesRegex(ValueError, "max_requests_per_engagement"):
             validate_execution_limits({"max_requests_per_engagement": True})
+        with self.assertRaisesRegex(ValueError, "requests_per_second"):
+            validate_execution_limits({"requests_per_second": 10 ** 1000})
 
     def test_concurrency_is_not_silently_increased(self):
         with self.assertRaisesRegex(ValueError, "max_concurrency must be 1"):
