@@ -107,6 +107,8 @@ def analyze_authentication_pair(pair: dict, *, authenticated_label: str,
         return {"status": pair.get("status", "inconclusive"), "test_type": "authentication_boundary",
                 "evidence_refs": pair.get("evidence_refs", []), "limitations": ["A complete brokered pair is required."]}
     first, second = pair["first_response"], pair["second_response"]
+    if {pair.get("first_label"), pair.get("second_label")} != {authenticated_label, anonymous_label}:
+        raise ValueError("Authenticated and anonymous labels must identify both pair members")
     # Labels identify which manifest was authenticated; caller passes them explicitly.
     if pair["first_label"] == authenticated_label:
         auth, anon = first, second
@@ -170,12 +172,17 @@ def analyze_cache_pair(pair: dict, *, first_private_marker: str,
         values = [v for v in (first_headers.get(name), second_headers.get(name)) if v]
         if values:
             shared_cache_signals.append({"header": name, "values": values})
+    first_baseline_present = first_private_marker in first_body
+    second_baseline_present = second_private_marker in second_body
     leaked_first = first_private_marker in second_body
     leaked_second = second_private_marker in first_body
     sensitive_cacheable = any(token in cache_directives for token in ("public", "s-maxage", "max-age")) and not any(
         token in cache_directives for token in ("private", "no-store")
     )
-    if leaked_first or leaked_second:
+    if not first_baseline_present or not second_baseline_present:
+        classification, status = "inconclusive_synthetic_markers_missing", "observation"
+        rationale = "At least one response did not contain its own synthetic baseline marker, so cross-identity isolation could not be evaluated reliably."
+    elif leaked_first or leaked_second:
         classification, status = "potential_cross_identity_cache_disclosure", "candidate_only"
         rationale = "A synthetic identity-specific marker appeared in the other identity's response."
     elif sensitive_cacheable:
@@ -188,6 +195,7 @@ def analyze_cache_pair(pair: dict, *, first_private_marker: str,
         "test_type": "cache_isolation", "status": status, "classification": classification,
         "first_status": first.get("status_code"), "second_status": second.get("status_code"),
         "cross_identity_marker_leak": leaked_first or leaked_second,
+        "baseline_markers_present": {"first": first_baseline_present, "second": second_baseline_present},
         "cache_control": cache_directives, "vary_headers": [
             first_headers.get("vary"), second_headers.get("vary")
         ], "shared_cache_signals": shared_cache_signals,
