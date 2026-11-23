@@ -1,0 +1,26 @@
+{
+  "case_id": "SYN-AUTH-POS-007",
+  "kind": "synthetic",
+  "description": "A protected endpoint accepts an expired session token and returns protected account data without reauthentication.",
+  "expected_finding": true,
+  "vulnerability_type": "AUTHENTICATION_BYPASS",
+  "required_evidence": [
+    "credential_state",
+    "endpoint",
+    "authentication_decision",
+    "response_observation",
+    "control"
+  ],
+  "tags": [
+    "web",
+    "auth",
+    "positive"
+  ],
+  "fixtures": {
+    "credential_state": "expired token",
+    "endpoint": "protected account endpoint",
+    "authentication_decision": "token accepted despite exp timestamp in past",
+    "response_observation": "protected account data returned",
+    "control": "fresh login not requested"
+  }
+}
