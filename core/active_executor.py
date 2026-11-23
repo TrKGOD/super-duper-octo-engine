@@ -193,6 +193,25 @@ def _redact_text(value):
     return text
 
 
+def _cookie_security_flags(headers):
+    """Expose cookie attributes only; never return cookie names or values."""
+    result = []
+    for key, value in headers.items():
+        if str(key).lower() != "set-cookie":
+            continue
+        parts = [part.strip() for part in str(value).split(";")[1:]]
+        flags = []
+        for part in parts:
+            name, _, setting = part.partition("=")
+            normalized = name.strip().lower()
+            if normalized in {"secure", "httponly"}:
+                flags.append(normalized)
+            elif normalized == "samesite":
+                flags.append("samesite=" + setting.strip().lower())
+        result.append(sorted(set(flags)))
+    return result
+
+
 def _is_sensitive_name(name):
     normalized = re.sub(r"[^a-z0-9]", "", str(name).lower())
     return any(term in normalized for term in (
@@ -530,6 +549,7 @@ class ActiveHTTPExecutor:
             safe_response = {
                 "url": _safe_url(current_url), "status": status,
                 "headers": _safe_headers(response_headers),
+                "cookie_security_flags": _cookie_security_flags(response_headers),
                 "body": response_body, "body_truncated": truncated,
                 "note": "Text body and sensitive headers were best-effort redacted before evidence storage.",
             }
@@ -561,7 +581,8 @@ class ActiveHTTPExecutor:
                 "request_id": request_id, "method": method, "target": host,
                 "status_code": status, "redirects": redirects,
                 "response_headers": _safe_headers(response_headers),
-                "response_excerpt": (response_body or "")[:8192],
+                "cookie_security_flags": _cookie_security_flags(response_headers),
+                "response_excerpt": (response_body or "")[:65536],
                 "response_body_truncated": truncated,
                 "evidence_refs": evidence_refs,
             }
