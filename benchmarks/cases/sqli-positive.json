@@ -1,0 +1,18 @@
+{
+  "case_id": "SYN-SQLI-001",
+  "kind": "synthetic",
+  "description": "Synthetic lab-only query-handling case: controlled input changes the database query structure in a disposable fixture, with repeatable differential evidence.",
+  "expected_finding": true,
+  "vulnerability_type": "SQL_INJECTION",
+  "required_evidence": [
+    "controlled_input",
+    "baseline_observation",
+    "differential_observation",
+    "query_context"
+  ],
+  "tags": [
+    "web",
+    "injection",
+    "positive"
+  ]
+}
