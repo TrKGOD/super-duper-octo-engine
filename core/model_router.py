@@ -28,7 +28,7 @@ def select_model(task, requested_model, policy=None, attempt=0, trigger=None):
     base = cfg["default_model"] or requested_model
     if not isinstance(base, str) or not base.strip():
         raise ModelRoutingError("A primary model must be selected")
-    should_escalate = (attempt == 1 and cfg["max_escalations"] == 1
+    should_escalate = (attempt in (0, 1) and cfg["max_escalations"] == 1
                        and cfg["escalation_model"]
                        and trigger in cfg["escalate_on"])
     if should_escalate:
