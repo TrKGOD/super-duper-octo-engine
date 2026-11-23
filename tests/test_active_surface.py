@@ -165,9 +165,7 @@ class ActiveSurfaceIntegrationTests(unittest.TestCase):
 
     def test_bounded_discovery_crawls_maps_js_and_records_broker_evidence(self):
         from scripts.active_surface import run_discovery
-        with patch("scripts.active_surface.ROOT", self.root), \\
-             patch("core.active_executor._acquire_slot", return_value="synthetic-lock"), \\
-             patch("core.active_executor._release_slot"):
+        with patch("scripts.active_surface.ROOT", self.root), patch("core.active_executor._acquire_slot", return_value="synthetic-lock"), patch("core.active_executor._release_slot"):
             result = run_discovery(
                 self.db, "eng-surface-lab", self.task_id,
                 f"http://127.0.0.1:{self.port}/", max_pages=10, max_depth=2,
