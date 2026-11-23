@@ -21,11 +21,13 @@ def _load_manifest(executor, relative_path: str) -> dict[str, Any]:
     path = Path(relative_path)
     if path.is_absolute() or ".." in path.parts or path.parts[:2] != (".local", "requests"):
         raise ActiveExecutionError("Security-test manifests must be confined to .local/requests/")
+    local_root = executor.project_root / ".local"
+    requests_dir = local_root / "requests"
     candidate = executor.project_root / path
-    if candidate.is_symlink():
-        raise ActiveExecutionError("Security-test manifest must not be a symlink")
+    if local_root.is_symlink() or requests_dir.is_symlink() or candidate.is_symlink():
+        raise ActiveExecutionError("Security-test manifest path must not use symlinks")
     resolved = candidate.resolve(strict=True)
-    root = (executor.project_root / ".local" / "requests").resolve(strict=True)
+    root = requests_dir.resolve(strict=True)
     if not resolved.is_file() or not resolved.is_relative_to(root) or resolved.stat().st_size > 65536:
         raise ActiveExecutionError("Security-test manifest is outside the requests directory or too large")
     try:
