@@ -60,10 +60,9 @@ def _available_request_manifests(project_root, scope, exact_assets, budget, allo
             method = _validate_request(request)
             if request["request_id"] in used_request_ids:
                 continue
-            if method == "POST":
-                if "state-changing-http" not in allowed_classes:
-                    continue
-            elif "http-read-only" not in allowed_classes:
+            if method not in {"GET", "HEAD", "OPTIONS"}:
+                continue
+            if "http-read-only" not in allowed_classes:
                 continue
             _validate_request_scope(request["url"], scope, exact_assets)
             parsed = urlsplit(request["url"])
@@ -124,11 +123,6 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
             workflow.project_root, scope, assets, remaining_budget,
             set(rules.get("allowed_test_classes", [])), used_request_ids,
         )
-        if not request_manifests:
-            raise WorkflowError(
-                "Active mode is approved, but no valid in-scope request manifests were found under .local/requests/. "
-                "Create and review request manifests before generating an active plan."
-            )
     available_evidence = workflow.store.connection.execute(
         """SELECT evidence_id,evidence_type,sha256,redacted,captured_at
            FROM evidence WHERE engagement_id=? ORDER BY captured_at""",
@@ -165,26 +159,33 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
                 "skill_tags": ["one or more exact tags from the Skill Registry compatible with this agent and domain"],
                 "evidence_refs": [],
                 "constraints": ["engagement-specific restrictions"],
-                "active_testing": "boolean; false for passive tasks and true only for active-testing-agent",
-                "request_files": "optional; required for active tasks, with exact supplied path and SHA-256 objects",
+                "active_testing": "boolean; true for bounded recon/enumeration/vulnerability tasks and for brokered exploitation/validation when pinned manifests are supplied",
+                "request_files": "optional for bounded discovery tasks; required for active exploitation and fresh independent validation, using exact supplied path and SHA-256 objects",
             }]
         },
     }
     active_instructions = (
-        "Active execution is explicitly approved. Build the complete Enumeration-First DAG in this exact order: "
-        "scope-analyst(scope, depends_on=[]), recon-agent(recon, depends_on=[scope]), "
-        "enumeration-agent(enumeration, depends_on=[recon]), vulnerability-agent(vulnerability, depends_on=[enumeration]), "
-        "active-testing-agent(active-testing, depends_on=[vulnerability]), validation-agent(validation, depends_on=[active-testing]), "
-        "impact-analyst(impact, depends_on=[validation]), duplicate-checker(dedupe, depends_on=[impact]), "
-        "reporting-agent(reporting, depends_on=[dedupe]). Every task must have domain and at least one exact compatible skill_tags entry. "
-        "Use the exact same domain as the engagement evidence supports. "
-        "Prefer active-testing-agent tasks for concrete HTTP checks, "
-        "using only exact paths and SHA-256 values from available_request_manifests. Do not invent, edit, "
-        "or infer manifests. Each active task must set active_testing=true, use agent=active-testing-agent, "
-        "include one or more exact request_files from the supplied list, and use only the exact asset(s) "
-        "covered by those manifests in scope_subset. Do not include more than five manifests in one task. "
-        "Passive specialists may be used for supporting analysis. The plan does not execute anything until "
-        "deterministic validation and dispatch."
+        "Active execution is explicitly approved. Build an Enumeration-First Web/API DAG in this order: "
+        "scope-analyst(scope), recon-agent(recon, skill_tags=[active-recon]), "
+        "enumeration-agent(enumeration, skill_tags=[routes]), vulnerability-agent(vulnerability, skill_tags=[javascript-analysis]), "
+        "For active exploitation, select the exact vulnerability-class Skill tag (for example xss, sql-injection, ssrf, authentication or idor) plus http-read-only; never use placeholder tags. "
+        "For active validation, use skill_tags=[independent-review, http-read-only]; for passive validation use independent-review. "
+        "exploitation-agent(exploitation), validation-agent(validation), impact-analyst(impact), "
+        "duplicate-checker(dedupe), reporting-agent(reporting), with each stage depending on the previous stage. "
+        "The recon-agent task must set active_testing=true and run the complete bounded same-origin "
+        "scripts/active_surface.py workflow once per concrete, explicitly listed in-scope Web/API origin; never expand wildcard scope or guess subdomains. It may omit request_files because the runner generates SHA-256-pinned "
+        "GET/OPTIONS manifests internally and executes them through the broker. The enumeration-agent and "
+        "vulnerability-agent tasks should consume the recon evidence and remain passive (active_testing=false) to avoid "
+        "duplicating network traffic; only create a separate active task for a clearly justified coverage gap. "
+        "The exploitation-agent may set active_testing=true only when it receives one or more exact operator-reviewed "
+        "request_files from available_request_manifests; assign only those exact manifests and exact covered assets. "
+        "The validation-agent must be a different agent from the proposer. If a separate, non-duplicate manifest is "
+        "available, assign it as an active task with its own request_files for fresh independent reproduction. "
+        "Otherwise keep validation passive and require it to assess only supplied broker evidence; it must return "
+        "needs_operator/partial if evidence cannot independently support the claim. Never reuse the exploitation "
+        "manifest as independent validation. Never invent or modify manifests. Use only GET, HEAD and OPTIONS. "
+        "Every task must have domain and at least one exact compatible skill_tags entry. "
+        "Do not include more than five manifests in one task. The plan does not execute until deterministic validation."
     ) if active_allowed else (
         "Active execution is not approved. Do not create active-testing-agent tasks or claim active validation. "
         "Build only the passive prefix: scope-analyst(scope), recon-agent(recon), "

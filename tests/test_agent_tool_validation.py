@@ -12,14 +12,16 @@ class AgentToolValidationTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / ".claude" / "agents" / "vulnerability-agent.md"
         name, tools = parse_frontmatter(path)
         self.assertEqual(name, "vulnerability-agent")
-        self.assertEqual(tools, {"Read", "Grep", "Glob"})
+        self.assertEqual(tools, {"Bash"})
 
     def test_orchestrator_is_the_only_agent_with_task_and_bash(self):
         root = Path(__file__).resolve().parents[1] / ".claude" / "agents"
         for path in root.rglob("*.md"):
             name, tools = parse_frontmatter(path)
-            if name == "active-testing-agent":
+            if name in {"active-testing-agent", "recon-agent", "enumeration-agent", "vulnerability-agent", "exploitation-agent"}:
                 self.assertEqual(tools, {"Bash"}, path.name)
+            elif name == "validation-agent":
+                self.assertEqual(tools, {"Bash", "Read"}, path.name)
             elif name != "pentest-orchestrator":
                 self.assertFalse({"Bash", "Task", "Write", "Edit", "WebFetch", "WebSearch"} & tools, path.name)
 

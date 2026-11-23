@@ -6,7 +6,7 @@ This project exists to plan, execute, validate, and report real security assessm
 
 The intended operator workflow is straightforward: provide an engagement and its written rules, verify the exact scope, run reconnaissance and enumeration, investigate vulnerabilities, validate findings with reproducible evidence, and produce a professional report. The framework coordinates specialized agents and deterministic tooling to carry that workflow through.
 
-> **Project maturity: early pre-alpha.** The repository already implements workflow persistence, specialist dispatch, Skill selection, validated handoffs, evidence integrity checks, a synthetic benchmark, and a scope-enforcing HTTP broker. Important execution capabilities are still limited: passive specialists currently run without tools, active HTTP is restricted to reviewed SHA-256-pinned manifests, and general scanner/browser/container integrations are not yet implemented. The project purpose is real authorized pentesting; this status statement describes what the current code can and cannot execute today.
+> **Project maturity: early pre-alpha.** The repository implements workflow persistence, specialist dispatch, Skill selection, validated handoffs, evidence integrity checks, and a scope-enforcing HTTP broker. The initial Web/API vertical now performs bounded same-origin reconnaissance/crawling, endpoint and form discovery, static JavaScript analysis, low-impact security checks, and brokered exploitation/independent validation using separately pinned read-only requests. Deeper SQLi/SSRF/authz/OAuth/JWT testing, browser automation, general scanner integrations, and Mobile/Cloud/Active Directory execution remain unfinished. The project purpose is real authorized pentesting; this status statement describes what the current code can and cannot execute today.
 
 ## Product objective
 
@@ -22,7 +22,7 @@ The orchestrator is responsible for coordinating actual assessment work—not me
 
 ## Current execution boundary
 
-The framework is under active development toward that objective. Implemented workflow and safety infrastructure must not be mistaken for a complete autonomous scanner. In the current implementation, passive specialists are tool-disabled and the active-testing specialist can use only the bounded HTTP broker. The broker is not a crawler, scanner, browser, shell sandbox, or general exploitation engine. Missing capabilities should be implemented and tested against controlled local targets rather than claimed in documentation.
+The framework is under active development toward that objective. The initial Web/API vertical now includes bounded same-origin reconnaissance and crawling, endpoint/form discovery, static JavaScript route/sink analysis, automated low-impact configuration checks, brokered reproduction and independent validation. This is not yet a full autonomous scanner: deeper SQLi/SSRF/authz/OAuth/browser-based testing and Mobile/Cloud/Active Directory execution remain unfinished. Capabilities must be proven against controlled local targets rather than claimed from documentation alone.
 
 All live testing remains restricted to assets explicitly authorized by the relevant engagement. Safety gates are part of the pentesting engine: they must constrain execution without turning the product into a documentation-only workflow.
 
@@ -44,7 +44,7 @@ The nine-stage scope → recon → enumeration → vulnerability → active test
 - `core/evidence.py`: stores operator-supplied evidence bytes under `.local/evidence/`, calculates SHA-256 from the stored payload, and verifies artifacts against the recorded digest.
 - `scripts/redact_text_evidence.py`: creates a separate best-effort redacted copy of text evidence; manual review remains mandatory.
 - `core/orchestration.py`: workflow coordinator with schema-validated plans, dependency gates, scope-subset enforcement and handoff persistence. Collected artifact claims must match registered evidence metadata.
-- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and the dedicated active-testing-agent with broker-only Bash access; select methodology context, verify evidence, validate handoffs, and persist run telemetry.
+- `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and active Web/API specialists with broker-only Bash access; select methodology context, verify evidence, enforce independent validation, and persist run telemetry.
 - `core/active_executor.py` and `scripts/active_http.py`: enforce exact engagement/task scope, DNS/IP checks, redirect validation, rate/response limits, request-manifest pinning, evidence capture, and audit logging for active HTTP requests.
 - `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
 - `scripts/parse_program_policy.py`: extract a draft scope profile from operator-supplied bug bounty policy text, preserving source quotes and ambiguities. It does not browse program sites or approve authorization.
@@ -118,15 +118,15 @@ python scripts/run_plan.py --db .local/state.sqlite3 --engagement-id ENG-ID --mo
 python scripts/workflow.py --db .local/state.sqlite3 status --engagement-id ENG-ID
 ```
 
-The dispatcher invokes passive specialists with tools disabled. The dedicated active-testing-agent receives only broker-scoped Bash access and executes operator-reviewed request manifests pinned by SHA-256. Initialize with `execution_enabled=false`, then explicitly approve the engagement before creating active tasks:
+Passive tasks remain tool-disabled. Active recon, enumeration and vulnerability specialists receive Bash only for the guarded `scripts/active_surface.py` runner, which performs same-origin GET/OPTIONS crawling, endpoint/form discovery, static JavaScript analysis and low-impact configuration checks through the evidence-capturing HTTP broker. Exploitation-agent and validation-agent receive only guarded broker access for separately SHA-256-pinned GET/HEAD/OPTIONS manifests. No agent receives general shell or unrestricted network access. Initialize with `execution_enabled=false`, then explicitly approve the engagement before creating active tasks:
 
 ```bash
 python scripts/workflow.py --db .local/state.sqlite3 approve --engagement-id ENG-ID --operator "YOUR NAME" --authorization-reference "WRITTEN-AUTH-REF" --confirm-written-authorization --confirm-scope --confirm-rules
 ```
 
-Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Request manifests live under `.local/requests/`; their SHA-256 must be included in an active task's `request_files`. The initial broker supports bounded HTTP(S) GET/HEAD/OPTIONS and individually approved POST. It does not run arbitrary scanners, Nmap, Nuclei, or browser automation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
+Use `python scripts/workflow.py --db .local/state.sqlite3 pause --engagement-id ENG-ID --operator "YOUR NAME" --reason "..."` as the kill switch. Operator-reviewed request manifests live under `.local/requests/` and are SHA-256 pinned. The bounded discovery runner generates its own pinned GET/OPTIONS manifests internally, while exploitation and active validation require separate operator-reviewed manifests. It does not run arbitrary shell, Nmap, Nuclei, SQLMap, browser automation, brute force or destructive tests. The initial Web/API checks are limited to observed surface mapping, static JS indicators, security headers, cookie attributes, CORS and OPTIONS behavior; candidates require independent validation. See [docs/ACTIVE_EXECUTION.md](docs/ACTIVE_EXECUTION.md) and [docs/ORCHESTRATOR_RUNTIME.md](docs/ORCHESTRATOR_RUNTIME.md).
 
-After approval, place operator-reviewed request manifests in `.local/requests/` and run the LLM planner/dispatcher:
+After approval, the planner can run bounded discovery without pre-created manifests. Provide request manifests only when you want the exploitation-agent or validator to replay a specific reviewed request:
 
 ```bash
 python scripts/run_orchestrator.py --db .local/state.sqlite3 --engagement-id ENG-ID --model MODEL_NAME

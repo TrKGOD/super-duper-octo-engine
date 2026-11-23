@@ -29,8 +29,11 @@
 
 ## Phase 2 — Initial Web/API vertical
 - [x] Program policy reader for operator-supplied bug bounty text with quoted provenance and ambiguity flags
-- [ ] Passive recon and enumeration workflows using supplied artifacts
-- [ ] Formal Web/API vulnerability-specific task templates and independent validation loops (specialist dispatch is generic; finding lifecycle remains operator-mediated)
+- [x] Bounded active Web/API reconnaissance and same-origin HTML crawling with broker evidence capture
+- [x] Observed/inferred endpoint discovery, form parameter mapping and static JavaScript route/sink analysis
+- [x] Automated low-impact checks for security headers, cookie attributes, CORS reflection and OPTIONS behavior
+- [x] Executable exploitation-agent and independent validation-agent broker paths using separate pinned read-only manifests
+- [ ] Deeper vulnerability-specific workflows for SQLi, SSRF, authz/IDOR, OAuth/JWT and browser-assisted XSS validation
 - [x] Non-destructive duplicate candidate detection from persisted findings
 - [x] Evidence-readiness scoring with explicit non-validity semantics
 - [x] Deterministic report renderer limited to validated/reported findings with fresh evidence integrity checks

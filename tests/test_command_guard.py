@@ -8,7 +8,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, allowed_argv, main, safe_local_json
+from hooks.command_guard import KB_ALLOWED_SUBCOMMANDS, active_surface_args, allowed_argv, main, orchestrator_args, safe_local_json, safe_db_argument
 
 
 class CommandGuardTests(unittest.TestCase):
@@ -24,6 +24,27 @@ class CommandGuardTests(unittest.TestCase):
         self.assertTrue(allowed_argv(valid))
         self.assertFalse(allowed_argv(valid[:-1] + [".local/other/request.json"]))
         self.assertFalse(allowed_argv(valid + ["--extra", "value"]))
+
+    def test_surface_discovery_is_an_explicit_guarded_command(self):
+        command = ["python3", "scripts/active_surface.py", "--db", ".local/state.sqlite3",
+                   "--engagement-id", "eng-1", "--task-id", "task-1",
+                   "--target-url", "https://app.example.test/", "--max-pages", "20", "--max-depth", "2"]
+        self.assertTrue(allowed_argv(command))
+        self.assertIsNotNone(active_surface_args(command))
+        self.assertFalse(allowed_argv(command + ["--extra"]))
+
+    def test_per_engagement_database_paths_are_strictly_mapped(self):
+        self.assertTrue(safe_db_argument(".local/state.sqlite3"))
+        self.assertTrue(safe_db_argument(".local/engagements/vinted/state.sqlite3"))
+        self.assertFalse(safe_db_argument(".local/engagements/../state.sqlite3"))
+        self.assertFalse(safe_db_argument("/tmp/state.sqlite3"))
+
+    def test_orchestrator_entrypoint_is_allowlisted_with_exact_arguments(self):
+        command = ["python3", "scripts/run_orchestrator.py", "--db", ".local/state.sqlite3",
+                   "--engagement-id", "eng-123", "--model", "claude-sonnet-4-5"]
+        self.assertTrue(allowed_argv(command))
+        self.assertEqual(orchestrator_args(command)["engagement_id"], "eng-123")
+        self.assertFalse(allowed_argv(command + ["--extra"]))
 
     def test_rejects_arbitrary_commands(self):
         self.assertFalse(allowed_argv(["python3", "-c", "import os"]))

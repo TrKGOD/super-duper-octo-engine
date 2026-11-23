@@ -42,10 +42,15 @@ def validate_agents(root=AGENTS):
         except ValueError as exc:
             errors.append(str(exc))
             continue
-        if name == "active-testing-agent":
+        scoped_bash_agents = {"active-testing-agent", "recon-agent", "enumeration-agent", "vulnerability-agent", "exploitation-agent"}
+        if name in scoped_bash_agents:
             expected = {"Bash"}
             if tools != expected:
-                errors.append(f"{path.relative_to(ROOT)}: active-testing-agent tools must be exactly {sorted(expected)}")
+                errors.append(f"{path.relative_to(ROOT)}: {name} tools must be exactly {sorted(expected)}")
+        elif name == "validation-agent":
+            expected = {"Bash", "Read"}
+            if tools != expected:
+                errors.append(f"{path.relative_to(ROOT)}: validation-agent tools must be exactly {sorted(expected)}")
         elif name == "pentest-orchestrator":
             unexpected = tools - ORCHESTRATOR_TOOLS
             missing = {"Task"} - tools

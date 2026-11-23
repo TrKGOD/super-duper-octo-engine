@@ -1,8 +1,14 @@
 {
-  "default_agent_tools": ["Read","Grep","Glob"],
+  "default_agent_tools": [
+    "Read",
+    "Grep",
+    "Glob"
+  ],
   "bash_enabled_for_agents": false,
   "network_tools_enabled": false,
   "active_http_broker_enabled": true,
   "human_approval_for_active_testing": true,
-  "note": "Raw shell/network tools remain disabled. Only active-testing-agent receives Bash, and the PreToolUse guard permits the scoped active HTTP broker command only."
+  "note": "Raw shell/network tools remain disabled. Only active-testing-agent receives Bash, and the PreToolUse guard permits the scoped active HTTP broker command only.",
+  "active_surface_discovery_enabled": true,
+  "execution_policy": "Bash is granted only to active_testing tasks; PreToolUse guard allows active_surface.py and active_http.py exact argument forms; all raw shell and other network tools remain denied."
 }

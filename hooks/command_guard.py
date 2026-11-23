@@ -46,10 +46,37 @@ def safe_request_manifest(path):
     )
 
 
+def engagement_paths(db_arg):
+    """Resolve only the default engagement paths or a strict per-engagement pair."""
+    if db_arg == DB:
+        return CONFIG, ROOT / DB
+    match = re.fullmatch(r"\.local/engagements/([A-Za-z0-9][A-Za-z0-9._-]{0,63})/state\.sqlite3", db_arg)
+    if not match:
+        return None
+    slug = match.group(1)
+    return ROOT / "config" / ("engagement." + slug + ".local.json"), ROOT / db_arg
+
+
+def safe_db_argument(value):
+    paths = engagement_paths(value)
+    if paths is None:
+        return False
+    config_path, db_path = paths
+    local = ROOT / ".local"
+    engagements = local / "engagements"
+    engagement_dir = db_path.parent
+    config_dir = ROOT / "config"
+    if local.is_symlink() or config_dir.is_symlink() or (value != DB and (engagements.is_symlink() or engagement_dir.is_symlink())):
+        return False
+    if config_path.is_symlink() or db_path.is_symlink():
+        return False
+    return True
+
+
 def active_http_args(argv):
     if len(argv) != 10 or argv[1] != "scripts/active_http.py":
         return None
-    if argv[2] != "--db" or argv[3] != DB:
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
         return None
     if argv[4] != "--engagement-id" or not argv[5]:
         return None
@@ -57,13 +84,47 @@ def active_http_args(argv):
         return None
     if argv[8] != "--request-file" or not safe_request_manifest(argv[9]):
         return None
-    return {"engagement_id": argv[5], "task_id": argv[7], "request_file": argv[9]}
+    return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "request_file": argv[9]}
+
+
+def active_surface_args(argv):
+    if len(argv) != 14 or argv[1] != "scripts/active_surface.py":
+        return None
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
+        return None
+    if argv[4] != "--engagement-id" or not argv[5]:
+        return None
+    if argv[6] != "--task-id" or not argv[7]:
+        return None
+    if argv[8] != "--target-url" or not argv[9].startswith(("http://", "https://")):
+        return None
+    if argv[10] != "--max-pages" or not argv[11].isdigit() or not 1 <= int(argv[11]) <= 25:
+        return None
+    if argv[12] != "--max-depth" or not argv[13].isdigit() or not 0 <= int(argv[13]) <= 3:
+        return None
+    return {"db": argv[3], "engagement_id": argv[5], "task_id": argv[7], "target_url": argv[9]}
+
+
+def orchestrator_args(argv):
+    if len(argv) != 8 or argv[1] != "scripts/run_orchestrator.py":
+        return None
+    if argv[2] != "--db" or not safe_db_argument(argv[3]):
+        return None
+    if argv[4] != "--engagement-id" or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,79}", argv[5]):
+        return None
+    if argv[6] != "--model" or not re.fullmatch(r"[A-Za-z0-9._:-]{2,120}", argv[7]):
+        return None
+    return {"db": argv[3], "engagement_id": argv[5]}
 
 
 def allowed_argv(argv):
     if len(argv) < 2 or argv[0] not in {"python", "python3"}:
         return False
     script = argv[1]
+    if script == "scripts/run_orchestrator.py":
+        return orchestrator_args(argv) is not None
+    if script == "scripts/active_surface.py":
+        return active_surface_args(argv) is not None
     if script == "scripts/active_http.py":
         return active_http_args(argv) is not None
     if script == "scripts/migrate.py":
@@ -101,14 +162,15 @@ def allowed_argv(argv):
 
 
 def _active_request_is_approved(args, config):
-    if not CONFIG.is_file() or config.get("engagement_id") != args["engagement_id"]:
+    config_path, db_path = engagement_paths(args["db"])
+    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
         return False
     manifest_path = ROOT / args["request_file"]
     if manifest_path.is_symlink() or not manifest_path.is_file():
         return False
     try:
         manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-        with sqlite3.connect(ROOT / DB) as connection:
+        with sqlite3.connect(db_path) as connection:
             connection.row_factory = sqlite3.Row
             engagement = connection.execute(
                 "SELECT status,rules_json FROM engagements WHERE engagement_id=?",
@@ -123,7 +185,8 @@ def _active_request_is_approved(args, config):
         rules = json.loads(engagement["rules_json"])
         task_input = json.loads(task["input_json"])
         pinned = next(
-            (item for item in task_input.get("request_files", []) if item.get("path") == args["request_file"]),
+            (item for item in task_input.get("request_files", []) + task_input.get("generated_request_files", [])
+             if item.get("path") == args["request_file"]),
             None,
         )
         return bool(
@@ -131,10 +194,52 @@ def _active_request_is_approved(args, config):
             and rules.get("execution_mode", "active") == "active"
             and rules.get("execution_enabled") is True
             and rules.get("authorization_verified") is True
-            and task["agent"] == "active-testing-agent"
+            and task["agent"] in {"active-testing-agent", "exploitation-agent", "validation-agent", "recon-agent", "enumeration-agent", "vulnerability-agent"}
             and task["status"] == "running"
             and task_input.get("active_testing") is True
             and pinned and pinned.get("sha256") == manifest_hash
+        )
+    except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+
+def _active_surface_is_approved(args, config):
+    config_path, db_path = engagement_paths(args["db"])
+    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
+        return False
+    try:
+        with sqlite3.connect(db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            engagement = connection.execute(
+                "SELECT status,rules_json,scope_json FROM engagements WHERE engagement_id=?",
+                (args["engagement_id"],),
+            ).fetchone()
+            task = connection.execute(
+                "SELECT agent,status,input_json FROM tasks WHERE task_id=? AND engagement_id=?",
+                (args["task_id"], args["engagement_id"]),
+            ).fetchone()
+        if not engagement or not task:
+            return False
+        rules = json.loads(engagement["rules_json"])
+        task_input = json.loads(task["input_json"])
+        if engagement["status"] != "active" or rules.get("execution_enabled") is not True or rules.get("authorization_verified") is not True:
+            return False
+        if task["status"] != "running" or task_input.get("active_testing") is not True or not task_input.get("scope_subset"):
+            return False
+        from core.active_executor import ActiveExecutionError, _validate_request_scope
+        try:
+            _validate_request_scope(args["target_url"], json.loads(engagement["scope_json"]), task_input["scope_subset"])
+        except (ActiveExecutionError, ValueError):
+            return False
+        return bool(
+            engagement["status"] == "active"
+            and rules.get("execution_mode", "active") == "active"
+            and rules.get("execution_enabled") is True
+            and rules.get("authorization_verified") is True
+            and task["agent"] in {"recon-agent", "enumeration-agent", "vulnerability-agent", "active-testing-agent"}
+            and task["status"] == "running"
+            and task_input.get("active_testing") is True
+            and task_input.get("scope_subset")
         )
     except (OSError, sqlite3.Error, ValueError, TypeError, json.JSONDecodeError):
         return False
@@ -154,13 +259,19 @@ def main():
         deny("Unable to parse command; default deny.")
     if not allowed_argv(argv):
         deny("Command is not in the workflow/KB allowlist or approved active HTTP broker.")
-    if not CONFIG.is_file():
-        deny("Local engagement config is required for agent runtime commands.")
+    active_args = active_http_args(argv)
+    surface_args = active_surface_args(argv)
+    orchestration_args = orchestrator_args(argv)
+    db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else orchestration_args["db"] if orchestration_args else DB
+    config_path, db_path = engagement_paths(db_arg)
+    if config_path is None or not config_path.is_file() or config_path.is_symlink():
+        deny("The engagement-specific local config is required for agent runtime commands.")
     try:
-        engagement = json.loads(CONFIG.read_text(encoding="utf-8"))
+        engagement = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
         deny("Invalid local engagement config.")
-    active_args = active_http_args(argv)
+    if orchestration_args and engagement.get("engagement_id") != orchestration_args["engagement_id"]:
+        deny("Orchestrator engagement ID does not match the selected isolated database/config pair.")
     if active_args:
         if not _active_request_is_approved(active_args, engagement):
             deny("Active HTTP request is not authorized by the approved engagement, running task, and pinned manifest.")
@@ -168,9 +279,16 @@ def main():
             "hookEventName": "PreToolUse", "permissionDecision": "allow",
         }}))
         return
+    if surface_args:
+        if not _active_surface_is_approved(surface_args, engagement):
+            deny("Surface discovery requires an active, explicitly approved engagement and running scoped discovery task.")
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse", "permissionDecision": "allow",
+        }}))
+        return
     db_status = None
     try:
-        with sqlite3.connect(ROOT / DB) as connection:
+        with sqlite3.connect(db_path) as connection:
             row = connection.execute(
                 "SELECT status FROM engagements WHERE engagement_id=?",
                 (engagement.get("engagement_id"),),
@@ -180,7 +298,8 @@ def main():
         deny("Unable to verify engagement state; default deny.")
     if db_status == "active":
         safe_read_only = (
-            argv[1] == "scripts/knowledge_base.py"
+            orchestration_args is not None
+            or argv[1] == "scripts/knowledge_base.py"
             or (
                 argv[1] == "scripts/workflow.py"
                 and len(argv) == 7

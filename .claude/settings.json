@@ -1,8 +1,36 @@
 {
   "permissions": {
     "defaultMode": "default",
-    "allow": ["Bash(python3 scripts/active_http.py *)", "Bash(python scripts/active_http.py *)"],
-    "deny": ["Bash(curl *)","Bash(wget *)","Bash(nmap *)","Bash(nuclei *)","Bash(sqlmap *)","Bash(metasploit *)","Bash(msfconsole *)"]
+    "allow": [
+      "Bash(python3 scripts/active_http.py *)",
+      "Bash(python scripts/active_http.py *)",
+      "Bash(python3 scripts/active_surface.py *)",
+      "Bash(python scripts/active_surface.py *)",
+      "Bash(python3 scripts/run_orchestrator.py *)",
+      "Bash(python scripts/run_orchestrator.py *)"
+    ],
+    "deny": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(nmap *)",
+      "Bash(nuclei *)",
+      "Bash(sqlmap *)",
+      "Bash(metasploit *)",
+      "Bash(msfconsole *)"
+    ]
   },
-  "hooks": {"PreToolUse": [{"matcher": "Bash","hooks": [{"type": "command","command": "python3 hooks/command_guard.py","timeout": 5}]}]}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 hooks/command_guard.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }

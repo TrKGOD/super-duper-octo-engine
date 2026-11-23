@@ -10,8 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REGISTRY = ROOT / ".claude" / "skills" / "registry.json"
-RISK_CLASSES = {"passive_analysis", "controlled_validation_guidance", "research_context"}
-VALIDATION_STATUSES = {"catalogued_unverified", "runtime_verified", "deprecated"}
+RISK_CLASSES = {"passive_analysis", "controlled_validation_guidance", "controlled_read_only_http", "research_context"}
+VALIDATION_STATUSES = {"catalogued_unverified", "implemented_unverified", "runtime_verified", "deprecated"}
 DOMAINS = {"web", "api", "mobile", "cloud", "active_directory"}
 
 
