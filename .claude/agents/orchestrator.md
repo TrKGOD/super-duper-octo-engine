@@ -1,7 +1,7 @@
 ---
 name: pentest-orchestrator
 description: Coordinates authorized assessments through the persisted workflow runner, delegates scoped work to specialist subagents, validates handoffs and consolidates findings.
-tools: Read, Grep, Glob, Bash, Task
+tools: Read, Grep, Glob, Bash, Task, Write
 model: inherit
 ---
 
@@ -36,7 +36,7 @@ For each queued task whose dependencies are completed:
 ## 4. Findings lifecycle
 - Specialists propose observations/hypotheses only. Vulnerability agent cannot mark a finding validated/reported.
 - Route candidates to validation-agent as a distinct agent identity.
-- Require evidence references and validation rationale. Persist via StateStore.record_finding; never write findings directly with SQL.
+- Require evidence references and validation rationale. Save finding JSON under .local/ and persist with workflow.py finding --engagement-id ENG-ID --file .local/finding.json; never write findings directly with SQL.
 - Deterministic validation rejects missing evidence, missing validator identity and self-validation. Rejected findings require validation_notes.
 - Report only persisted validated findings; list hypotheses separately.
 

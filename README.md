@@ -1,61 +1,39 @@
 # Pentest Agent Framework
 
-A Claude Code–first, evidence-driven multi-agent framework for **authorized** security assessments across Web, API, Mobile, Cloud, and Active Directory.
+A Claude Code–first, evidence-driven multi-agent framework for authorized security assessments across Web, API, Mobile, Cloud and Active Directory.
 
-> Status: early implementation. The repository includes deterministic finding checks, a SQLite state store, audit events, schema migrations, CI, and a secret-scanning hook configuration. It is not a production-ready autonomous scanner.
+> Status: early implementation. Includes deterministic finding validation, SQLite persistence, a workflow runner for plans/tasks/handoffs, audit events, migrations, CI and Gitleaks configuration. Claude Code still performs agent dispatch; this is not a production autonomous scanner.
 
 ## Implemented components
-
-- core/validation.py rejects validated/reported findings without evidence or an independent validator, and rejects self-validation.
-- core/store.py persists engagements, tasks, agent runs, findings, and audit events in SQLite.
-- scripts/migrate.py applies the baseline schema and ordered SQL migrations idempotently.
-- scripts/validate_contracts.py validates JSON schemas and checked-in examples.
-- .github/workflows/ci.yml runs configuration checks, migrations, tests, and contract validation.
-- .pre-commit-config.yaml configures Gitleaks for local pre-commit scanning.
-
-## Architecture
-
-- CLAUDE.md: project-wide operating contract.
-- .claude/agents/: Claude Code subagents, including the preserved Model 1 baseline.
-- .claude/skills/: reusable methodologies loaded when relevant.
-- .claude/commands/: operator-invoked workflows.
-- config/: safe defaults, scope and model policy.
-- core/: deterministic state and evidence controls.
-- hooks/: defense-in-depth tripwires; not a substitute for OS/container/network isolation.
-- database/: SQLite schema and versioned migrations.
-- templates/: machine-readable contracts and examples.
-- tests/: behavior and contract tests.
+- core/validation.py enforces independent validation and evidence requirements.
+- core/store.py persists engagements, tasks, linked agent runs, findings and audit events.
+- core/orchestration.py validates task graphs, exact scope subsets, dependencies and handoffs.
+- scripts/workflow.py is the CLI used by the orchestrator to persist lifecycle transitions and findings.
+- scripts/migrate.py applies ordered SQLite migrations.
+- scripts/validate_contracts.py validates finding, handoff and plan schemas/examples.
+- .github/workflows/ci.yml runs config checks, migrations, tests and contract validation.
+- .pre-commit-config.yaml configures Gitleaks.
 
 ## Quick start
-
-Requirements: Claude Code, Python 3.11+, and Git.
+Requirements: Claude Code, Python 3.11+, Git.
 
 ```bash
 git clone https://github.com/TrKGOD/super-duper-octo-engine.git
 cd super-duper-octo-engine
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements-dev.txt
 python scripts/validate_config.py
-python scripts/validate_contracts.py
-python -m unittest discover -s tests -v
-pre-commit install
 python scripts/migrate.py --db .local/state.sqlite3
+python -m unittest discover -s tests -v
+python scripts/validate_contracts.py
+pre-commit install
 claude
 ```
 
-The default configuration remains deliberately non-operational: no targets, execution_enabled=false, and no autonomous network scanning. StateStore is a local persistence layer; it does not execute agents or network tools.
+Create config/engagement.local.json from config/engagement.example.json, keep execution_enabled=false, then ask the orchestrator to initialize the engagement and build a plan. See docs/ORCHESTRATOR_RUNTIME.md.
 
-## Safe operation
+## Safety and limitations
+The runner does not verify authorization documents, make network requests, execute tools or spawn agents. Claude Code dispatches subagents and submits their structured handoffs. The bootstrap rejects active-testing plans and requires execution_enabled=false. It enforces exact allowlisted scope subsets at task/handoff level, not at a network boundary.
 
-1. Use written authorization and an explicit engagement scope.
-2. Keep client evidence, credentials, tokens, cookies, and personal data out of Git.
-3. Use a local encrypted evidence store with access controls and retention rules.
-4. Require operator approval for intrusive or state-changing activity.
-5. Enforce process isolation and network egress controls outside Claude Code.
-
-The command hook is a safety tripwire, not a sandbox. Gitleaks is a best-effort secret scanner, not a guarantee that sensitive data cannot be committed.
-
-## Current limitations
-
-The state engine is a small SQLite persistence layer, not a full orchestrator. It does not yet schedule subagents, enforce scope at the network layer, store evidence files, or provide concurrency controls. Agent contracts still need a least-privilege review and benchmark-driven consolidation. See docs/ROADMAP.md.
+The Bash hook allows only narrowly enumerated local workflow/migration commands while execution is disabled. This is defense-in-depth, not a sandbox. External process isolation and network egress restrictions remain necessary. Keep .local/, local engagement configs, databases, evidence, credentials and handoffs out of Git.
