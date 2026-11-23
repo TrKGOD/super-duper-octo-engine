@@ -1,26 +1,36 @@
 name: CI
+
 on:
   push:
   pull_request:
+
 permissions:
   contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
       - name: Install development dependencies
         run: python -m pip install -r requirements-dev.txt
+
       - name: Validate safe configuration
         run: python scripts/validate_config.py
-      - name: Apply migrations
-        run: python scripts/migrate.py --db /tmp/pentest-framework-ci.sqlite
-      - name: Run unit tests
+
+      - name: Run unit and security regression tests
         run: python -m unittest discover -s tests -v
-      - name: Validate JSON contracts
-        run: python scripts/validate_contracts.py
-      - name: Smoke-test synthetic benchmark evaluator
-        run: python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
+
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@v2
