@@ -25,6 +25,7 @@ class AuthPlanPropagationTests(unittest.TestCase):
             "prohibited_test_classes": ["denial-of-service"],
             "human_approval_required_for_state_changes": True,
             "max_concurrency": 1, "requests_per_second": 1,
+            "authorized_identity_ids": ["synthetic-user"],
         }
         self.workflow.store.connection.execute(
             "UPDATE engagements SET rules_json=? WHERE engagement_id=?",
