@@ -17,7 +17,7 @@ from scripts.migrate import migrate
 
 class AuthenticatedTargetHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.server.seen_authorization = self.headers.get("Authorization")
+        self.server.seen_api_key = self.headers.get("X-API-Key")
         body = b'{"authenticated":true}'
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
