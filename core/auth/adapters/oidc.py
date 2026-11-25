@@ -83,7 +83,10 @@ class OIDCAdapter(AuthAdapter):
         if not jwks_path or not jwks_uri:
             raise RuntimeError("OIDC requires an explicitly broker-routed jwks_path and discovery jwks_uri")
         parsed_jwks = urlsplit(jwks_uri)
-        if parsed_jwks.scheme != parsed_issuer.scheme or parsed_jwks.hostname != parsed_issuer.hostname:
+        issuer_port = parsed_issuer.port or (443 if parsed_issuer.scheme == "https" else 80)
+        jwks_port = parsed_jwks.port or (443 if parsed_jwks.scheme == "https" else 80)
+        if (parsed_jwks.scheme, parsed_jwks.hostname, jwks_port) != (
+                parsed_issuer.scheme, parsed_issuer.hostname, issuer_port):
             raise RuntimeError("OIDC JWKS endpoint must share the configured issuer origin")
 
         fields = {"grant_type": config.get("grant_type", "authorization_code"),
@@ -122,11 +125,12 @@ class OIDCAdapter(AuthAdapter):
         now = int(time.time())
         aud = claims.get("aud")
         audiences = aud if isinstance(aud, list) else [aud]
-        if claims.get("iss", "").rstrip("/") != issuer:
+        token_issuer = claims.get("iss")
+        if not isinstance(token_issuer, str) or token_issuer.rstrip("/") != issuer:
             raise RuntimeError("OIDC ID Token issuer mismatch")
-        if client_id not in audiences:
+        if not audiences or any(not isinstance(item, str) for item in audiences) or client_id not in audiences:
             raise RuntimeError("OIDC ID Token audience mismatch")
-        if len(audiences) > 1 and claims.get("azp") != client_id:
+        if (len(audiences) > 1 or claims.get("azp") is not None) and claims.get("azp") != client_id:
             raise RuntimeError("OIDC ID Token authorized-party mismatch")
         if claims.get("nonce") != expected_nonce:
             raise RuntimeError("OIDC ID Token nonce mismatch")
@@ -134,8 +138,9 @@ class OIDCAdapter(AuthAdapter):
             raise RuntimeError("OIDC ID Token is expired or has no valid exp")
         if not isinstance(claims.get("iat"), (int, float)) or claims["iat"] > now + 60:
             raise RuntimeError("OIDC ID Token has an invalid iat")
-        if claims.get("nbf") is not None and claims["nbf"] > now + 60:
-            raise RuntimeError("OIDC ID Token is not yet valid")
+        if claims.get("nbf") is not None:
+            if not isinstance(claims["nbf"], (int, float)) or claims["nbf"] > now + 60:
+                raise RuntimeError("OIDC ID Token is not yet valid")
 
         return {"headers": {"Authorization": "Bearer " + access_token},
                 "access_token": access_token,
