@@ -156,6 +156,13 @@ class Workflow:
         if not any(scope.get(key) for key in scope_keys):
             raise WorkflowError("Cannot approve an engagement with an empty target allowlist")
         rules = json.loads(row["rules_json"])
+        operator_identity_ids = rules.get("authorized_identity_ids", [])
+        if (not isinstance(operator_identity_ids, list) or len(operator_identity_ids) > 10
+                or len(set(operator_identity_ids)) != len(operator_identity_ids)
+                or any(not isinstance(item, str) or not item.strip() or len(item) > 100
+                       or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in item)
+                       for item in operator_identity_ids)):
+            raise WorkflowError("authorized_identity_ids must be a unique operator-defined list of up to 10 safe identity IDs")
         if rules.get("execution_mode", "active") != "active":
             raise WorkflowError("Active execution is disabled by this engagement's execution_mode")
         allowed_classes = set(rules.get("allowed_test_classes", []))
