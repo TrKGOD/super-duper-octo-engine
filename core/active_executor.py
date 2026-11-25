@@ -534,7 +534,7 @@ class ActiveHTTPExecutor:
                     auth_config = identity["config"]
                     transport = BrokerAuthTransport(
                         self.workflow, engagement_id, task.get("scope_subset", []),
-                        auth_config.get("base_url", ""),
+                        auth_config.get("base_url", ""), acquire_slot=False,
                     )
                     auth_manager = AuthenticationManager(
                         auth_store, engagement_id, transport=transport,
