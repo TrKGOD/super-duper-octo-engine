@@ -46,7 +46,7 @@ python scripts/auth.py --db .local/state.sqlite3 list --engagement-id ENG-ID --i
 python scripts/auth.py --db .local/state.sqlite3 revoke --engagement-id ENG-ID --identity-id tester --session-id sess_...
 ```
 
-The engagement must be active, explicitly approved, and allow `authentication-http`. The config's `base_url` must be an exact in-scope origin. Keep local config files, vault keys and environment values out of Git.
+The engagement must be active, explicitly approved, and allow `authentication-http` for network-backed form/OAuth exchanges. Its operator-authored `rules_of_engagement.authorized_identity_ids` list is the source of truth for which identities tasks may select; a task cannot authorize itself by populating its own identity list. The config's `base_url` must be an exact in-scope origin. Keep local config files, vault keys and environment values out of Git.
 
 For browser auth, install the CI-tested Playwright dependency and Chromium runtime with `python -m pip install -r requirements-dev.txt && python -m playwright install chromium`.
 
