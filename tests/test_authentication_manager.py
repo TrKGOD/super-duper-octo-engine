@@ -81,7 +81,9 @@ class AuthenticationManagerTests(unittest.TestCase):
         adapter = OIDCAdapter()
         with self.assertRaisesRegex(RuntimeError, "issuer mismatch"):
             adapter.authenticate({"issuer": "https://issuer.example", "client_id": "client",
-                "discovery_document": {"issuer": "https://attacker.example"}}, lambda _: "unused")
+                "token_path": "/oauth/token", "expected_nonce": "synthetic",
+                "discovery_document": {"issuer": "https://attacker.example"}},
+                lambda _: "unused", lambda *args, **kwargs: {})
 
     def test_identity_configuration_rejects_nested_literal_secrets(self):
         with self.assertRaisesRegex(Exception, "must reference environment variables"):
