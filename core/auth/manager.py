@@ -93,7 +93,7 @@ class AuthenticationManager:
             self._recover(session_id,identity_id,transport)
             current=self.store.get(session_id,self.engagement_id,identity_id)
         identity=self.store.identity(self.engagement_id,identity_id)
-        adapter=self.ADAPTERS[identity["adapter"]]
+        adapter=self.adapters[identity["adapter"]]
         return adapter.headers(current["material"],identity["config"])
 
     def handle_response(self, session_id, identity_id, status_code, method, transport=None):
