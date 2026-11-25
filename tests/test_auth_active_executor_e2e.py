@@ -106,7 +106,7 @@ class AuthenticatedBrokerEndToEndTests(unittest.TestCase):
                 self.engagement, task_id, ".local/requests/auth-e2e.json"
             )
             self.assertEqual(result["status_code"], 200)
-            self.assertEqual(self.server.seen_authorization, "Bearer synthetic-api-key")
+            self.assertEqual(self.server.seen_api_key, "synthetic-api-key")
             self.assertEqual(len(result["evidence_refs"]), 2)
 
 
