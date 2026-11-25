@@ -16,6 +16,7 @@ from scripts.active_surface import (
     _canonical,
     _safe_path_url,
     _same_origin,
+    _parse_allowed_methods,
 )
 
 
