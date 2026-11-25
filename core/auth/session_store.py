@@ -52,8 +52,20 @@ class SessionStore:
             raise SessionStoreError("Invalid engagement or identity identifier")
         # Config may contain environment-variable references, never literal secrets.
         encoded = json.dumps(config, sort_keys=True)
-        forbidden = {"password", "secret", "token", "cookie", "authorization", "client_secret"}
-        if any(str(key).lower() in forbidden for key in config):
+        forbidden = {"password", "passwd", "secret", "token", "access_token", "refresh_token",
+                     "cookie", "authorization", "client_secret", "api_key", "apikey"}
+        def contains_literal_secret(value):
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    normalized = str(key).lower()
+                    if normalized in forbidden:
+                        return True
+                    if not normalized.endswith("_env") and contains_literal_secret(child):
+                        return True
+            elif isinstance(value, (list, tuple)):
+                return any(contains_literal_secret(item) for item in value)
+            return False
+        if contains_literal_secret(config):
             raise SessionStoreError("Identity config must reference environment variables, not contain secrets")
         with self.db:
             self.db.execute("""INSERT INTO auth_identities
