@@ -518,6 +518,26 @@ class ActiveHTTPExecutor:
             raise
         try:
             headers = _resolve_request_headers(request)
+            auth_manager = None
+            auth_identity_id = task.get("auth_identity_id")
+            auth_session_id = task.get("auth_session_id")
+            if bool(auth_identity_id) != bool(auth_session_id):
+                raise ActiveExecutionError("Authenticated tasks require both auth_identity_id and auth_session_id")
+            if auth_identity_id:
+                if auth_identity_id not in set(task.get("authorized_identity_ids", [])):
+                    raise ActiveExecutionError("Task identity is not in its explicitly authorized identity set")
+                try:
+                    from core.auth import AuthenticationManager, SessionStore
+                    auth_store = SessionStore(self.workflow.store.db_path)
+                    auth_manager = AuthenticationManager(
+                        auth_store, engagement_id,
+                        audit=lambda event, details: self.workflow.store.append_audit(
+                            engagement_id, "authentication-manager", event, details
+                        ),
+                    )
+                    headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id))
+                except Exception as exc:
+                    raise ActiveExecutionError("Authentication manager could not provide the configured session") from exc
             headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
             body = request.get("body")
             upload = request.get("upload")
@@ -538,6 +558,18 @@ class ActiveHTTPExecutor:
                     request.get("max_response_bytes", 131072),
                     pinned_ip,
                 )
+                if status == 401 and auth_manager is not None:
+                    recovery = auth_manager.handle_response(auth_session_id, auth_identity_id, status, method)
+                    if recovery.get("retry"):
+                        headers = _resolve_request_headers(request)
+                        headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id))
+                        headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
+                        status, response_headers, response_body, truncated, location = _send_once(
+                            current_url, method, headers, body,
+                            request.get("timeout_seconds", 8),
+                            request.get("max_response_bytes", 131072),
+                            pinned_ip,
+                        )
                 if status not in {301, 302, 303, 307, 308} or not location or not request.get("follow_redirects", True):
                     break
                 if method == "POST":
@@ -616,4 +648,6 @@ class ActiveHTTPExecutor:
                 )
             raise
         finally:
+            if "auth_store" in locals():
+                auth_store.close()
             _release_slot(connection, engagement_id, token)
