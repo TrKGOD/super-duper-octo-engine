@@ -16,12 +16,13 @@ import time
 
 
 class BrokerAuthTransport:
-    def __init__(self, workflow, engagement_id, task_scope, base_url, timeout=5):
+    def __init__(self, workflow, engagement_id, task_scope, base_url, timeout=5, acquire_slot=True):
         self.workflow = workflow
         self.engagement_id = engagement_id
         self.task_scope = list(task_scope)
         self.base_url = base_url.rstrip("/") + "/"
         self.timeout = min(max(float(timeout), 1), 8)
+        self.acquire_slot = bool(acquire_slot)
         self._validate_base()
 
     def _validate_base(self):
@@ -63,7 +64,8 @@ class BrokerAuthTransport:
             body = urlencode(fields).encode("utf-8")
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         db = self.workflow.store.connection
-        slot = _acquire_slot(db, self.engagement_id, self.rps, lease_seconds=max(15, int(self.timeout) + 5))
+        slot = (_acquire_slot(db, self.engagement_id, self.rps, lease_seconds=max(15, int(self.timeout) + 5))
+                if self.acquire_slot else None)
         connection = _PinnedHTTPConnection(
             host, port, pinned_ip, self.timeout,
             ssl.create_default_context() if parsed.scheme == "https" else None,
@@ -90,4 +92,5 @@ class BrokerAuthTransport:
             return payload
         finally:
             connection.close()
-            _release_slot(db, self.engagement_id, slot)
+            if slot is not None:
+                _release_slot(db, self.engagement_id, slot)
