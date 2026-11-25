@@ -528,14 +528,21 @@ class ActiveHTTPExecutor:
                     raise ActiveExecutionError("Task identity is not in its explicitly authorized identity set")
                 try:
                     from core.auth import AuthenticationManager, SessionStore
+                    from core.auth.broker_transport import BrokerAuthTransport
                     auth_store = SessionStore(self.workflow.store.db_path)
+                    identity = auth_store.identity(engagement_id, auth_identity_id)
+                    auth_config = identity["config"]
+                    transport = BrokerAuthTransport(
+                        self.workflow, engagement_id, task.get("scope_subset", []),
+                        auth_config.get("base_url", ""),
+                    )
                     auth_manager = AuthenticationManager(
-                        auth_store, engagement_id,
+                        auth_store, engagement_id, transport=transport,
                         audit=lambda event, details: self.workflow.store.append_audit(
                             engagement_id, "authentication-manager", event, details
                         ),
                     )
-                    headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id))
+                    headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id, transport=transport))
                 except Exception as exc:
                     raise ActiveExecutionError("Authentication manager could not provide the configured session") from exc
             headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
@@ -559,7 +566,7 @@ class ActiveHTTPExecutor:
                     pinned_ip,
                 )
                 if status == 401 and auth_manager is not None:
-                    recovery = auth_manager.handle_response(auth_session_id, auth_identity_id, status, method)
+                    recovery = auth_manager.handle_response(auth_session_id, auth_identity_id, status, method, transport=transport)
                     if recovery.get("retry"):
                         headers = _resolve_request_headers(request)
                         headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id))
