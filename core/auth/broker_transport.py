@@ -8,7 +8,9 @@ from urllib.parse import urlencode, urljoin, urlsplit
 
 from core.active_executor import (
     ActiveExecutionError, _resolve_and_authorize, _PinnedHTTPConnection,
+    _acquire_slot, _release_slot,
 )
+from core.execution_policy import validate_execution_limits
 import ssl
 import time
 
@@ -38,6 +40,7 @@ class BrokerAuthTransport:
         if not row["authorization_reference"] or "REQUIRED" in row["authorization_reference"].upper():
             raise ActiveExecutionError("Authentication transport requires a written authorization reference")
         self.scope = json.loads(row["scope_json"])
+        _, self.rps = validate_execution_limits(rules)
         _resolve_and_authorize(self.base_url, self.scope, self.task_scope)
 
     def __call__(self, method, path, fields=None, purpose="authentication exchange"):
@@ -59,6 +62,8 @@ class BrokerAuthTransport:
                 raise ActiveExecutionError("Authentication POST requires form fields")
             body = urlencode(fields).encode("utf-8")
             headers["Content-Type"] = "application/x-www-form-urlencoded"
+        db = self.workflow.store.connection
+        slot = _acquire_slot(db, self.engagement_id, self.rps, lease_seconds=max(15, int(self.timeout) + 5))
         connection = _PinnedHTTPConnection(
             host, port, pinned_ip, self.timeout,
             ssl.create_default_context() if parsed.scheme == "https" else None,
@@ -85,3 +90,4 @@ class BrokerAuthTransport:
             return payload
         finally:
             connection.close()
+            _release_slot(db, self.engagement_id, slot)
