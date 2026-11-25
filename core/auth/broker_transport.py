@@ -50,7 +50,7 @@ class BrokerAuthTransport:
             raise ActiveExecutionError("Authentication transport permits only GET and POST")
         if not isinstance(path, str) or not path.startswith("/") or path.startswith("//"):
             raise ActiveExecutionError("Authentication endpoint must be an origin-relative absolute path")
-        url = urljoin(self.base_url, path.lstrip("/"))
+        url = urljoin(self.base_url, path)
         base, target = urlsplit(self.base_url), urlsplit(url)
         if (base.scheme, base.hostname, base.port) != (target.scheme, target.hostname, target.port):
             raise ActiveExecutionError("Authentication endpoint cannot change origin")
