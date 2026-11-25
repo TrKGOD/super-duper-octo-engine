@@ -52,10 +52,12 @@ def main():
                 print(json.dumps({"identity_id": args.identity_id, "adapter": args.adapter, "registered": True}))
             elif args.command == "authenticate":
                 identity = store.identity(args.engagement_id, args.identity_id)
-                transport = BrokerAuthTransport(
-                    workflow, args.engagement_id, args.scope_asset,
-                    identity["config"].get("base_url", ""),
-                )
+                transport = None
+                if identity["adapter"] in {"form", "oauth2", "oidc"}:
+                    transport = BrokerAuthTransport(
+                        workflow, args.engagement_id, args.scope_asset,
+                        identity["config"].get("base_url", ""),
+                    )
                 manager = AuthenticationManager(store, args.engagement_id, transport=transport)
                 session_id = manager.authenticate(args.identity_id, transport=transport)
                 print(json.dumps({"identity_id": args.identity_id, "session_id": session_id,
