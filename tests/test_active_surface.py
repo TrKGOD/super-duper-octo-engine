@@ -16,6 +16,7 @@ from scripts.active_surface import (
     _canonical,
     _safe_path_url,
     _same_origin,
+    _parse_allowed_methods,
 )
 
 
@@ -58,6 +59,11 @@ class ActiveSurfaceTests(unittest.TestCase):
         self.assertIn("dom-xss-sink", {item["type"] for item in indicators})
         self.assertIn("dynamic-code-execution", {item["type"] for item in indicators})
         self.assertIn("postmessage-wildcard", {item["type"] for item in indicators})
+
+    def test_options_allow_header_is_split_into_method_tokens(self):
+        self.assertEqual(_parse_allowed_methods("GET, HEAD, OPTIONS, PATCH"),
+                         ["GET", "HEAD", "OPTIONS", "PATCH"])
+        self.assertEqual(_parse_allowed_methods("GET OPTIONS"), ["GET", "OPTIONS"])
 
     def test_canonicalization_drops_fragments_and_normalizes_origin(self):
         self.assertEqual(

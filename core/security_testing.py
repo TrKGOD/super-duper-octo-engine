@@ -47,10 +47,10 @@ def _validate_readonly_pair(left: dict, right: dict, identity_mode: str) -> None
             raise ActiveExecutionError("Security comparison cannot contain a body or state-change approval")
     if not left.get("request_id") or left.get("request_id") == right.get("request_id"):
         raise ActiveExecutionError("Paired requests require distinct request IDs")
-    a = {k: v for k, v in left.items() if k not in {"request_id", "secret_headers"}}
-    b = {k: v for k, v in right.items() if k not in {"request_id", "secret_headers"}}
+    a = {k: v for k, v in left.items() if k not in {"request_id", "purpose", "secret_headers"}}
+    b = {k: v for k, v in right.items() if k not in {"request_id", "purpose", "secret_headers"}}
     if a != b:
-        raise ActiveExecutionError("Paired requests must be equivalent; only request_id and secret_headers may differ")
+        raise ActiveExecutionError("Paired requests must be equivalent; only request_id, purpose, and secret_headers may differ")
     left_secrets = left.get("secret_headers") or {}
     right_secrets = right.get("secret_headers") or {}
     if not isinstance(left_secrets, dict) or not isinstance(right_secrets, dict):

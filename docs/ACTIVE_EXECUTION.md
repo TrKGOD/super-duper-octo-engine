@@ -136,6 +136,42 @@ Example approval fragment:
 
 Do not approve destructive or irreversible operations. The broker does not support PUT/PATCH/DELETE or file uploads.
 
+## Offline HAR import
+
+The operator can import a browser HAR without any network activity:
+
+~~~bash
+python -I scripts/ingest_har.py --db .local/state.sqlite3 \
+  --engagement-id ENG-ID --har .local/input/session.har
+~~~
+
+The importer reads only HAR entries whose hostname is explicitly covered by the engagement's \`allowed_domains\` list (or the optional exact \`--scope-host\` filter). It writes endpoint and identifier inventories under \`.local/engagements/ENG-ID/\`, with restrictive file permissions. It records parameter/header names, not header values; authorization, cookie and CSRF header names are marked secret. Request/response bodies and secret values are not copied into the inventory. HAR content is untrusted input and is parsed as JSON only; no HAR script or request is executed. The importer does not send requests.
+
+## Optional authenticated surface discovery
+
+For an explicitly authorized active discovery task, \`active_surface.py\` accepts repeated environment-backed header references and an optional browser-matched User-Agent:
+
+~~~bash
+python scripts/active_surface.py --db .local/state.sqlite3 \
+  --engagement-id ENG-ID --task-id TASK-ID --target-url https://EXACT-IN-SCOPE-HOST/ \
+  --secret-header 'Cookie=VINTED_TEST_COOKIE' --user-agent 'RESEARCHER_BROWSER_UA'
+~~~
+
+Set the environment variable in the operator shell before dispatch. Never pass secret values on the command line or put them in manifests. The generated manifest contains only the header name and environment-variable reference. This mode remains same-origin and GET/OPTIONS-only; all requests still pass through the broker, scope checks, rate limits, evidence redaction and audit logging. Authenticated discovery is optional and disabled when no \`--secret-header\` is supplied.
+
+## State-changing requests and uploads
+
+The general broker supports POST/PUT/PATCH/DELETE only when the engagement allows \`state-changing-http\`, \`human_approval_required_for_state_changes=true\`, and the exact manifest contains timestamped per-request operator approval. The request manifest is SHA-256-pinned to the task, so changing method, URL, headers or body invalidates the approved pin. Redirects for state-changing requests are blocked.
+
+Multipart upload is separately disabled by default. It requires all of:
+- \`upload-http\` in the engagement's \`allowed_test_classes\`;
+- \`uploads_enabled=true\` in engagement rules;
+- \`human_approval_required_for_state_changes=true\`;
+- a timestamped per-request operator approval;
+- an upload fixture no larger than 256 KiB, with a restricted filename and content-type allowlist.
+
+The upload payload is base64 in the locally pinned manifest and is not copied into evidence; evidence records upload metadata only. The broker is not a sandbox: use synthetic files and isolated test targets. Enumeration-First discovery remains GET/OPTIONS-only and does not gain write methods from this general broker capability.
+
 ## Enforcement
 
 The broker:

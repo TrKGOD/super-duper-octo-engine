@@ -117,8 +117,13 @@ def _is_crawlable_page(url):
 def _headers_map(headers):
     return {str(k).lower(): str(v) for k, v in headers.items()}
 
+def _parse_allowed_methods(value):
+    """Parse Allow/CORS method lists as tokens, never individual characters."""
+    return sorted({item.upper() for item in re.split(r"[,\s]+", str(value or "")) if item})
 
-def _request(executor, engagement_id, task_id, target, purpose, headers=None, method="GET"):
+
+
+def _request(executor, engagement_id, task_id, target, purpose, headers=None, method="GET", secret_headers=None):
     if method not in {"GET", "OPTIONS"}:
         raise ActiveExecutionError("Surface discovery supports only GET and OPTIONS")
     task = executor.workflow.store.connection.execute(
@@ -137,6 +142,7 @@ def _request(executor, engagement_id, task_id, target, purpose, headers=None, me
         "url": target,
         "purpose": purpose[:490],
         "headers": headers or {},
+        "secret_headers": secret_headers or {},
         "timeout_seconds": 8,
         "max_response_bytes": 65536,
         "follow_redirects": True,
@@ -184,7 +190,7 @@ def _analyse_js(text):
     return sorted(routes), indicators
 
 
-def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3):
+def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3, secret_headers=None, user_agent=None):
     if not 1 <= max_pages <= 100 or not 0 <= max_depth <= 4:
         raise ActiveExecutionError("Bounds are max_pages 1..100 and max_depth 0..4")
     target_url = _canonical(target_url)
@@ -208,6 +214,9 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
         scope = json.loads(row["scope_json"])
         _resolve_and_authorize(target_url, scope, task["scope_subset"])
         executor = ActiveHTTPExecutor(workflow, ROOT)
+        # Optional authenticated mode uses only environment-backed secret header references.
+        auth_headers = dict(secret_headers or {})
+        base_headers = {"User-Agent": user_agent} if user_agent else {}
         # Small fixed metadata set: useful discovery, not directory brute force.
         metadata_paths = (
             "/robots.txt", "/sitemap.xml", "/openapi.json", "/swagger.json",
@@ -229,7 +238,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
                 continue
             visited.add(current)
             try:
-                result = _request(executor, engagement_id, task_id, current, "Same-origin page discovery and endpoint mapping")
+                result = _request(executor, engagement_id, task_id, current, "Same-origin page discovery and endpoint mapping", base_headers, secret_headers=auth_headers)
             except ActiveExecutionError as exc:
                 blocked_requests += 1
                 findings.append({"type": "discovery-blocked", "url": current, "reason": str(exc)})
@@ -362,7 +371,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
         js_results = []
         for script_url in sorted(js_assets)[:min(10, max_pages - page_count)]:
             try:
-                js_result = _request(executor, engagement_id, task_id, script_url, "Static JavaScript endpoint and sink analysis")
+                js_result = _request(executor, engagement_id, task_id, script_url, "Static JavaScript endpoint and sink analysis", headers=base_headers, secret_headers=auth_headers)
                 evidence_refs.extend(js_result.get("evidence_refs", []))
                 js_body = js_result.get("response_excerpt") or ""
                 routes, indicators = _analyse_js(js_body)
@@ -389,7 +398,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
             evidence_refs.extend(cors.get("evidence_refs", []))
         try:
             options = _request(executor, engagement_id, task_id, target_url,
-                               "Read-only HTTP OPTIONS capability observation", method="OPTIONS")
+                               "Read-only HTTP OPTIONS capability observation", headers=base_headers, method="OPTIONS", secret_headers=auth_headers)
         except ActiveExecutionError as exc:
             blocked_requests += 1
             options = {"blocked": str(exc)}
@@ -400,7 +409,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
             allowed_methods = option_headers.get("allow") or option_headers.get("access-control-allow-methods")
             if allowed_methods:
                 findings.append({"type": "http-options-methods-observed", "url": target_url,
-                                 "methods": [item.strip().upper() for item in allowed_methods.split(",") if item.strip()],
+                                 "methods": _parse_allowed_methods(allowed_methods),
                                  "status": "capability_observation_not_a_vulnerability"})
         if cors and cors.get("status_code"):
             response_headers = _headers_map(cors.get("response_headers") or {})
@@ -428,7 +437,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
             "evidence_refs": list(dict.fromkeys(evidence_refs)),
             "cors_observation": cors,
             "options_observation": options,
-            "limits": {"max_pages": max_pages, "max_depth": max_depth, "same_origin_only": True},
+            "limits": {"max_pages": max_pages, "max_depth": max_depth, "same_origin_only": True, "authenticated_mode": bool(auth_headers), "methods": ["GET", "OPTIONS"]},
             "note": "Static indicators and configuration observations are candidates, not confirmed vulnerabilities. All HTTP requests were GET/OPTIONS-only and broker-recorded.",
         }
 

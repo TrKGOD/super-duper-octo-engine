@@ -2,36 +2,137 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Approved Active HTTP Request",
   "type": "object",
-  "required": ["request_id", "method", "url", "purpose"],
+  "required": [
+    "request_id",
+    "method",
+    "url",
+    "purpose"
+  ],
   "properties": {
-    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$"},
-    "method": {"enum": ["GET", "HEAD", "OPTIONS", "POST"]},
-    "url": {"type": "string", "format": "uri", "maxLength": 4096},
-    "purpose": {"type": "string", "minLength": 10, "maxLength": 500},
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$"
+    },
+    "method": {
+      "enum": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ]
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 4096
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
     "headers": {
       "type": "object",
       "maxProperties": 30,
-      "propertyNames": {"pattern": "^[!#$%&'*+.^_|~0-9A-Za-z-]{1,64}$"},
-      "additionalProperties": {"type": "string", "maxLength": 8192}
+      "propertyNames": {
+        "pattern": "^[!#$%&'*+.^_|~0-9A-Za-z-]{1,64}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 8192
+      }
     },
     "secret_headers": {
       "type": "object",
       "maxProperties": 10,
-      "propertyNames": {"pattern": "^[!#$%&'*+.^_|~0-9A-Za-z-]{1,64}$"},
-      "additionalProperties": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]{0,63}$"}
+      "propertyNames": {
+        "pattern": "^[!#$%&'*+.^_|~0-9A-Za-z-]{1,64}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[A-Z_][A-Z0-9_]{0,63}$"
+      }
     },
-    "body": {"type": ["string", "null"], "maxLength": 16384},
-    "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 10},
-    "max_response_bytes": {"type": "integer", "minimum": 1024, "maximum": 262144},
-    "follow_redirects": {"type": "boolean"},
+    "body": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32768
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "max_response_bytes": {
+      "type": "integer",
+      "minimum": 1024,
+      "maximum": 262144
+    },
+    "follow_redirects": {
+      "type": "boolean"
+    },
     "operator_approval": {
       "type": "object",
-      "required": ["approved", "approved_by", "approved_at", "reason"],
+      "required": [
+        "approved",
+        "approved_by",
+        "approved_at",
+        "reason"
+      ],
       "properties": {
-        "approved": {"const": true},
-        "approved_by": {"type": "string", "minLength": 1, "maxLength": 120},
-        "approved_at": {"type": "string", "minLength": 10, "maxLength": 40},
-        "reason": {"type": "string", "minLength": 10, "maxLength": 500}
+        "approved": {
+          "const": true
+        },
+        "approved_by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "approved_at": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 40
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "upload": {
+      "type": "object",
+      "required": [
+        "filename",
+        "content_type",
+        "content_base64"
+      ],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "text/plain",
+            "application/json",
+            "image/png"
+          ]
+        },
+        "content_base64": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350000
+        }
       },
       "additionalProperties": false
     }

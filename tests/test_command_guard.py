@@ -33,6 +33,18 @@ class CommandGuardTests(unittest.TestCase):
         self.assertIsNotNone(active_surface_args(command))
         self.assertFalse(allowed_argv(command + ["--extra"]))
 
+    def test_surface_discovery_accepts_only_environment_backed_auth_references(self):
+        command = ["python3", "scripts/active_surface.py", "--db", ".local/state.sqlite3",
+                   "--engagement-id", "eng-1", "--task-id", "task-1",
+                   "--target-url", "https://app.example.test/", "--max-pages", "20", "--max-depth", "2",
+                   "--secret-header", "Cookie=TEST_COOKIE", "--secret-header", "X-CSRF-Token=TEST_CSRF",
+                   "--user-agent", "Synthetic Browser/1.0"]
+        self.assertTrue(allowed_argv(command))
+        self.assertFalse(allowed_argv(command + ["--secret-header", "Cookie=OTHER_COOKIE"]))
+        bad = command.copy()
+        bad[15] = "Cookie=literal-secret"
+        self.assertFalse(allowed_argv(bad))
+
     def test_specialist_security_commands_are_allowlisted_only_with_strict_pinned_manifest_shapes(self):
         ssrf = ["python3", "scripts/active_ssrf_probe.py", "--db", ".local/state.sqlite3",
                 "--engagement-id", "eng-123", "--task-id", "task-123",

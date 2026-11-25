@@ -350,5 +350,39 @@ class ActiveHTTPExecutorTests(unittest.TestCase):
             executor.execute_request_file(self.engagement_id, task_id, manifest)
 
 
+
+    def test_put_is_blocked_without_engagement_state_changing_class(self):
+        rules = {"execution_enabled": False, "authorization_verified": False,
+                 "allowed_test_classes": ["http-read-only"],
+                 "human_approval_required_for_state_changes": True,
+                 "max_concurrency": 1, "requests_per_second": 1}
+        self.workflow.store.connection.execute(
+            "UPDATE engagements SET rules_json=? WHERE engagement_id=?",
+            (json.dumps(rules), self.engagement_id),
+        )
+        self.workflow.store.connection.commit()
+        self._approve()
+        request = self._request(method="PUT", body="name=synthetic",
+            operator_approval={"approved": True, "approved_by": "operator",
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "Approved synthetic write gate regression"})
+        task_id, manifest = self._plan_and_start(request)
+        with self.assertRaisesRegex(ActiveExecutionError, "not authorized by engagement rules"):
+            ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
+                self.engagement_id, task_id, manifest)
+
+    def test_upload_is_disabled_without_separate_upload_gate(self):
+        self._approve()
+        request = self._request(method="POST",
+            operator_approval={"approved": True, "approved_by": "operator",
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "Approved synthetic upload gate regression"},
+            upload={"filename": "fixture.txt", "content_type": "text/plain",
+                    "content_base64": "c3ludGhldGlj"})
+        task_id, manifest = self._plan_and_start(request)
+        with self.assertRaisesRegex(ActiveExecutionError, "Uploads are disabled"):
+            ActiveHTTPExecutor(self.workflow, self.root).execute_request_file(
+                self.engagement_id, task_id, manifest)
+
 if __name__ == "__main__":
     unittest.main()
