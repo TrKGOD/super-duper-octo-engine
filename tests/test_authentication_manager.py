@@ -11,15 +11,21 @@ from core.auth.session_store import SessionStore
 from core.auth.adapters.oauth2 import OAuth2Adapter
 from core.auth.adapters.oidc import OIDCAdapter
 from core.auth.adapters.browser import BrowserAuthAdapter
+from scripts.migrate import migrate
 
 
 class AuthenticationManagerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = str(Path(self.tmp.name) / "state.sqlite3")
+        migrate(self.db)
         self.key = Fernet.generate_key()
         self.store = SessionStore(self.db, self.key)
         self.engagement = "eng-auth-test"
+        self.store.db.execute("""INSERT INTO engagements
+          (engagement_id,authorization_reference,status,scope_json,rules_json,created_at,updated_at)
+          VALUES(?,?,?,?,?,?,?)""", (self.engagement,"SYNTHETIC-AUTH-TEST","draft","{}","{}", "now","now"))
+        self.store.db.commit()
         self.manager = AuthenticationManager(self.store, self.engagement)
 
     def tearDown(self):
@@ -55,8 +61,8 @@ class AuthenticationManagerTests(unittest.TestCase):
         self.assertEqual(result["reason"], "state_changing_request_never_retried")
 
     def test_browser_challenge_pauses_for_human(self):
-        adapter = BrowserAuthAdapter()
-        result = adapter.authenticate({"playwright_runner": lambda **_: {"mfa_required": True}}, lambda _: "unused")
+        adapter = BrowserAuthAdapter(runner=lambda **_: {"mfa_required": True})
+        result = adapter.authenticate({}, lambda _: "unused")
         self.assertTrue(result["challenge_required"])
 
     def test_oauth2_refresh_uses_injected_transport_and_rotates_tokens(self):
