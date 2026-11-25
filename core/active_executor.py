@@ -532,10 +532,12 @@ class ActiveHTTPExecutor:
                     auth_store = SessionStore(self.workflow.store.db_path)
                     identity = auth_store.identity(engagement_id, auth_identity_id)
                     auth_config = identity["config"]
-                    transport = BrokerAuthTransport(
-                        self.workflow, engagement_id, task.get("scope_subset", []),
-                        auth_config.get("base_url", ""), acquire_slot=False,
-                    )
+                    transport = None
+                    if identity["adapter"] in {"form", "oauth2", "oidc"}:
+                        transport = BrokerAuthTransport(
+                            self.workflow, engagement_id, task.get("scope_subset", []),
+                            auth_config.get("base_url", ""), acquire_slot=False,
+                        )
                     auth_manager = AuthenticationManager(
                         auth_store, engagement_id, transport=transport,
                         audit=lambda event, details: self.workflow.store.append_audit(
