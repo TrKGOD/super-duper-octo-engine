@@ -29,11 +29,15 @@ class AuthPolicy:
 class AuthenticationManager:
     ADAPTERS = {item.name:item for item in (FormAuthAdapter(),OAuth2Adapter(),OIDCAdapter(),
         CookieSessionAdapter(),JWTAdapter(),APIKeyAdapter(),BrowserAuthAdapter())}
-    def __init__(self, store, engagement_id, policy=None, secret_resolver=None, audit=None):
+    def __init__(self, store, engagement_id, policy=None, secret_resolver=None, audit=None,
+                 transport=None, browser_runner=None):
         self.store, self.engagement_id = store, engagement_id
         self.policy = policy or AuthPolicy()
         self.secret_resolver = secret_resolver or self._env_secret
         self.audit = audit or (lambda event, details: None)
+        self.transport = transport
+        self.adapters = dict(self.ADAPTERS)
+        self.adapters["browser"] = BrowserAuthAdapter(browser_runner)
 
     @staticmethod
     def _env_secret(name):
@@ -42,14 +46,14 @@ class AuthenticationManager:
         return value
 
     def register_identity(self, identity_id, adapter, config):
-        if adapter not in self.ADAPTERS: raise AuthError("Unsupported authentication adapter")
+        if adapter not in self.adapters: raise AuthError("Unsupported authentication adapter")
         self.store.register_identity(self.engagement_id, identity_id, adapter, config)
         self.audit("auth.identity_registered", {"identity_id":identity_id,"adapter":adapter})
 
     def authenticate(self, identity_id, transport=None):
         identity=self.store.identity(self.engagement_id, identity_id)
-        adapter=self.ADAPTERS[identity["adapter"]]
-        result=adapter.authenticate(identity["config"], self.secret_resolver, transport)
+        adapter=self.adapters[identity["adapter"]]
+        result=adapter.authenticate(identity["config"], self.secret_resolver, transport or self.transport)
         if result.get("challenge_required"):
             self.audit("auth.challenge_required", {"identity_id":identity_id,"adapter":identity["adapter"]})
             raise AuthError("Human authentication step required (MFA/CAPTCHA/passkey/approval); automation paused")
@@ -65,11 +69,11 @@ class AuthenticationManager:
     def _recover(self, session_id, identity_id, transport=None):
         identity=self.store.identity(self.engagement_id, identity_id)
         current=self.store.get(session_id,self.engagement_id,identity_id)
-        adapter=self.ADAPTERS[identity["adapter"]]
+        adapter=self.adapters[identity["adapter"]]
         self.store.set_state(session_id,self.engagement_id,identity_id,AuthState.EXPIRING.value)
-        result=adapter.refresh(current["material"],identity["config"],self.secret_resolver,transport)
+        result=adapter.refresh(current["material"],identity["config"],self.secret_resolver,transport or self.transport)
         if result is None and self.policy.automatic_reauth:
-            result=adapter.authenticate(identity["config"],self.secret_resolver,transport)
+            result=adapter.authenticate(identity["config"],self.secret_resolver,transport or self.transport)
         if not result or result.get("challenge_required"):
             self.store.set_state(session_id,self.engagement_id,identity_id,AuthState.CHALLENGE_REQUIRED.value if result and result.get("challenge_required") else AuthState.RECOVERY_FAILED.value)
             raise AuthError("Session recovery requires operator action")
