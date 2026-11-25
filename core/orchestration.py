@@ -265,8 +265,13 @@ class Workflow:
             authorized_ids = task.get("authorized_identity_ids", [])
             if bool(identity_id) != bool(session_id):
                 raise WorkflowError("Authenticated tasks require both auth_identity_id and auth_session_id")
+            operator_authorized_ids = set(rules.get("authorized_identity_ids", []))
             if identity_id and identity_id not in authorized_ids:
                 raise WorkflowError("Task auth_identity_id must be explicitly listed in authorized_identity_ids")
+            if identity_id and identity_id not in operator_authorized_ids:
+                raise WorkflowError("Task identity is not in the operator-approved engagement identity allowlist")
+            if set(authorized_ids) - operator_authorized_ids:
+                raise WorkflowError("Task authorized_identity_ids exceeds the operator-approved engagement identity allowlist")
             if identity_id and task.get("active_testing") is not True:
                 raise WorkflowError("Authentication can only be attached to explicitly active tasks")
         for task in tasks:
