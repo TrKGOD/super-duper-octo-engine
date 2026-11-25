@@ -93,6 +93,12 @@
             "type": "boolean",
             "default": false
           },
+          "authorized_identity_ids": {
+            "type": "array", "uniqueItems": true, "maxItems": 10,
+            "items": {"type": "string", "minLength": 1, "maxLength": 100}
+          },
+          "auth_identity_id": {"type": "string", "minLength": 1, "maxLength": 100},
+          "auth_session_id": {"type": "string", "pattern": "^sess_[a-f0-9]{32}$"},
           "request_files": {
             "type": "array",
             "maxItems": 100,
