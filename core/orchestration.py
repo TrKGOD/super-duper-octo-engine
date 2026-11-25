@@ -260,6 +260,16 @@ class Workflow:
                     except Exception as exc:
                         raise WorkflowError("Invalid or out-of-scope active request manifest " + manifest["path"] + ": " + str(exc)) from exc
         for task in tasks:
+            identity_id = task.get("auth_identity_id")
+            session_id = task.get("auth_session_id")
+            authorized_ids = task.get("authorized_identity_ids", [])
+            if bool(identity_id) != bool(session_id):
+                raise WorkflowError("Authenticated tasks require both auth_identity_id and auth_session_id")
+            if identity_id and identity_id not in authorized_ids:
+                raise WorkflowError("Task auth_identity_id must be explicitly listed in authorized_identity_ids")
+            if identity_id and task.get("active_testing") is not True:
+                raise WorkflowError("Authentication can only be attached to explicitly active tasks")
+        for task in tasks:
             try:
                 self.store.validate_evidence_refs_for_engagement(
                     engagement_id, task.get("evidence_refs", [])
@@ -290,6 +300,9 @@ class Workflow:
                     "evidence_refs": task.get("evidence_refs", []),
                     "active_testing": task.get("active_testing", False),
                     "request_files": task.get("request_files", []),
+                    "auth_identity_id": task.get("auth_identity_id"),
+                    "auth_session_id": task.get("auth_session_id"),
+                    "authorized_identity_ids": task.get("authorized_identity_ids", []),
                 }
             )
         return [
