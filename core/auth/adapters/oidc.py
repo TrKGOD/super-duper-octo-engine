@@ -142,3 +142,24 @@ class OIDCAdapter(AuthAdapter):
                 "refresh_token": token_response.get("refresh_token"),
                 "id_token": id_token, "expires_at": token_response.get("expires_at"),
                 "token_type": token_response.get("token_type", "Bearer")}
+
+    def refresh(self, material, config, secret_resolver, transport=None):
+        refresh_token = material.get("refresh_token")
+        if not refresh_token or transport is None:
+            return None
+        fields = {"grant_type": "refresh_token", "refresh_token": refresh_token,
+                  "client_id": config["client_id"]}
+        if config.get("client_secret_env"):
+            fields["client_secret"] = secret_resolver(config["client_secret_env"])
+        response = transport("POST", config["token_path"], fields=fields,
+                             purpose="OIDC refresh token exchange")
+        if response.get("challenge_required"):
+            return {"challenge_required": True}
+        access_token = response.get("access_token")
+        if not access_token:
+            raise RuntimeError("OIDC refresh response did not contain an access token")
+        return {"headers": {"Authorization": "Bearer " + access_token},
+                "access_token": access_token,
+                "refresh_token": response.get("refresh_token", refresh_token),
+                "expires_at": response.get("expires_at"),
+                "token_type": response.get("token_type", "Bearer")}
