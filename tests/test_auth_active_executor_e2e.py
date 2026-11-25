@@ -53,6 +53,7 @@ class AuthenticatedBrokerEndToEndTests(unittest.TestCase):
                 "allowed_test_classes": ["http-read-only", "authentication-http"],
                 "prohibited_test_classes": ["denial-of-service"],
                 "max_concurrency": 1, "requests_per_second": 5,
+                "authorized_identity_ids": ["tester"],
             },
         })
         self.workflow.approve_engagement(
