@@ -20,7 +20,7 @@ The repository already maintains [`docs/AUTONOMOUS_PLATFORM_ROADMAP.md`](AUTONOM
 | Phase 3 — Adaptive Testing Planner | Gate 1 (adaptive orchestration) | Static DAG today, not adaptive |
 | Phase 4 — Exploit Validation Engine | Gate 6 + existing validation | Adversarial review exists; deterministic oracles partial |
 | Phase 5 — Isolated Execution Workers | Gate 3 (execution isolation) | Explicitly out of scope today |
-| Phase 6 — Benchmark & Regression Lab | Gate 0 (measurement baseline) | In progress |
+| Phase 6 — Benchmark & Regression Lab | Gate 0 (measurement baseline) | Deterministic lab done; real-agent gated |
 
 **Recommendation:** keep a single roadmap. Extend the existing gate vocabulary rather than introducing a second phase numbering in code or docs.
 
@@ -105,7 +105,8 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 ### Phase 6 — Benchmark & Regression Lab
 | Capability | Status |
 |---|---|
-| Synthetic corpus + runner + metrics (precision/recall/F1/FP) + architecture comparison | IMPLEMENTED/PARTIAL (`implemented_unverified`) — `benchmarks/cases/*` (35), `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py`, `scripts/run_architecture_benchmark.py`; `tests/test_benchmark*.py`. CI gates the real-agent benchmark behind `vars.CLAUDE_BENCHMARK_MODEL` (correctly *skipped*, not failed). |
+| Deterministic regression lab over the real graph→planner→validation pipeline; precision/recall/F1/coverage/cost; reproducibility; regression gate | IMPLEMENTED (`lab_verified`) — `core/benchmark/*`, `scripts/run_regression_benchmark.py`, `tests/test_benchmark_regression.py`. CI-safe (no live targets, no model). See `docs/BENCHMARK_LAB.md`. |
+| Real-agent corpus + runner (gated) | IMPLEMENTED (`implemented_unverified`) — `benchmarks/cases/*` (35), `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py`; gated behind `vars.CLAUDE_BENCHMARK_MODEL` (correctly *skipped*, not failed). |
 | External benchmark (XBEN etc.) integration | MISSING — not integrated; license/repro review required first. |
 
 ### Cross-cutting

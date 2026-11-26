@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added the Benchmark & Regression Lab (`core/benchmark/`, `scripts/run_regression_benchmark.py`):
+  a deterministic, CI-safe harness that runs synthetic scenarios through the real
+  graph→planner→validation pipeline and reports precision/recall/F1, endpoint coverage,
+  validated-finding counts, runtime and (synthetic) cost, with a reproducible run manifest
+  and a regression-comparison gate. Contacts no live target and calls no model; the
+  real-agent benchmark stays separate and gated. Lab-verified by
+  `tests/test_benchmark_regression.py`.
 - Added Isolated Execution Workers (`core/workers/`, migration `012_worker_executions.sql`):
   a tool registry with injection-safe argument validation, a portable bounded subprocess
   backend (timeout/output/POSIX-rlimit bounds — explicitly not a sandbox), a hardened
