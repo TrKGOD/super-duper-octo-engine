@@ -98,7 +98,9 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 ### Phase 5 — Isolated Execution Workers
 | Capability | Status |
 |---|---|
-| Container/worker manager, egress allowlist, resource quotas, cross-engagement isolation | **MISSING** (by design, so far) — `CLAUDE.md` and the roadmap explicitly state the HTTP broker + command guard are **not** a sandbox. Gate 3 is the dedicated security-critical build. |
+| Worker manager, tool registry, resource/output/timeout bounds, per-engagement artifact isolation, observability, cleanup | IMPLEMENTED (`lab_verified`) — `core/workers/*` (migration `012`), `tests/test_isolated_workers.py`. See `docs/ISOLATED_EXECUTION.md`. |
+| Hardened container backend (read-only, cap-drop, no-new-privileges, pids/memory/cpu, no privileged, no docker socket) | IMPLEMENTED, command-level tested; **runtime isolation NOT exercised in CI** (no Docker) — the container backend is the real isolation boundary. |
+| Egress/DNS enforcement, concrete container runtime in CI, mid-run cancellation | MISSING — follow-up. The subprocess backend is explicitly **not** a sandbox; untrusted tools require the container backend + host controls. |
 
 ### Phase 6 — Benchmark & Regression Lab
 | Capability | Status |

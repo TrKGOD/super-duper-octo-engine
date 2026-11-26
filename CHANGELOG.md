@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added Isolated Execution Workers (`core/workers/`, migration `012_worker_executions.sql`):
+  a tool registry with injection-safe argument validation, a portable bounded subprocess
+  backend (timeout/output/POSIX-rlimit bounds — explicitly not a sandbox), a hardened
+  container backend (read-only, cap-drop, no-new-privileges, pids/memory/cpu limits, no
+  privileged, no docker socket), and a worker manager with per-engagement artifact
+  isolation, resource budgets, observability and cleanup. Lab-verified by
+  `tests/test_isolated_workers.py`; see docs/ISOLATED_EXECUTION.md for the threat model.
 - Renamed the project to **Witherhoard** (was "Pentest Agent Framework" / "Hackbot"),
   including the GitHub repository (`super-duper-octo-engine` → `witherhoard`).
 - Added the Exploit Validation Engine (`core/validation_engine/`, migration

@@ -20,7 +20,8 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
 | 3 | Planner: wire real executor through broker + Phase 4 validation | NOT_STARTED | — | — | — | follow-up |
 | 4 | Exploit Validation Engine — deterministic oracles, independent dispositions, tamper-evident records, finding-lifecycle integration, safe retest, reporting | TESTED | `core/validation_engine/*`, `database/migrations/011_validation_records.sql` | `tests/test_exploit_validation.py` (18) | green (this PR) | this PR |
 | 4 | Validation: wire planner executor to the engine; more oracles (SSRF/open-redirect); graph VALIDATED_BY edges | NOT_STARTED | — | — | — | follow-up |
-| 5 | Isolated Execution Workers (Gate 3 sandbox) | NOT_STARTED | — | — | — | — |
+| 5 | Isolated Execution Workers — tool registry, bounded subprocess backend, hardened container backend, worker manager (isolation/limits/observability/cleanup) | TESTED (orchestration + portable backend) | `core/workers/*`, `database/migrations/012_worker_executions.sql` | `tests/test_isolated_workers.py` (15) | green (this PR) | this PR |
+| 5 | Concrete container runtime + CI with Docker; host egress/DNS enforcement; mid-run cancellation | NOT_STARTED | — | — | — | follow-up (container runtime isolation not exercised in CI) |
 | 6 | Benchmark & Regression Lab (Gate 0) | IN_PROGRESS | `benchmarks/*`, `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | green | — |
 
 ## Notes
