@@ -22,7 +22,8 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
 | 4 | Validation: wire planner executor to the engine; more oracles (SSRF/open-redirect); graph VALIDATED_BY edges | NOT_STARTED | — | — | — | follow-up |
 | 5 | Isolated Execution Workers — tool registry, bounded subprocess backend, hardened container backend, worker manager (isolation/limits/observability/cleanup) | TESTED (orchestration + portable backend) | `core/workers/*`, `database/migrations/012_worker_executions.sql` | `tests/test_isolated_workers.py` (15) | green (this PR) | this PR |
 | 5 | Concrete container runtime + CI with Docker; host egress/DNS enforcement; mid-run cancellation | NOT_STARTED | — | — | — | follow-up (container runtime isolation not exercised in CI) |
-| 6 | Benchmark & Regression Lab (Gate 0) | IN_PROGRESS | `benchmarks/*`, `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | green | — |
+| 6 | Benchmark & Regression Lab — deterministic CI-safe harness over the real graph→planner→validation pipeline; precision/recall/F1/coverage/cost; reproducibility; regression gate | TESTED | `core/benchmark/*`, `scripts/run_regression_benchmark.py` | `tests/test_benchmark_regression.py` (10) | green (this PR) | this PR |
+| 6 | Real-agent benchmark (gated) + external benchmark (XBEN) integration | IN_PROGRESS / NOT_STARTED | `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | gated behind `CLAUDE_BENCHMARK_MODEL` | follow-up |
 
 ## Notes
 - "green on `main`" / "green (new PR)" refers to the CI `test` job; the `agent-benchmark`
