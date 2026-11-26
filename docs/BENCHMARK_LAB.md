@@ -71,3 +71,9 @@ regression-comparison gate.
 - Cost is synthetic (`0.0`). Real cost/latency come from the gated real-agent benchmark.
 - Metrics rank within this synthetic corpus; they are not a claim of real-world
   effectiveness.
+
+## Intelligence-layer extension
+
+Component H extends this lab with retrieval-quality, tool-selection-quality and
+reporting-quality evaluators (plus a safety-aware regression gate) over the real Intelligence
+Layer components. See [INTELLIGENCE_BENCHMARKING.md](INTELLIGENCE_BENCHMARKING.md).
