@@ -1,8 +1,8 @@
-# Pentest Agent Framework — Project Charter
+# Witherhoard — Project Charter
 
 ## Product definition
 
-The Pentest Agent Framework is an execution-oriented, multi-agent system for conducting **authorized penetration tests**. It is intended to accept an engagement's rules and verified scope, discover and assess the exposed attack surface, investigate vulnerabilities, validate findings, preserve evidence, and produce professional security reports.
+The Witherhoard is an execution-oriented, multi-agent system for conducting **authorized penetration tests**. It is intended to accept an engagement's rules and verified scope, discover and assess the exposed attack surface, investigate vulnerabilities, validate findings, preserve evidence, and produce professional security reports.
 
 It is not intended to be a generic conversational assistant, a documentation generator, or a set of agent prompts that only describe hypothetical testing.
 

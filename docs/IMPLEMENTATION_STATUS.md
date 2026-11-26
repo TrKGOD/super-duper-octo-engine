@@ -18,7 +18,8 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
 | 2 | Graph: findings/evidence lifecycle edges from validation engine; planner wiring | NOT_STARTED | — | — | — | follow-up |
 | 3 | Adaptive Testing Planner — hypothesis lifecycle, evidence-driven candidates, deterministic policy, transparent scoring, bounded adaptive loop, observability | TESTED | `core/planner/*`, `database/migrations/010_adaptive_planner.sql` | `tests/test_adaptive_planner.py` (13) | green (this PR) | this PR |
 | 3 | Planner: wire real executor through broker + Phase 4 validation | NOT_STARTED | — | — | — | follow-up |
-| 4 | Exploit Validation Engine (unify analyzers behind SUPPORTED/REFUTED/INCONCLUSIVE) | IN_PROGRESS (adversarial review exists) | `core/adversarial_validation.py`, `core/finding_validation.py` | existing | green | — |
+| 4 | Exploit Validation Engine — deterministic oracles, independent dispositions, tamper-evident records, finding-lifecycle integration, safe retest, reporting | TESTED | `core/validation_engine/*`, `database/migrations/011_validation_records.sql` | `tests/test_exploit_validation.py` (18) | green (this PR) | this PR |
+| 4 | Validation: wire planner executor to the engine; more oracles (SSRF/open-redirect); graph VALIDATED_BY edges | NOT_STARTED | — | — | — | follow-up |
 | 5 | Isolated Execution Workers (Gate 3 sandbox) | NOT_STARTED | — | — | — | — |
 | 6 | Benchmark & Regression Lab (Gate 0) | IN_PROGRESS | `benchmarks/*`, `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | green | — |
 
