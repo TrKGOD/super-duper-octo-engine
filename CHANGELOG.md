@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added Validated Experience Memory (`core/experience/`) — Intelligence Layer Component C: a
+  dedicated, reusable-across-engagements store whose promotion gate accepts **only**
+  independently validated findings (a SUPPORTED Phase 4 validation record) — never a
+  hypothesis, refuted or inconclusive test. Records are sanitized (secrets redacted; evidence
+  by reference id only), retrieval is similarity-based and advisory (past success is not
+  evidence and not authorization), with versioning/confidence-recalculation/deprecation. Lab-
+  verified by `tests/test_experience_memory.py`.
 - Added Knowledge Graph integration (`core/knowledge/graph_bridge.py`) — Intelligence Layer
   Component B: projects KB patterns and their CWE/CVE/OWASP/CAPEC/ATT&CK references into the
   existing engagement attack graph as inferred knowledge nodes/edges with provenance, plus
