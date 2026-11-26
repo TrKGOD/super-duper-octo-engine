@@ -16,7 +16,8 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
 | 1 | Workflow execution of safe flows; in-browser JS bundle route extraction; surface persistence to store | NOT_STARTED | — | — | — | follow-up (PR C) |
 | 2 | Attack Graph / Knowledge Graph — typed nodes/edges over SQLite, trust-tiered provenance, ingestion, path reasoning, query interface | TESTED | `core/graph/*`, `database/migrations/009_attack_graph.sql` | `tests/test_attack_graph.py` (20) | green (this PR) | this PR |
 | 2 | Graph: findings/evidence lifecycle edges from validation engine; planner wiring | NOT_STARTED | — | — | — | follow-up |
-| 3 | Adaptive Testing Planner (Gate 1 bounded loop) | NOT_STARTED | — | — | — | — |
+| 3 | Adaptive Testing Planner — hypothesis lifecycle, evidence-driven candidates, deterministic policy, transparent scoring, bounded adaptive loop, observability | TESTED | `core/planner/*`, `database/migrations/010_adaptive_planner.sql` | `tests/test_adaptive_planner.py` (13) | green (this PR) | this PR |
+| 3 | Planner: wire real executor through broker + Phase 4 validation | NOT_STARTED | — | — | — | follow-up |
 | 4 | Exploit Validation Engine (unify analyzers behind SUPPORTED/REFUTED/INCONCLUSIVE) | IN_PROGRESS (adversarial review exists) | `core/adversarial_validation.py`, `core/finding_validation.py` | existing | green | — |
 | 5 | Isolated Execution Workers (Gate 3 sandbox) | NOT_STARTED | — | — | — | — |
 | 6 | Benchmark & Regression Lab (Gate 0) | IN_PROGRESS | `benchmarks/*`, `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | green | — |
