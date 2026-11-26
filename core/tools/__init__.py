@@ -7,6 +7,8 @@ tool runs through the Phase 5 worker broker via an adapter. RESTRICTED actions a
 auto-selected and always require explicit operator approval.
 """
 from core.tools.adapter import AdapterError, BrokeredCommandAdapter, ToolAdapter, ToolResult
+from core.tools.catalog import CATALOG, adapter_for, build_default_catalog
+from core.tools.parsers import PARSERS, get_parser
 from core.tools.profiles import (ACTIVE_CONTROLLED, AUTO_SELECTABLE, PASSIVE, PROFILES,
                                  ProfileError, ProfilePolicy, RESTRICTED, SAFE,
                                  requires_operator_approval, validate_profile)
@@ -17,4 +19,5 @@ __all__ = [
     "ProfilePolicy", "ProfileError", "validate_profile", "requires_operator_approval",
     "PROFILES", "AUTO_SELECTABLE", "PASSIVE", "SAFE", "ACTIVE_CONTROLLED", "RESTRICTED",
     "ToolAdapter", "BrokeredCommandAdapter", "ToolResult", "AdapterError",
+    "build_default_catalog", "adapter_for", "CATALOG", "PARSERS", "get_parser",
 ]

@@ -45,7 +45,8 @@ See [`INTELLIGENCE_LAYER_AUDIT.md`](INTELLIGENCE_LAYER_AUDIT.md). Components A�
 | B | Knowledge Graph integration — KB patterns→graph as inferred knowledge nodes/edges, provenance, graph-assisted queries, authorization boundary preserved | TESTED | `core/knowledge/graph_bridge.py`, `core/graph/schema.py` (knowledge types) | `tests/test_knowledge_graph_integration.py` (6) | green (this PR) | this PR |
 | C | Validated Experience Memory — promotion gate (only validation-confirmed findings), sanitized records (no secrets), similarity retrieval, versioning/deprecation | TESTED | `core/experience/*` (dedicated reusable store) | `tests/test_experience_memory.py` (9) | green (this PR) | this PR |
 | D | Tool Registry & Adapter Framework — extended ToolDefinition/registry over Phase 5 ToolSpec, four execution profiles + policy (RESTRICTED never auto-selected), brokered adapter contract, honest availability | TESTED | `core/tools/*` | `tests/test_tool_registry.py` (14) | green (this PR) | this PR |
-| E | Initial tool adapters | NOT_STARTED | — | — | — | — |
+| E | Initial tool adapters — real catalog (subfinder/dnsx/httpx/katana/ffuf/nuclei/dalfox) with real tested parsers, correct profiles, and honest availability (binaries not bundled) | TESTED (adapters+parsers; binaries require operator config) | `core/tools/{parsers,catalog}.py` | `tests/test_tool_adapters.py` (12) | green (this PR) | this PR |
+| F | Agent-to-tool selection + normalized observation model | NOT_STARTED | — | — | — | next |
 | F | Agent-to-tool selection + normalized observations | NOT_STARTED | — | — | — | — |
 | G | Reporting engine (templates, MD/HTML/PDF/SARIF/JSON, evidence package, Nessus import) | NOT_STARTED | — | — | — | — |
 | H | Intelligence-layer benchmarking (retrieval/tool-selection/report metrics) | NOT_STARTED | — | — | — | — |

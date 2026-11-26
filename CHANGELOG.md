@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added the initial tool adapters (`core/tools/parsers.py`, `core/tools/catalog.py`) —
+  Intelligence Layer Component E: real adapters for subfinder/dnsx/httpx/katana/ffuf/nuclei/
+  dalfox with real, tested output parsers (nuclei/dalfox results marked CANDIDATE, never
+  confirmed), correct execution profiles, and honest availability — binaries are not bundled,
+  so each reports `requires_operator_configuration` until installed. No fake integrations; the
+  end-to-end path is proven through the Phase 5 broker with a synthetic stand-in. Lab-verified
+  by `tests/test_tool_adapters.py`.
 - Added the Tool Registry & Adapter Framework (`core/tools/`) — Intelligence Layer Component D:
   an extended ToolDefinition/registry over the Phase 5 worker ToolSpec (capabilities,
   vulnerability classes, honest availability), the four execution profiles
