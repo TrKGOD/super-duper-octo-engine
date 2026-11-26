@@ -6,6 +6,7 @@ No plaintext credential/session material is written to SQLite or audit logs.
 import json
 import os
 import sqlite3
+import re
 from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -59,8 +60,11 @@ class SessionStore:
                 for key, child in value.items():
                     normalized = str(key).lower()
                     if normalized in forbidden:
-                        return True
-                    if not normalized.endswith("_env") and contains_literal_secret(child):
+                        # A sensitive field is safe only when its value is an explicit
+                        # uppercase environment-variable reference, never a literal.
+                        if not (isinstance(child, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{1,127}", child)):
+                            return True
+                    if not normalized.endswith("_env") and normalized not in forbidden and contains_literal_secret(child):
                         return True
             elif isinstance(value, (list, tuple)):
                 return any(contains_literal_secret(item) for item in value)

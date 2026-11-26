@@ -23,7 +23,32 @@ AAM provides engagement-scoped identities, encrypted session persistence, adapte
 - Identity selection is explicit per task; there is no automatic privilege escalation or identity switching.
 
 ## Adapters and transport
-Adapters receive a transport callback supplied by the authorized execution layer. They do not perform arbitrary HTTP requests themselves. OAuth2/OIDC endpoints and browser flows must be in engagement scope and use the broker. Browser runner must use an isolated Playwright context and return only required session headers and expiry metadata.
+Network adapters receive `BrokerAuthTransport`, which is bound to the configured base origin, task scope subset, engagement allowlist, DNS-pinned destination, response-size ceiling, no-redirect policy and engagement rate-limit lease. It permits only GET discovery/JWKS and POST form/token exchanges. Token response bodies remain in memory and are never captured as evidence or written to audit logs. The engagement must explicitly include `authentication-http` in `allowed_test_classes`; the normal active HTTP class remains separately required for target testing.
 
-## Current integration status
-The AAM core and adapters are implemented as a separate module. The existing active HTTP executor has not yet been wired to select an identity from task metadata; do not describe authenticated requests as operational until that integration and local synthetic tests pass. The browser adapter is an integration seam and requires an operator-supplied Playwright runner; it is not a turnkey browser login feature.
+OIDC requires an operator-supplied expected nonce and an explicit broker-routed `jwks_path`. It validates the compact ID Token signature (RS256 or ES256), `kid`, issuer, audience, authorized party for multiple audiences, nonce, expiration, issued-at and not-before claims. Unsupported algorithms and ambiguous/missing keys fail closed. Discovery metadata's issuer and JWKS origin are checked against the configured issuer.
+
+Browser authentication uses the built-in optional Playwright runner. It launches an isolated headless Chromium context, blocks downloads and service workers, restricts every browser request to the exact configured origin, uses environment-variable credentials, and returns only origin-scoped session cookies. MFA/CAPTCHA/passkey challenges are surfaced as `challenge_required`; automation stops and an operator must complete the challenge through an approved manual workflow. It does not bypass challenges or export browser profiles/storage state.
+
+## Operator CLI
+Generate a vault key and provision it out-of-band:
+
+```bash
+python scripts/auth.py genkey
+export HACKBOT_AUTH_VAULT_KEY='...'
+```
+
+Register an identity using a local JSON config containing environment-variable references only:
+
+```bash
+python scripts/auth.py --db .local/state.sqlite3 register --engagement-id ENG-ID --identity-id tester --adapter form --config .local/auth-tester.json
+python scripts/auth.py --db .local/state.sqlite3 authenticate --engagement-id ENG-ID --identity-id tester --scope-asset app.example.test
+python scripts/auth.py --db .local/state.sqlite3 list --engagement-id ENG-ID --identity-id tester
+python scripts/auth.py --db .local/state.sqlite3 revoke --engagement-id ENG-ID --identity-id tester --session-id sess_...
+```
+
+The engagement must be active, explicitly approved, and allow `authentication-http` for network-backed form/OAuth exchanges. Its operator-authored `rules_of_engagement.authorized_identity_ids` list is the source of truth for which identities tasks may select; a task cannot authorize itself by populating its own identity list. The config's `base_url` must be an exact in-scope origin. Keep local config files, vault keys and environment values out of Git.
+
+For browser auth, install the CI-tested Playwright dependency and Chromium runtime with `python -m pip install -r requirements-dev.txt && python -m playwright install chromium`.
+
+## Current validation status
+The branch adds cryptographic OIDC claim/signature tests, a local HTTP integration test crossing the broker transport and encrypted session store, and a real local Playwright login test executed in CI with Chromium. These are synthetic-lab checks; they do not prove compatibility with every identity provider or production browser flow. OAuth2/OIDC provider-specific authorization-code bootstrap and operator-mediated interactive challenge completion remain provider/operator responsibilities. Authenticated active-task propagation is validated at plan creation and consumed inside the HTTP broker; end-to-end execution against an external target remains intentionally untested.

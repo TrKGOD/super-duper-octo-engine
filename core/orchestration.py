@@ -156,6 +156,13 @@ class Workflow:
         if not any(scope.get(key) for key in scope_keys):
             raise WorkflowError("Cannot approve an engagement with an empty target allowlist")
         rules = json.loads(row["rules_json"])
+        operator_identity_ids = rules.get("authorized_identity_ids", [])
+        if (not isinstance(operator_identity_ids, list) or len(operator_identity_ids) > 10
+                or any(not isinstance(item, str) or not item.strip() or len(item) > 100
+                       or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for char in item)
+                       for item in operator_identity_ids)
+                or len(set(operator_identity_ids)) != len(operator_identity_ids)):
+            raise WorkflowError("authorized_identity_ids must be a unique operator-defined list of up to 10 safe identity IDs")
         if rules.get("execution_mode", "active") != "active":
             raise WorkflowError("Active execution is disabled by this engagement's execution_mode")
         allowed_classes = set(rules.get("allowed_test_classes", []))
@@ -260,6 +267,21 @@ class Workflow:
                     except Exception as exc:
                         raise WorkflowError("Invalid or out-of-scope active request manifest " + manifest["path"] + ": " + str(exc)) from exc
         for task in tasks:
+            identity_id = task.get("auth_identity_id")
+            session_id = task.get("auth_session_id")
+            authorized_ids = task.get("authorized_identity_ids", [])
+            if bool(identity_id) != bool(session_id):
+                raise WorkflowError("Authenticated tasks require both auth_identity_id and auth_session_id")
+            operator_authorized_ids = set(rules.get("authorized_identity_ids", []))
+            if identity_id and identity_id not in authorized_ids:
+                raise WorkflowError("Task auth_identity_id must be explicitly listed in authorized_identity_ids")
+            if identity_id and identity_id not in operator_authorized_ids:
+                raise WorkflowError("Task identity is not in the operator-approved engagement identity allowlist")
+            if set(authorized_ids) - operator_authorized_ids:
+                raise WorkflowError("Task authorized_identity_ids exceeds the operator-approved engagement identity allowlist")
+            if identity_id and task.get("active_testing") is not True:
+                raise WorkflowError("Authentication can only be attached to explicitly active tasks")
+        for task in tasks:
             try:
                 self.store.validate_evidence_refs_for_engagement(
                     engagement_id, task.get("evidence_refs", [])
@@ -290,6 +312,9 @@ class Workflow:
                     "evidence_refs": task.get("evidence_refs", []),
                     "active_testing": task.get("active_testing", False),
                     "request_files": task.get("request_files", []),
+                    "auth_identity_id": task.get("auth_identity_id"),
+                    "auth_session_id": task.get("auth_session_id"),
+                    "authorized_identity_ids": task.get("authorized_identity_ids", []),
                 }
             )
         return [
