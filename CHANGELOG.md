@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Added the Adaptive Testing Planner (`core/planner/`, migration `010_adaptive_planner.sql`):
+  typed hypothesis lifecycle, evidence-driven candidate generation from the attack graph,
+  a deterministic policy layer that gates scope/identity/test-class/state-change (an LLM
+  proposal cannot widen authorization), transparent prioritization scoring, a bounded
+  adaptive loop whose results change subsequent selection, and per-decision observability.
+  Lab-verified by `tests/test_adaptive_planner.py`.
 - Added the Attack / Knowledge Graph (`core/graph/`, migration `009_attack_graph.sql`):
   engagement-scoped typed nodes/edges over SQLite with trust-tiered provenance, a control-
   plane-only authorization boundary (untrusted data cannot grant authorization or invent

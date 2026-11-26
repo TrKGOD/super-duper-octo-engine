@@ -85,7 +85,8 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 | Capability | Status |
 |---|---|
 | Static plan generation + DAG dispatch | IMPLEMENTED — `core/llm_orchestrator.generate_plan`, `core/dispatch.dispatch_plan`, `tests/test_enumeration_first_pipeline.py`. |
-| Bounded adaptive loop (observe→hypothesize→select→execute→update), typed hypothesis objects, transparent prioritization scoring, redundancy control | **MISSING / PARTIAL** — Gate 1 not yet built. Findings carry `observation`/`hypothesis` states but there is no closed planning loop that lets results change next test selection. |
+| Bounded adaptive loop (observe→hypothesize→select→execute→update), typed hypothesis objects, transparent prioritization scoring, redundancy control | IMPLEMENTED (`lab_verified`) — `core/planner/*` (migration `010`), `tests/test_adaptive_planner.py` proves results change next selection within budget and the policy layer blocks scope/identity/class violations (incl. LLM proposals). See `docs/ADAPTIVE_TESTING_PLANNER.md`. |
+| Planner execution wired through the broker + independent validation | MISSING — executor is a seam today (follow-up, Phase 4). |
 
 ### Phase 4 — Exploit Validation Engine
 | Capability | Status |
