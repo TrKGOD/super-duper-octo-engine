@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Renamed the project to **Witherhoard** (was "Pentest Agent Framework" / "Hackbot"),
+  including the GitHub repository (`super-duper-octo-engine` → `witherhoard`).
+- Added the Exploit Validation Engine (`core/validation_engine/`, migration
+  `011_validation_records.sql`): deterministic oracles that map evidence to SUPPORTED/
+  REFUTED/INCONCLUSIVE independently of the proposer, tamper-evident validation records,
+  finding-lifecycle integration over the existing state machine, safe retesting
+  (FIX_VERIFIED/STILL_PRESENT, no unapproved state-changing retest), and confirmed-only
+  reporting. Lab-verified by `tests/test_exploit_validation.py`.
 - Added the Adaptive Testing Planner (`core/planner/`, migration `010_adaptive_planner.sql`):
   typed hypothesis lifecycle, evidence-driven candidate generation from the attack graph,
   a deterministic policy layer that gates scope/identity/test-class/state-change (an LLM

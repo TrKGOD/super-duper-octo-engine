@@ -92,8 +92,8 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 | Capability | Status |
 |---|---|
 | Independent adversarial validation (proposer ≠ validator), bounded disproof | IMPLEMENTED — `core/adversarial_validation.py`, `core/finding_validation.py`, `validation-agent`; `tests/test_*` cover review. |
-| Deterministic validators (authz differential, object ownership, reflected input, header/config) | PARTIAL — analyzers exist (`core/authorization_testing.py`, `core/security_testing.py`, `core/protocol_testing.py`) but are not unified behind one validation-engine contract with explicit SUPPORTED/REFUTED/INCONCLUSIVE dispositions per class. |
-| Finding lifecycle + retest | PARTIAL — schema statuses include `retest_pending`/`resolved`; end-to-end retest flow needs a lab test. |
+| Deterministic validators (authz differential, object ownership, reflected input, header/config) | IMPLEMENTED (`lab_verified`) — `core/validation_engine/` unifies the analyzers behind one SUPPORTED/REFUTED/INCONCLUSIVE contract with tamper-evident records. See `docs/EXPLOIT_VALIDATION.md`. |
+| Finding lifecycle + retest | IMPLEMENTED (`lab_verified`) — `FindingValidator` drives the existing state machine; safe FIX_VERIFIED/STILL_PRESENT retest tested; confirmed-only reporting. |
 
 ### Phase 5 — Isolated Execution Workers
 | Capability | Status |
