@@ -1,6 +1,18 @@
 # Changelog
 
 ## Unreleased
+- Added intelligence-layer benchmarking (`core/benchmark/intelligence.py`, rank-aware metrics
+  in `core/benchmark/metrics.py`, `scripts/run_intelligence_benchmark.py`) — Intelligence Layer
+  Component H: deterministic, CI-safe evaluators that run the **real** retriever, tool selector +
+  profile policy, and reporting engine on synthetic data and score retrieval quality
+  (precision@k/recall@k/MRR/mAP/nDCG), tool-selection accuracy with the policy invariants as
+  measured outcomes (RESTRICTED never auto-selected, redundancy deferral, state-change approval),
+  and reporting quality (confirmed-only, tampered evidence excluded, candidates kept separate).
+  A regression gate flags any headline-metric drop and **fails hard on any safety violation**
+  regardless of baseline. No live targets, no model calls, cost 0.0; availability honesty is
+  preserved (the real catalog stays operator-configured, so selection logic is measured on a
+  controlled available registry). Lab-verified by `tests/test_intelligence_benchmark.py`.
+  Completes Roadmap 2 (Intelligence Layer, Components A–H).
 - Added the reporting engine (`core/reporting/*`) and Nessus import — Intelligence Layer
   Component G: versioned templates (executive/technical/attack-surface/tool-execution/
   evidence-package) rendered to Markdown/HTML/JSON/SARIF, built over a `ReportContext` that
