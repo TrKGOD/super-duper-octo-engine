@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added Knowledge Intelligence / RAG (`core/knowledge/`) — Intelligence Layer Component A:
+  multi-format KB ingestion (HTML/JSON/JSONL/XML, with safe tag-stripping — no XXE), taxonomy
+  reference extraction (CWE/CVE/OWASP/CAPEC/ATT&CK), and a retrieval API with an always-
+  functional FTS baseline, an optional embedding seam, and per-agent contextual retrieval.
+  Extends the existing KB (provenance, dedup, untrusted-content handling) rather than
+  replacing it; retrieval provides knowledge, never authorization. Lab-verified by
+  `tests/test_knowledge_intelligence.py`.
 - Added the Benchmark & Regression Lab (`core/benchmark/`, `scripts/run_regression_benchmark.py`):
   a deterministic, CI-safe harness that runs synthetic scenarios through the real
   graph→planner→validation pipeline and reports precision/recall/F1, endpoint coverage,
