@@ -36,6 +36,10 @@ The nine-stage scope → recon → enumeration → vulnerability → active test
 
 Controlled, scope-bounded browser interaction that turns a modern application's observable behavior into a normalized, deduplicated attack surface — routes, network endpoints, forms and coverage — documented in [docs/BROWSER_INTELLIGENCE.md](docs/BROWSER_INTELLIGENCE.md). It reuses the HTTP broker's scope allowlist, treats page content as untrusted, never stores secret values, pauses on human-verification challenges, and discovers without submitting forms. Browser I/O sits behind an injectable driver so the engine is tested without a real browser; the optional Playwright driver is lab-verified against a synthetic local SPA.
 
+## Attack / Knowledge Graph
+
+A structured, engagement-scoped representation of security-relevant entities and relationships (identities, roles, endpoints, objects, trust boundaries) persisted as typed nodes/edges over the existing SQLite store — no graph database — documented in [docs/ATTACK_GRAPH.md](docs/ATTACK_GRAPH.md). Every node/edge carries trust-tiered provenance, and authorization relationships may be asserted only from the control plane: untrusted or observed data can never grant authorization or invent identities. It ingests the Browser Intelligence surface, proposes evidence-grounded BOLA/BFLA attack-path hypotheses, and offers a planner query interface.
+
 ## What is implemented
 
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
@@ -51,6 +55,7 @@ Controlled, scope-bounded browser interaction that turns a modern application's 
 - `core/dispatch.py`, `scripts/dispatch_task.py` and `scripts/run_plan.py`: invoke passive specialists with tools disabled and active Web/API specialists with broker-only Bash access; select methodology context, verify evidence, enforce independent validation, and persist run telemetry.
 - `core/active_executor.py` and `scripts/active_http.py`: enforce exact engagement/task scope, DNS/IP checks, redirect validation, rate/response limits, request-manifest pinning, evidence capture, and audit logging for active HTTP requests.
 - `core/browser/`: Browser Intelligence Engine — SPA route/network/form discovery with normalization and deduplication, coverage accounting, and broker-scope enforcement behind an injectable driver (optional Playwright backend). Page content is untrusted; secret values are never stored; it discovers without submitting forms. See [docs/BROWSER_INTELLIGENCE.md](docs/BROWSER_INTELLIGENCE.md).
+- `core/graph/` and `database/migrations/009_attack_graph.sql`: Attack/Knowledge Graph — engagement-scoped typed nodes/edges over SQLite with trust-tiered provenance, a control-plane-only authorization boundary, Browser-report ingestion, BOLA/BFLA attack-path reasoning, and a planner query interface. See [docs/ATTACK_GRAPH.md](docs/ATTACK_GRAPH.md).
 - `core/llm_orchestrator.py` and `scripts/run_orchestrator.py`: ask the orchestrator agent for a plan with tools disabled, validate exact scope and persist it, then optionally dispatch the dependency graph sequentially. Native Task-tool delegation is not enabled.
 - `scripts/parse_program_policy.py`: extract a draft scope profile from operator-supplied bug bounty policy text, preserving source quotes and ambiguities. It does not browse program sites or approve authorization.
 - `core/evidence_scoring.py`, `scripts/dedupe_findings.py` and `scripts/render_report.py`: score evidence readiness, identify possible duplicates without mutation, and render reports from independently validated findings with re-verified evidence.

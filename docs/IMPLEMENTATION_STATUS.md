@@ -14,7 +14,8 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
 | 1 | Browser Intelligence — normalization, capture, forms, coverage, scope, runner | TESTED | `core/browser/{models,routes,network,forms,coverage,scope,runner}.py` | `tests/test_browser_intelligence.py` (19 deterministic) | green (new PR) | this PR |
 | 1 | Browser Intelligence — real Playwright driver | TESTED (local), skip-in-CI | `core/browser/playwright_driver.py` | `PlaywrightBrowserDriverE2ETests` (runs when a browser binary is present) | skipped unless browser present | this PR |
 | 1 | Workflow execution of safe flows; in-browser JS bundle route extraction; surface persistence to store | NOT_STARTED | — | — | — | follow-up (PR C) |
-| 2 | Attack Graph / Knowledge Graph | NOT_STARTED | — | — | — | — |
+| 2 | Attack Graph / Knowledge Graph — typed nodes/edges over SQLite, trust-tiered provenance, ingestion, path reasoning, query interface | TESTED | `core/graph/*`, `database/migrations/009_attack_graph.sql` | `tests/test_attack_graph.py` (20) | green (this PR) | this PR |
+| 2 | Graph: findings/evidence lifecycle edges from validation engine; planner wiring | NOT_STARTED | — | — | — | follow-up |
 | 3 | Adaptive Testing Planner (Gate 1 bounded loop) | NOT_STARTED | — | — | — | — |
 | 4 | Exploit Validation Engine (unify analyzers behind SUPPORTED/REFUTED/INCONCLUSIVE) | IN_PROGRESS (adversarial review exists) | `core/adversarial_validation.py`, `core/finding_validation.py` | existing | green | — |
 | 5 | Isolated Execution Workers (Gate 3 sandbox) | NOT_STARTED | — | — | — | — |
