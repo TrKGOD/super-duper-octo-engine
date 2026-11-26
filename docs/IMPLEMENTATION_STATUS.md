@@ -42,7 +42,7 @@ See [`INTELLIGENCE_LAYER_AUDIT.md`](INTELLIGENCE_LAYER_AUDIT.md). Components A�
 |---|---|---|---|---|---|---|
 | — | Intelligence layer audit | TESTED (docs) | `docs/INTELLIGENCE_LAYER_AUDIT.md` | n/a | green | #33 (merged) |
 | A | Knowledge Intelligence / RAG — multi-format ingestion, taxonomy (CWE/CVE/OWASP/CAPEC/ATT&CK), FTS retrieval baseline + embedding seam + contextual per-agent retrieval | TESTED | `core/knowledge/*` | `tests/test_knowledge_intelligence.py` (17) | green (this PR) | this PR |
-| B | Knowledge Graph integration (KB↔graph bridge, provenance, trust tiers) | NOT_STARTED | — | — | — | next |
+| B | Knowledge Graph integration — KB patterns→graph as inferred knowledge nodes/edges, provenance, graph-assisted queries, authorization boundary preserved | TESTED | `core/knowledge/graph_bridge.py`, `core/graph/schema.py` (knowledge types) | `tests/test_knowledge_graph_integration.py` (6) | green (this PR) | this PR |
 | C | Validated Experience Memory | NOT_STARTED | — | — | — | — |
 | D | Tool Registry extension (profiles/adapters/parsers over Phase 5 registry) | NOT_STARTED | — | — | — | — |
 | E | Initial tool adapters | NOT_STARTED | — | — | — | — |

@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Added Knowledge Graph integration (`core/knowledge/graph_bridge.py`) — Intelligence Layer
+  Component B: projects KB patterns and their CWE/CVE/OWASP/CAPEC/ATT&CK references into the
+  existing engagement attack graph as inferred knowledge nodes/edges with provenance, plus
+  graph-assisted queries (patterns for an endpoint/technology/class, tools for a class,
+  weaknesses of a pattern). Extends `core/graph/schema.py` with knowledge node/edge types; the
+  authorization trust boundary is preserved — KB content can never create identities, roles,
+  permissions or authorization edges (tested). Lab-verified by
+  `tests/test_knowledge_graph_integration.py`.
 - Added Knowledge Intelligence / RAG (`core/knowledge/`) — Intelligence Layer Component A:
   multi-format KB ingestion (HTML/JSON/JSONL/XML, with safe tag-stripping — no XXE), taxonomy
   reference extraction (CWE/CVE/OWASP/CAPEC/ATT&CK), and a retrieval API with an always-

@@ -32,6 +32,10 @@ NODE_TYPES = frozenset({
     "input", "object", "object_identifier", "identity", "user", "role", "permission",
     "session", "auth_mechanism", "workflow", "technology", "hypothesis", "finding",
     "evidence", "trust_boundary",
+    # Knowledge-layer entities (Intelligence Layer Component B). These carry inferred/
+    # observed knowledge provenance only; they never participate in authorization edges.
+    "knowledge_pattern", "vulnerability_class", "cwe", "cve", "capec", "owasp",
+    "attack_technique", "tool",
 })
 
 _IDENTITY_LIKE = frozenset({"identity", "user"})
@@ -55,6 +59,16 @@ EDGE_SPECS: dict[str, tuple[frozenset, frozenset]] = {
     "TARGETS": (frozenset({"hypothesis", "finding"}), frozenset({"endpoint", "route", "object", "parameter"})),
     "SUPPORTS": (frozenset({"evidence"}), frozenset({"hypothesis", "finding"})),
     "VALIDATED_BY": (frozenset({"finding", "hypothesis"}), frozenset({"evidence"})),
+    # Knowledge-layer edges (Component B) — never authorization (not in AUTHORIZATION_EDGE_TYPES).
+    "DESCRIBES": (frozenset({"knowledge_pattern"}), frozenset({"vulnerability_class"})),
+    "REFERENCES_WEAKNESS": (frozenset({"knowledge_pattern", "finding", "hypothesis"}),
+                            frozenset({"cwe", "cve", "capec", "owasp", "attack_technique"})),
+    "RELEVANT_TO": (frozenset({"knowledge_pattern"}),
+                    frozenset({"endpoint", "route", "technology", "vulnerability_class"})),
+    "APPLIES_TO": (frozenset({"cwe", "capec", "attack_technique", "vulnerability_class"}),
+                   frozenset({"technology"})),
+    "TESTS_FOR": (frozenset({"tool"}), frozenset({"vulnerability_class"})),
+    "SIMILAR_TO": (frozenset({"finding", "hypothesis"}), frozenset({"knowledge_pattern"})),
 }
 
 EDGE_TYPES = frozenset(EDGE_SPECS)
