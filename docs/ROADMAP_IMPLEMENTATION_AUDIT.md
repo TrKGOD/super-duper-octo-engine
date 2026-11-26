@@ -76,7 +76,10 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 ### Phase 2 — Attack Graph / Knowledge Graph
 | Capability | Status |
 |---|---|
-| Entity/edge graph (identities, roles, endpoints, objects, trust boundaries) with provenance + attack-path reasoning | **MISSING** — no graph module/tables. `knowledge-base/` is public *pattern* seeds, not an engagement graph. Schema has `assets`/`endpoints`/`findings` but no typed relationships. |
+| Typed entity/edge graph over SQLite (migration `009`), trust-tiered provenance, deterministic dedup, cross-engagement isolation | IMPLEMENTED (`lab_verified`) — `core/graph/{schema,store,ingest,paths,query}.py`, `tests/test_attack_graph.py`. See `docs/ATTACK_GRAPH.md`. |
+| Authorization trust boundary (untrusted data cannot assert authorization or invent identities) | IMPLEMENTED (`lab_verified`) — enforced at store + ingestion; tested. |
+| Attack-path reasoning (BOLA/IDOR, BFLA) + planner query interface | IMPLEMENTED (`lab_verified`) — `propose_attack_paths`, `GraphQuery`. |
+| Findings/evidence lifecycle edges from the validation engine; planner wiring | MISSING — follow-up (Phases 3–4). |
 
 ### Phase 3 — Adaptive Testing Planner
 | Capability | Status |
