@@ -1,6 +1,16 @@
 # Changelog
 
 ## Unreleased
+- Added the reporting engine (`core/reporting/*`) and Nessus import — Intelligence Layer
+  Component G: versioned templates (executive/technical/attack-surface/tool-execution/
+  evidence-package) rendered to Markdown/HTML/JSON/SARIF, built over a `ReportContext` that
+  reuses the existing validated-findings gate and evidence vault. Only independently validated
+  findings whose evidence integrity is **re-verified at report time** appear in confirmed
+  sections (tampered/missing evidence is excluded, not downgraded silently); unvalidated findings
+  and scanner candidates are kept separate and never presented as confirmed, and SARIF emits
+  results for confirmed findings only. PDF is produced by printing the HTML — no renderer is
+  faked. Adds `import_nessus` to the evidence adapters (requires redaction; items land as
+  hypotheses, never validated). Lab-verified by `tests/test_reporting_engine.py`.
 - Added agent-to-tool intelligence and the normalized observation model
   (`core/tools/selection.py`, `core/tools/observations.py`, migration
   `013_tool_observations.sql`) — Intelligence Layer Component F: capability-based deterministic
