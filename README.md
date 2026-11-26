@@ -1,4 +1,4 @@
-# Pentest Agent Framework
+# Witherhoard
 
 **An execution-oriented, multi-agent framework for conducting authorized penetration tests.**
 

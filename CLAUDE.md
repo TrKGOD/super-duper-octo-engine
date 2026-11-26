@@ -1,4 +1,4 @@
-# Pentest Agent Framework — Operating Contract
+# Witherhoard — Operating Contract
 
 ## Mission and product objective
 

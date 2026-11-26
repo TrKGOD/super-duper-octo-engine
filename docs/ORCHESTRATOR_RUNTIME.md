@@ -1,6 +1,6 @@
 # Orchestrator runtime integration
 
-This runtime is the execution and coordination layer of the Pentest Agent Framework. Its purpose is to move an authorized penetration test through specialist stages and preserve scope, evidence, and validation guarantees. It must not be treated as a standalone planning product.
+This runtime is the execution and coordination layer of the Witherhoard. Its purpose is to move an authorized penetration test through specialist stages and preserve scope, evidence, and validation guarantees. It must not be treated as a standalone planning product.
 
 ## Current implementation status
 

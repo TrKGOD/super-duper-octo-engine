@@ -57,7 +57,7 @@ class BrokerAuthTransport:
         host, port, pinned_ip, parsed = _resolve_and_authorize(url, self.scope, self.task_scope)
         body = None
         headers = {"Accept": "application/json", "Accept-Encoding": "identity",
-                   "User-Agent": "Hackbot-AuthBroker/1.0"}
+                   "User-Agent": "Witherhoard-AuthBroker/1.0"}
         if method == "POST":
             if not isinstance(fields, dict):
                 raise ActiveExecutionError("Authentication POST requires form fields")
