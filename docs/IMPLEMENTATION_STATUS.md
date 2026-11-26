@@ -44,7 +44,7 @@ See [`INTELLIGENCE_LAYER_AUDIT.md`](INTELLIGENCE_LAYER_AUDIT.md). Components A�
 | A | Knowledge Intelligence / RAG — multi-format ingestion, taxonomy (CWE/CVE/OWASP/CAPEC/ATT&CK), FTS retrieval baseline + embedding seam + contextual per-agent retrieval | TESTED | `core/knowledge/*` | `tests/test_knowledge_intelligence.py` (17) | green (this PR) | this PR |
 | B | Knowledge Graph integration — KB patterns→graph as inferred knowledge nodes/edges, provenance, graph-assisted queries, authorization boundary preserved | TESTED | `core/knowledge/graph_bridge.py`, `core/graph/schema.py` (knowledge types) | `tests/test_knowledge_graph_integration.py` (6) | green (this PR) | this PR |
 | C | Validated Experience Memory — promotion gate (only validation-confirmed findings), sanitized records (no secrets), similarity retrieval, versioning/deprecation | TESTED | `core/experience/*` (dedicated reusable store) | `tests/test_experience_memory.py` (9) | green (this PR) | this PR |
-| D | Tool Registry extension (profiles/adapters/parsers over Phase 5 registry) | NOT_STARTED | — | — | — | — |
+| D | Tool Registry & Adapter Framework — extended ToolDefinition/registry over Phase 5 ToolSpec, four execution profiles + policy (RESTRICTED never auto-selected), brokered adapter contract, honest availability | TESTED | `core/tools/*` | `tests/test_tool_registry.py` (14) | green (this PR) | this PR |
 | E | Initial tool adapters | NOT_STARTED | — | — | — | — |
 | F | Agent-to-tool selection + normalized observations | NOT_STARTED | — | — | — | — |
 | G | Reporting engine (templates, MD/HTML/PDF/SARIF/JSON, evidence package, Nessus import) | NOT_STARTED | — | — | — | — |

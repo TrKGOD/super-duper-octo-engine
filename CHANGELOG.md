@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- Added the Tool Registry & Adapter Framework (`core/tools/`) — Intelligence Layer Component D:
+  an extended ToolDefinition/registry over the Phase 5 worker ToolSpec (capabilities,
+  vulnerability classes, honest availability), the four execution profiles
+  (PASSIVE/SAFE/ACTIVE_CONTROLLED/RESTRICTED) with a deterministic policy (RESTRICTED never
+  auto-selected; approvals for state-changing/restricted), and a brokered adapter contract
+  that executes tools only through the Phase 5 worker broker — no raw shell, no bypass. Lab-
+  verified by `tests/test_tool_registry.py`.
 - Added Validated Experience Memory (`core/experience/`) — Intelligence Layer Component C: a
   dedicated, reusable-across-engagements store whose promotion gate accepts **only**
   independently validated findings (a SUPPORTED Phase 4 validation record) — never a
