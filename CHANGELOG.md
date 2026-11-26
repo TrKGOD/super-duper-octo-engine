@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Added agent-to-tool intelligence and the normalized observation model
+  (`core/tools/selection.py`, `core/tools/observations.py`, migration
+  `013_tool_observations.sql`) — Intelligence Layer Component F: capability-based deterministic
+  tool selection (authorized, available, non-redundant; RESTRICTED never auto-selected), and a
+  single observation schema with explicit dispositions (DETECTED/CANDIDATE/SUPPORTED/REFUTED/
+  INCONCLUSIVE/ERROR) traceable to tool/task/engagement/execution, secret-redacted, and
+  correlated into the graph as observed structure (candidates stay leads, never confirmed
+  findings or authorization). Lab-verified by `tests/test_observations_selection.py`.
 - Added the initial tool adapters (`core/tools/parsers.py`, `core/tools/catalog.py`) —
   Intelligence Layer Component E: real adapters for subfinder/dnsx/httpx/katana/ffuf/nuclei/
   dalfox with real, tested output parsers (nuclei/dalfox results marked CANDIDATE, never

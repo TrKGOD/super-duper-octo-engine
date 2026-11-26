@@ -8,7 +8,10 @@ auto-selected and always require explicit operator approval.
 """
 from core.tools.adapter import AdapterError, BrokeredCommandAdapter, ToolAdapter, ToolResult
 from core.tools.catalog import CATALOG, adapter_for, build_default_catalog
+from core.tools.observations import (DISPOSITIONS, Observation, ObservationStore,
+                                     correlate_to_graph, normalize_tool_result)
 from core.tools.parsers import PARSERS, get_parser
+from core.tools.selection import CapabilityRequest, ToolSelector
 from core.tools.profiles import (ACTIVE_CONTROLLED, AUTO_SELECTABLE, PASSIVE, PROFILES,
                                  ProfileError, ProfilePolicy, RESTRICTED, SAFE,
                                  requires_operator_approval, validate_profile)
@@ -20,4 +23,6 @@ __all__ = [
     "PROFILES", "AUTO_SELECTABLE", "PASSIVE", "SAFE", "ACTIVE_CONTROLLED", "RESTRICTED",
     "ToolAdapter", "BrokeredCommandAdapter", "ToolResult", "AdapterError",
     "build_default_catalog", "adapter_for", "CATALOG", "PARSERS", "get_parser",
+    "Observation", "ObservationStore", "DISPOSITIONS", "normalize_tool_result",
+    "correlate_to_graph", "CapabilityRequest", "ToolSelector",
 ]
