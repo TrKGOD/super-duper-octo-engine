@@ -1,4 +1,4 @@
-"""Import redacted SARIF, OWASP ZAP JSON and Burp XML into the Evidence Vault.
+"""Import redacted SARIF, OWASP ZAP JSON, Burp XML and Nessus (.nessus) into the Evidence Vault.
 
 These adapters normalize scanner output into evidence artifacts and hypotheses.
 They never execute tests or mark findings as validated.
@@ -116,4 +116,31 @@ def import_burp_xml(vault, engagement_id, xml_bytes, captured_by, redacted=False
             "asset":issue.findtext("host","unknown"),"path":issue.findtext("path",""),
             "severity":issue.findtext("severity","unknown"),"description":issue.findtext("issueBackground",""),
             "evidence_refs":refs,"status":"hypothesis","proposed_by":"dast-import-adapter"})
+    return imported
+
+
+_NESSUS_SEVERITY = {"0": "info", "1": "low", "2": "medium", "3": "high", "4": "critical"}
+
+
+def import_nessus(vault, engagement_id, xml_bytes, captured_by, redacted=False):
+    if redacted is not True:
+        raise EvidenceAdapterError("Nessus imports must be explicitly redacted before ingestion")
+    try:
+        root = ET.fromstring(xml_bytes)
+    except (ET.ParseError, TypeError) as exc:
+        raise EvidenceAdapterError("Invalid Nessus (.nessus) XML export") from exc
+    imported = []
+    for host in root.findall(".//ReportHost"):
+        host_name = host.get("name", "unknown")
+        for index, item in enumerate(host.findall("./ReportItem")):
+            severity = _NESSUS_SEVERITY.get(item.get("severity", "0"), "unknown")
+            ref = _capture(vault, engagement_id, captured_by, "scanner_output",
+                           f"nessus-{host_name}-{index}.xml",
+                           ET.tostring(item, encoding="utf-8"), redacted)["evidence_id"]
+            imported.append({"source": "nessus", "title": item.get("pluginName", "Nessus item"),
+                             "asset": host_name, "port": item.get("port"),
+                             "plugin_id": item.get("pluginID"), "severity": severity,
+                             "description": (item.findtext("description", "") or "")[:2000],
+                             "evidence_refs": [ref], "status": "hypothesis",
+                             "proposed_by": "vuln-scan-import-adapter"})
     return imported
