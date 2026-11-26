@@ -33,3 +33,19 @@ with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
   foundation meets its core exit criterion (discover and describe a synthetic modern app
   through controlled browser interaction, with reproducible results and no scope
   violations); the follow-up items above extend it.
+
+## Intelligence Layer program (Roadmap 2)
+
+See [`INTELLIGENCE_LAYER_AUDIT.md`](INTELLIGENCE_LAYER_AUDIT.md). Components A–H, each a focused PR.
+
+| Component | Item | Status | Files | Tests | CI | PR |
+|---|---|---|---|---|---|---|
+| — | Intelligence layer audit | TESTED (docs) | `docs/INTELLIGENCE_LAYER_AUDIT.md` | n/a | green | #33 (merged) |
+| A | Knowledge Intelligence / RAG — multi-format ingestion, taxonomy (CWE/CVE/OWASP/CAPEC/ATT&CK), FTS retrieval baseline + embedding seam + contextual per-agent retrieval | TESTED | `core/knowledge/*` | `tests/test_knowledge_intelligence.py` (17) | green (this PR) | this PR |
+| B | Knowledge Graph integration (KB↔graph bridge, provenance, trust tiers) | NOT_STARTED | — | — | — | next |
+| C | Validated Experience Memory | NOT_STARTED | — | — | — | — |
+| D | Tool Registry extension (profiles/adapters/parsers over Phase 5 registry) | NOT_STARTED | — | — | — | — |
+| E | Initial tool adapters | NOT_STARTED | — | — | — | — |
+| F | Agent-to-tool selection + normalized observations | NOT_STARTED | — | — | — | — |
+| G | Reporting engine (templates, MD/HTML/PDF/SARIF/JSON, evidence package, Nessus import) | NOT_STARTED | — | — | — | — |
+| H | Intelligence-layer benchmarking (retrieval/tool-selection/report metrics) | NOT_STARTED | — | — | — | — |
