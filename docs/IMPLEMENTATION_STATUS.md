@@ -46,7 +46,6 @@ See [`INTELLIGENCE_LAYER_AUDIT.md`](INTELLIGENCE_LAYER_AUDIT.md). Components A�
 | C | Validated Experience Memory — promotion gate (only validation-confirmed findings), sanitized records (no secrets), similarity retrieval, versioning/deprecation | TESTED | `core/experience/*` (dedicated reusable store) | `tests/test_experience_memory.py` (9) | green (this PR) | this PR |
 | D | Tool Registry & Adapter Framework — extended ToolDefinition/registry over Phase 5 ToolSpec, four execution profiles + policy (RESTRICTED never auto-selected), brokered adapter contract, honest availability | TESTED | `core/tools/*` | `tests/test_tool_registry.py` (14) | green (this PR) | this PR |
 | E | Initial tool adapters — real catalog (subfinder/dnsx/httpx/katana/ffuf/nuclei/dalfox) with real tested parsers, correct profiles, and honest availability (binaries not bundled) | TESTED (adapters+parsers; binaries require operator config) | `core/tools/{parsers,catalog}.py` | `tests/test_tool_adapters.py` (12) | green (this PR) | this PR |
-| F | Agent-to-tool selection + normalized observation model | NOT_STARTED | — | — | — | next |
-| F | Agent-to-tool selection + normalized observations | NOT_STARTED | — | — | — | — |
-| G | Reporting engine (templates, MD/HTML/PDF/SARIF/JSON, evidence package, Nessus import) | NOT_STARTED | — | — | — | — |
+| F | Agent-to-tool capability requests + deterministic selection (non-redundant, RESTRICTED never auto-selected) + normalized observation model (migration 013) with dispositions, correlated into the graph | TESTED | `core/tools/{selection,observations}.py`, `database/migrations/013_tool_observations.sql` | `tests/test_observations_selection.py` (7) | green (this PR) | this PR |
+| G | Reporting engine (templates, MD/HTML/PDF/SARIF/JSON, evidence package, Nessus import) | NOT_STARTED | — | — | — | next |
 | H | Intelligence-layer benchmarking (retrieval/tool-selection/report metrics) | NOT_STARTED | — | — | — | — |
