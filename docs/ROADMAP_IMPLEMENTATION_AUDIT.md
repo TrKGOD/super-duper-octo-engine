@@ -68,8 +68,10 @@ Legend: **IMPLEMENTED** (code present, exercised by tests) · **PARTIAL** · **M
 ### Phase 1 — Browser Intelligence Engine
 | Capability | Status |
 |---|---|
-| Browser route/network/form/workflow discovery, coverage tracking, authenticated surface mapping | **MISSING** — no `core/browser/` discovery engine. Only the auth-login runner exists. This is the largest net-new build. |
-| Static JS route/sink analysis (non-browser) | PARTIAL — referenced in README/enumeration; verify in `scripts/active_surface.py`. |
+| Browser route/network/form discovery, normalization/dedup, coverage tracking, scope enforcement, identity comparison | IMPLEMENTED (`lab_verified`) — `core/browser/*`, `tests/test_browser_intelligence.py` (19 deterministic + 1 real-browser E2E). See `docs/BROWSER_INTELLIGENCE.md`. |
+| Real Playwright driver (headless, origin-guarded) | IMPLEMENTED (`lab_verified` locally, skipped in CI without a browser binary) — `core/browser/playwright_driver.py`. |
+| Workflow *execution* of safe flows; in-browser JS bundle route extraction; surface persistence to store/graph | MISSING — follow-up (PR C). |
+| Static JS route/sink analysis (non-browser) | PARTIAL — `scripts/active_surface.py` (`_analyse_js`, regex route/sink indicators). |
 
 ### Phase 2 — Attack Graph / Knowledge Graph
 | Capability | Status |

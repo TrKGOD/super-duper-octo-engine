@@ -1,0 +1,30 @@
+# Implementation Status
+
+Tracks the master-roadmap phases against the actual code. Statuses: `NOT_STARTED`,
+`IN_PROGRESS`, `IMPLEMENTED`, `TESTED`, `BLOCKED`, `DEFERRED`. An item is `TESTED` only
+with real test evidence. Phases map onto the repo's existing Gates 0–6 (see
+[`AUTONOMOUS_PLATFORM_ROADMAP.md`](AUTONOMOUS_PLATFORM_ROADMAP.md)); see
+[`ROADMAP_IMPLEMENTATION_AUDIT.md`](ROADMAP_IMPLEMENTATION_AUDIT.md) for the full audit.
+
+| Phase | Item | Status | Files | Tests | CI | PR |
+|---|---|---|---|---|---|---|
+| 0 | Authentication Manager (OIDC crypto, Playwright login, broker transport) | TESTED | `core/auth/*` | `tests/test_oidc_validation.py`, `test_auth_broker_integration.py`, `test_playwright_auth_e2e.py`, `test_authentication_manager.py` | green on `main` | #25 (merged) |
+| 0 | Close-out: session cross-engagement isolation test, secret-non-persistence test, expand `AUTHENTICATION_MANAGER.md` | NOT_STARTED | — | — | — | follow-up |
+| — | Roadmap implementation audit | TESTED (docs) | `docs/ROADMAP_IMPLEMENTATION_AUDIT.md` | n/a | green | #26 (merged) |
+| 1 | Browser Intelligence — normalization, capture, forms, coverage, scope, runner | TESTED | `core/browser/{models,routes,network,forms,coverage,scope,runner}.py` | `tests/test_browser_intelligence.py` (19 deterministic) | green (new PR) | this PR |
+| 1 | Browser Intelligence — real Playwright driver | TESTED (local), skip-in-CI | `core/browser/playwright_driver.py` | `PlaywrightBrowserDriverE2ETests` (runs when a browser binary is present) | skipped unless browser present | this PR |
+| 1 | Workflow execution of safe flows; in-browser JS bundle route extraction; surface persistence to store | NOT_STARTED | — | — | — | follow-up (PR C) |
+| 2 | Attack Graph / Knowledge Graph | NOT_STARTED | — | — | — | — |
+| 3 | Adaptive Testing Planner (Gate 1 bounded loop) | NOT_STARTED | — | — | — | — |
+| 4 | Exploit Validation Engine (unify analyzers behind SUPPORTED/REFUTED/INCONCLUSIVE) | IN_PROGRESS (adversarial review exists) | `core/adversarial_validation.py`, `core/finding_validation.py` | existing | green | — |
+| 5 | Isolated Execution Workers (Gate 3 sandbox) | NOT_STARTED | — | — | — | — |
+| 6 | Benchmark & Regression Lab (Gate 0) | IN_PROGRESS | `benchmarks/*`, `scripts/run_benchmark.py`, `scripts/evaluate_benchmark.py` | `tests/test_benchmark*.py` | green | — |
+
+## Notes
+- "green on `main`" / "green (new PR)" refers to the CI `test` job; the `agent-benchmark`
+  job is intentionally gated behind the `CLAUDE_BENCHMARK_MODEL` repo variable and is
+  reported as skipped, never as passed.
+- No phase is marked complete before its roadmap exit criteria are met. Phase 1's
+  foundation meets its core exit criterion (discover and describe a synthetic modern app
+  through controlled browser interaction, with reproducible results and no scope
+  violations); the follow-up items above extend it.
