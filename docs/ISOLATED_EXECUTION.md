@@ -135,7 +135,8 @@ labelled containers are swept. A timed-out tool is a classified failure in the l
   operator's responsibility.
 - `render_egress_firewall()` produces a default-deny nftables ruleset; it has not been applied to
   a real host.
-- The container image is selected by tag unless the operator pins a digest.
+- In production the image is whatever the operator configures: a tag unless they require a digest
+  (`require_pinned_image=True`). Only the CI test image is pinned by digest.
 
 Do not describe the HTTP broker, the command guard, or the subprocess backend as a complete
 sandbox. Untrusted tool execution must use the container backend with host-level egress and
@@ -148,6 +149,8 @@ docker pull busybox:1.36
 WITHERHOARD_CONTAINER_TESTS=1 python -m unittest -v tests.test_container_integration tests.test_worker_hardening
 ```
 
+Locally the default image is the `busybox:1.36` tag; CI sets `WITHERHOARD_CONTAINER_TEST_IMAGE` to the
+image's digest (`busybox@sha256:…`, see `.github/workflows/ci.yml`), which `tests/test_ci_pins.py` requires.
 With the gate unset those tests are skipped with an explicit reason; with it set, a missing
 runtime or image is a **failure**. The orphan-sweep test removes every container labelled
 `witherhoard.managed=true`, so it refuses to run on a runtime that already has such containers
@@ -164,5 +167,4 @@ A backend failure releases the engagement slot and is recorded rather than leavi
 ## Follow-ups
 
 Run the container isolation tests on rootless Docker and Podman; apply and test the egress
-ruleset on a host; pin the test image by digest; register the real tool set (and load specs from
-configuration).
+ruleset on a host; register the real tool set (and load specs from configuration).
