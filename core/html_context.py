@@ -90,7 +90,14 @@ class _MarkerLocator(HTMLParser):
                 str(value).count(self._marker) for name, value in attrs if value is not None):
             self._record("html_attribute")
         else:
-            self._record("html_body")
+            # Tag/attribute SYNTAX itself (not confined to one value): e.g. the marker's own "<"
+            # and ">" were parsed as a start tag. That is unescaped markup reaching whatever
+            # container we are currently inside -- the same stack-aware region handle_data()
+            # uses, not unconditionally "html_body". Observed to matter in practice: at least one
+            # html.parser version parses a tag-shaped marker nested inside <title>/<textarea> as a
+            # start tag rather than as that element's text, so without this a marker that never
+            # left an inert container could misreport as "html_body".
+            self._record(self._text_region())
 
     def handle_starttag(self, tag, attrs):
         self._handle_tag_open(tag, attrs)

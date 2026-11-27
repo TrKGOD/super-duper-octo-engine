@@ -1,16 +1,21 @@
 """core/html_context.py: deterministic classification of where a marker lands in an HTML document.
 
 Every case below was checked interactively against the raw ``html.parser.HTMLParser`` event stream
-before being written down here, specifically because this module depends on two easily-missed
-stdlib behaviors: (1) a raw, un-escaped "<...>" is tokenized as an actual (unknown) start tag, never
-handed to ``handle_data``; (2) ``HTMLParser`` always entity-decodes attribute VALUES regardless of
-``convert_charrefs``, so a *properly escaped* attribute (source ``&lt;marker&gt;``) would come back
-already decoded if this module trusted ``attrs`` instead of ``get_starttag_text()``.
+before being written down here, specifically because this module depends on easily-missed stdlib
+behaviors that are not even consistent across Python versions: (1) a raw, un-escaped "<...>" is
+tokenized as an actual (unknown) start tag, never handed to ``handle_data``; (2) ``HTMLParser``
+always entity-decodes attribute VALUES regardless of ``convert_charrefs``, so a *properly escaped*
+attribute (source ``&lt;marker&gt;``) would come back already decoded if this module trusted
+``attrs`` instead of ``get_starttag_text()``; (3) at least one ``html.parser`` version parses a
+tag-shaped marker nested inside ``<title>``/``<textarea>`` as a start tag rather than as that
+element's text (observed in CI on Windows + Python 3.11, not on 3.12/3.13 or on Linux 3.11) -
+``TagOpenRespectsContainerTests`` below drives that code path directly, since it is not reliably
+reachable through ``.feed()`` on every Python version.
 """
 import html
 import unittest
 
-from core.html_context import classify_marker_context
+from core.html_context import _MarkerLocator, classify_marker_context
 
 MARKER = "<wh-xss-ab12cd34>"
 ESCAPED = html.escape(MARKER)
@@ -136,6 +141,44 @@ class MarkerShapeValidationTests(unittest.TestCase):
         short, long_ = "<" + "a" * 4 + ">", "<" + "a" * 95 + ">"
         self.assertEqual(classify_marker_context(f"text {short}", short), "html_body")
         self.assertEqual(classify_marker_context(f"text {long_}", long_), "html_body")
+
+
+class TagOpenRespectsContainerTests(unittest.TestCase):
+    """A tag-shaped hit must respect whatever container the parser says we are inside, exactly as
+    a data (text) hit already does - not unconditionally "html_body". This is only reliably
+    reachable on every Python version by seeding ``_stack`` directly: whether a given html.parser
+    treats <title>/<textarea> content as tokenizable markup or as opaque text is itself a
+    version/platform detail (see the module docstring), and this module must be correct either way.
+    The ``.feed()`` call still does real tokenization - only which CONTAINER we are "inside" is
+    simulated, not whether the fed text parses as a tag.
+    """
+
+    def _classify_tag_open_inside(self, container: str) -> str:
+        inner = MARKER[1:-1]
+        locator = _MarkerLocator(MARKER)
+        locator._stack.append(container)
+        locator.feed("<" + inner + ">")
+        locator.close()
+        return locator.classification
+
+    def test_a_tag_shaped_hit_inside_title_is_unknown_not_html_body(self):
+        self.assertEqual(self._classify_tag_open_inside("title"), "unknown")
+
+    def test_a_tag_shaped_hit_inside_textarea_is_unknown_not_html_body(self):
+        self.assertEqual(self._classify_tag_open_inside("textarea"), "unknown")
+
+    def test_a_tag_shaped_hit_inside_style_is_unknown_not_html_body(self):
+        self.assertEqual(self._classify_tag_open_inside("style"), "unknown")
+
+    def test_a_tag_shaped_hit_inside_script_is_script_not_html_body(self):
+        self.assertEqual(self._classify_tag_open_inside("script"), "script")
+
+    def test_a_tag_shaped_hit_with_no_container_is_still_html_body(self):
+        inner = MARKER[1:-1]
+        locator = _MarkerLocator(MARKER)
+        locator.feed("<" + inner + ">")
+        locator.close()
+        self.assertEqual(locator.classification, "html_body")
 
 
 if __name__ == "__main__":
