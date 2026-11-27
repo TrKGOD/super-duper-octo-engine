@@ -89,3 +89,50 @@ def wait_until(predicate, timeout: float = 10.0, interval: float = 0.05) -> bool
             return True
         time.sleep(interval)
     return predicate()
+
+
+# -- real-browser tests ----------------------------------------------------------------------
+BROWSER_GATE = "WITHERHOARD_REQUIRE_BROWSER"
+_BROWSER_PROBE: list = []          # [problem-or-None], filled once per process
+
+
+def browser_problem() -> str | None:
+    """Why a real headless Chromium cannot be launched here, or ``None`` when it can (probed once).
+
+    The ``playwright`` pip package can be installed without a browser binary (``playwright install``
+    is a separate step), so importing it proves nothing: the probe launches a browser.
+    """
+    if not _BROWSER_PROBE:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            _BROWSER_PROBE.append("Playwright optional dependency is not installed")
+        else:
+            try:
+                with sync_playwright() as playwright:
+                    playwright.chromium.launch(headless=True).close()
+                _BROWSER_PROBE.append(None)
+            except Exception as exc:  # noqa: BLE001 - any launch failure means no usable browser
+                _BROWSER_PROBE.append("Playwright browser binary is unavailable: " + type(exc).__name__)
+    return _BROWSER_PROBE[0]
+
+
+_UNPROBED = object()
+
+
+def require_browser_or_skip(problem=_UNPROBED, *, require: bool | None = None) -> None:
+    """Gate for real-browser tests, called from ``setUpClass``.
+
+    * a usable browser: returns;
+    * none, gate off: ``unittest.SkipTest`` with the reason (a default run needs no browser);
+    * none, ``WITHERHOARD_REQUIRE_BROWSER=1``: ``AssertionError`` — the CI job that installs Chromium
+      sets the gate, so "the browser tests did not run" can never be reported as green there.
+    """
+    import unittest
+    problem = browser_problem() if problem is _UNPROBED else problem       # None means "usable"
+    require = os.environ.get(BROWSER_GATE) == "1" if require is None else require
+    if not problem:
+        return
+    if require:
+        raise AssertionError(f"{BROWSER_GATE}=1 but no usable browser: {problem}")
+    raise unittest.SkipTest(problem)

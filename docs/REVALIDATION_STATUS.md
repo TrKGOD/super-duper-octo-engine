@@ -12,12 +12,14 @@ Environment: Windows 11, Python 3.13 only. No container runtime, no WSL, no gitl
 
 | Check | Result |
 |---|---|
-| `python -m unittest discover -s tests` | **731 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** with default warning filters (baseline was 398 tests with 17 failing) |
+| `python -m unittest discover -s tests` | **736 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** with default warning filters (baseline was 398 tests with 17 failing) |
 | Skips | 14 = the gated container-isolation class (`WITHERHOARD_CONTAINER_TESTS`), 2 = POSIX-only tests (an execute-permission-bit check, the reported process-limit detail). No other skip. |
 | Validators | `validate_config`, `validate_contracts`, `skill_registry validate` (24 skills, pinned), `validate_agent_tools` (13), `validate_agent_contracts --check-docs` (12), `compileall core scripts tests hooks`: all pass |
-| Secret scan | gitleaks not installed. A regex pass over 406 files found 5 synthetic fixtures in tests; the two JWT-shaped literals and one high-entropy marker that gitleaks' default rules would likely flag were rebuilt at runtime. **Not equivalent to running gitleaks** — CI does. |
-| **Never run** | the container-isolation tests (`tests/test_container_integration.py`); the CI workflow (Windows / Python 3.11–3.13 matrix, `container-isolation`, `dependency-audit` jobs); POSIX code paths (`killpg`, rlimits, the permission test); Python 3.11/3.12; the real-agent and architecture benchmarks (need the Claude CLI and an API key); the egress firewall template on a host |
-| Python 3.11 / 3.12 | Not run. A scan of the whole repository found no 3.12+-only syntax (PEP 701 f-strings, PEP 695) and no post-3.11 standard-library API; both are heuristics, validated with a positive control, not proof. |
+| Secret scan | gitleaks is not installed locally; a regex pass found only synthetic test fixtures, and the secret-shaped literals that gitleaks' default rules would likely flag were rebuilt at runtime. The CI `test` job runs gitleaks and **passed** on the first run. |
+| **Verified by CI** (first run on PR #42, GitHub-hosted runners) | `test` (Ubuntu 24.04, Python 3.11, Chromium installed, gitleaks): **green**. `container-isolation` (real **Docker 28.0.4**, cgroup v2, AppArmor + builtin seccomp): the 14 isolation tests and the 49 worker tests **passed — 65 tests, none skipped** (non-root, no capabilities, read-only root, read-only evidence mount, loopback-only network, cgroup memory/pids limits, kill-and-remove on timeout and cancel, no implicit pull, digest pinning, orphan sweep). `compatibility` on Ubuntu 24.04 with Python 3.12 and 3.13: **730 tests ran, including every POSIX branch** (`killpg`, `setrlimit`, relative process limit, permission test); the one error was a real-browser test run without a Chromium binary, fixed by the browser gate (`WITHERHOARD_REQUIRE_BROWSER`). |
+| Not verified | the Windows CI matrix (Windows Server 2022, Python 3.11 and 3.13 — still running when this was written; see the PR), rootless or non-Docker container runtimes, the egress firewall template on a host, the real-agent and architecture benchmarks (need the Claude CLI and an API key) |
+| `dependency-audit` (advisory) | **Found 4 advisories in `cryptography 46.0.7`** (PYSEC-2026-3552, -3553, -3554 and GHSA-537c-gmf6-5ccf), fixed only in 48.0.1 – 50.0.0, while `requirements.txt` caps `cryptography<47` (the cap predates this work). Not changed here: a major-version jump needs its own decision and test pass. |
+| Python 3.11 / 3.12 | 3.11 (`test` job) and 3.12 (`compatibility`) ran on Linux CI. The local repository scan for 3.12+-only syntax and post-3.11 APIs found nothing, which CI then confirmed on 3.11. |
 
 ### Measured results (synthetic only — not an estimate of real-world detection quality)
 
@@ -44,11 +46,11 @@ Four target requests and ≈0.8 s per run. The two hypotheses never executed in 
 | Network policy, broker hardening, redaction, path safety | `lab_verified` | `test_netpolicy`, `test_broker_hardening`, `test_redaction`, `test_pathsafe`, `test_manifests` |
 | Authentication, vault rotation | `lab_verified` | `test_auth_hardening` (28). Browser login only where Chromium is installed |
 | Validation chain, planner, graph trust, experience, reports, KB ingestion, agent contracts, skill pinning | `lab_verified` | the suites named in §3 |
-| Subprocess worker backend | `lab_verified` on Windows; POSIX branches `implemented_unverified` | `test_worker_hardening` — and it is **not a sandbox** |
+| Subprocess worker backend | `lab_verified` on Windows (local) and Linux (CI, Python 3.12/3.13) | `test_worker_hardening` — and it is **not a sandbox** |
 | Container backend lifecycle | `lab_verified` against a *fake* `docker` | proves our logic, not Docker's isolation |
-| Container backend **isolation** | `implemented_unverified` | tests written, never executed |
+| Container backend **isolation** | `lab_verified` on one real runtime (Docker 28.0.4, cgroup v2, GitHub-hosted Ubuntu 24.04) | `test_container_integration` (14 tests, CI); rootless and other runtimes untested |
 | Egress allow-list firewall | `documented` | rendered ruleset, never applied |
-| CI changes | `implemented_unverified` | workflow parses and references valid files; never run |
+| CI changes | `lab_verified` for `test`, `container-isolation`, the Linux `compatibility` jobs and the advisory audit; Windows matrix pending | first run on PR #42 |
 | SQLi / XSS / SSRF testing in the pipeline | not implemented | see §5 |
 
 ## 3. Baseline failures (17) — classified, none skipped
@@ -71,13 +73,13 @@ Four target requests and ≈0.8 s per run. The two hypotheses never executed in 
 
 **Persistence** — D-DB-1 no execution ledger / crash reconciliation · D-DB-2 evidence not linked to its execution · D-DB-3 migrations had no checksum, gap detection or staged upgrade (`test_execution_ledger`, `test_migrations`, `test_broker_hardening`) · D-EVI-1 vault hashed one read and used another (check/use race; `test_evidence`).
 
-**Workers** — D-WRK-1 killing the `docker run` client left the container running · D-WRK-2 no preflight / fail-closed, no digest pin, `--mount` option injection · D-WRK-3 backend failure leaked the engagement slot · D-WRK-4 `ToolSpec.network` never reached the backend · D-WRK-5 non-atomic provisioning · D-WRK-6 child processes survived a timeout, no cancel, flood only bounded by the clock · D-WRK-7 unvalidated engagement id as a path component · D-WRK-8 option injection through parameters starting with `-` (`test_worker_hardening`, 49). **Found during this final pass:** D-WRK-9 the tool's `RLIMIT_AS` / `RLIMIT_NPROC` / job-memory limit was also applied to the local `docker` client, which crashes a Go binary (reproduced with a failing test, then fixed) · D-WRK-10 on POSIX `RLIMIT_NPROC` was an absolute number (64) although the kernel compares it with *every task the user owns*: on a busy host or CI runner any tool that forks or starts threads (a Go tool; the descendant tests) fails with `EAGAIN`. It is now `current task count + max_processes` (from `/proc`), not applied where `/proc` is missing, and reported honestly; the arithmetic and the `/proc` scan are unit-tested with a fake `resource` module and a fake `/proc` (`ProcessLimitTests`) — the real `setrlimit`/`fork` path is still unverified until Linux CI runs.
+**Workers** — D-WRK-1 killing the `docker run` client left the container running · D-WRK-2 no preflight / fail-closed, no digest pin, `--mount` option injection · D-WRK-3 backend failure leaked the engagement slot · D-WRK-4 `ToolSpec.network` never reached the backend · D-WRK-5 non-atomic provisioning · D-WRK-6 child processes survived a timeout, no cancel, flood only bounded by the clock · D-WRK-7 unvalidated engagement id as a path component · D-WRK-8 option injection through parameters starting with `-` (`test_worker_hardening`, 49). **Found during this final pass:** D-WRK-9 the tool's `RLIMIT_AS` / `RLIMIT_NPROC` / job-memory limit was also applied to the local `docker` client, which crashes a Go binary (reproduced with a failing test, then fixed) · D-WRK-10 on POSIX `RLIMIT_NPROC` was an absolute number (64) although the kernel compares it with *every task the user owns*: on a busy host or CI runner any tool that forks or starts threads (a Go tool; the descendant tests) fails with `EAGAIN`. It is now `current task count + max_processes` (from `/proc`), not applied where `/proc` is missing, and reported honestly; the arithmetic and the `/proc` scan are unit-tested with a fake `resource` module and a fake `/proc` (`ProcessLimitTests`); the real `setrlimit`/`fork` path then ran on Linux CI (Python 3.12 and 3.13), where the descendant-process tests passed.
 
 **Validation, planner, graph, tools** — D-VAL-1 oracles ran on caller-supplied bodies · D-VAL-2 INCONCLUSIVE carried no evidence request · D-VAL-3 unknown XSS context treated as executable (`test_validation_evidence_chain`, 27) · D-PLAN-1 executor failure stranded a hypothesis `RUNNING` · D-PLAN-2 executor disposition trusted without a record · D-PLAN-3 retries ignored new facts (`test_planner_robustness`, 14) · D-GRAPH-1 weaker-trust upsert overwrote stronger facts (`test_graph_trust_merge`) · D-TOOL-1 availability = binary on PATH only (`availability_report`) · D-TOOL-2 request-manifest loader duplicated in three modules (`core/manifests.py`, `test_manifests`).
 
 **Knowledge and memory (this pass)** — D-KB-1 no size cap on multi-format ingestion · D-KB-2 deep JSON escaped as `RecursionError` · D-KB-3 markup parse failure stored raw markup · D-KB-4 hidden `template`/`noscript` text delivered as content · D-KB-5 semantic retrieval returned titles/URLs unwrapped while full-text wrapped them · D-KB-6 non-finite embeddings and one corrupt vector row · D-KB-7 a failed ingest left a half-written document in the open transaction · D-KB-8 `kb_sources.py` error path raised `TypeError` (`json.dumps(file=…)`) and parsed feeds with DTDs (`test_kb_ingestion_safety` 26, `test_kb_sources` 10). Experience promotion without a verified record, report markup injection and dishonest coverage were also fixed (`test_experience_proposals`, `test_report_depth`, `test_planner_robustness`).
 
-**Docs/CI** — README roadmap heading with literal `\n`; README evaluator command failed without `--allow-missing`; stale register.
+**Docs/CI** — README roadmap heading with literal `\n`; README evaluator command failed without `--allow-missing`; stale register · D-CI-1 (found by the first Linux compatibility run) the real-browser auth test *errored* instead of skipping when the Playwright package was installed without a Chromium binary; a shared probe now launches a browser and skips, or fails when `WITHERHOARD_REQUIRE_BROWSER=1` (set by the CI `test` job so a broken Chromium install cannot pass by skipping) — `test_support` · D-CI-2 the advisory `pip-audit` job showed a red check on findings; it now publishes them to the job summary and annotates a warning.
 
 ## 5. Deliberately not implemented
 
@@ -85,8 +87,9 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 
 ## 6. Remaining limitations and risks
 
-* Container isolation and the firewall template are unverified on a real host; the `container-isolation` CI job will be the first execution and may fail on assumptions in the test (busybox applets, cgroup layout, rootless runtimes).
-* The subprocess backend is not a sandbox. `RLIMIT_AS` can stop Go tools from starting; `RLIMIT_NPROC` is per user.
+* Container isolation is verified on one runtime only (Docker 28.0.4, cgroup v2, GitHub-hosted Ubuntu 24.04); rootless Docker, Podman and cgroup v1 hosts are untested, and a host that ignores cgroup limits would be caught by the same tests. The egress firewall template has never been applied to a host.
+* The subprocess backend is not a sandbox. `RLIMIT_AS` can stop Go tools from starting; the process limit is relative to the user's current task count and approximate.
+* `cryptography` is capped below the versions that fix four published advisories (see §1); the advisory `dependency-audit` job reports it.
 * Only two authorization classes have automated executors; legacy validation records written before the evidence chain are never reported as vault-verified.
 * Tool binaries are not version-probed. GitHub Actions are pinned by major tag, the test image by tag, dependencies by version — not by digest/commit.
 * The control plane (scope, authorization, window, object ownership) is the operator's attestation. A manager and its SQLite connection belong to one thread.
@@ -95,8 +98,9 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 
 ## 7. To resume
 
-1. Run the CI on a branch/PR and read the results of the Windows/Linux matrix and, above all, `container-isolation` and `gitleaks`.
-2. Run `WITHERHOARD_CONTAINER_TESTS=1 python -m unittest -v tests.test_container_integration` on a machine with Docker; fix what it reveals; record the result here.
+1. Decide on the `cryptography` cap (`<47`): the fixed releases are 48.0.1 – 50.0.0, a major-version jump that needs its own test pass (CI is the natural place to try it).
+2. Read the Windows matrix results on PR #42 and fix what they reveal.
 3. Decide separately whether, and how, to automate SQLi/XSS/SSRF checks (needs an explicit design and authorization review).
 4. Pin the container test image and the GitHub Actions by digest/commit (needs network access to look the values up and verify them).
-5. Commit and open a PR only when asked (no AI attribution lines, per the project's convention).
+5. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
+6. Commit and open PRs only when asked (no AI attribution lines, per the project's convention).

@@ -126,9 +126,9 @@ python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benc
 pre-commit run --all-files
 ```
 
-Dependencies are split: `requirements.txt` (runtime: `jsonschema`, `cryptography`), `requirements-browser.txt` (optional Playwright; the framework and its tests run without it and the browser tests report an explicit skip) and `requirements-dev.txt` (both plus tooling). The example predictions cover only a few of the synthetic cases, so the last evaluator command needs `--allow-missing`; it is an evaluator fixture, not an agent run.
+Dependencies are split: `requirements.txt` (runtime: `jsonschema`, `cryptography`), `requirements-browser.txt` (optional Playwright; the framework and its tests run without it and the real-browser tests report an explicit skip unless `WITHERHOARD_REQUIRE_BROWSER=1`, which the CI `test` job sets so that a broken Chromium install fails instead of skipping) and `requirements-dev.txt` (both plus tooling). The example predictions cover only a few of the synthetic cases, so the last evaluator command needs `--allow-missing`; it is an evaluator fixture, not an agent run.
 
-Container isolation tests need a real runtime and are skipped unless gated on (they have never been run on the development machine; the `container-isolation` CI job runs them and fails rather than skips):
+Container isolation tests need a real runtime and are skipped unless gated on. The `container-isolation` CI job runs them against a real Docker and fails rather than skips (it passed on the first run); the development machine has no container runtime:
 
 ```bash
 docker pull busybox:1.36
@@ -225,7 +225,7 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 ## Planned / not yet implemented
 
 - Native Claude Task-tool delegation; the LLM planner creates validated plans and Python dispatches specialists sequentially.
-- Verified container isolation and network egress allow-listing: the container backend and its integration tests exist but have never run on a real container runtime, and the egress firewall template has never been applied to a host. Broker integrations for scanners and non-HTTP tools.
+- Network egress allow-listing and other container runtimes: container isolation is verified on one real Docker runtime in CI, but the egress firewall template has never been applied to a host and rootless Docker / Podman were not tried. Broker integrations for scanners and non-HTTP tools.
 - Managed KMS integration, automated redaction review, retention/deletion and immutable evidence storage. (Operator-managed multi-key vault rotation exists: `python scripts/auth.py rotate-keys`.)
 - Hardened multi-user filesystem isolation and reconciliation between evidence files and SQLite rows. (Crash reconciliation of in-flight executions exists in the execution ledger.)
 - Robust concurrent multi-process orchestration; a manager and its SQLite connection belong to one thread.

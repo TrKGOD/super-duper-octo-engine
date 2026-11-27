@@ -28,7 +28,8 @@
     tool parameters refused; atomic slot accounting; on POSIX the process limit is now relative to the
     user's current task count (an absolute `RLIMIT_NPROC` broke any forking or multi-threaded tool on a
     busy host). The container *isolation* tests exist
-    (`tests/test_container_integration.py`) but have not been run on a real runtime.
+    (`tests/test_container_integration.py`) pass in CI against a real Docker 28 runtime (cgroup v2); they
+    cannot run on the development machine, which has no container runtime.
   - *Validation and planning*: oracles run only on evidence the engine resolved from the vault and
     re-hashed; inconclusive results carry evidence requests; findings move only on verified records;
     executor failures no longer strand hypotheses; retries only when structural facts changed; coverage
@@ -44,6 +45,8 @@
   - *CI and dependencies*: Windows and multi-version compatibility jobs, an agent-contract check, a
     gated `container-isolation` job that fails instead of skipping, an advisory `pip-audit` job;
     `requirements.txt` / `requirements-browser.txt` / `requirements-dev.txt` split.
+  - *Real-browser tests*: a shared probe launches Chromium and skips where none is installed, or fails
+    when `WITHERHOARD_REQUIRE_BROWSER=1` (set by the CI `test` job, which installs Chromium).
   - *Command guard*: `hooks/command_guard.py` now recognises Windows junctions (it used `is_symlink()`,
     which is `False` for a junction, so a junction at `.local`/`config` passed every guard); the helper is
     self-contained on purpose and pinned to `core.pathsafe` by tests.

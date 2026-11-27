@@ -5,9 +5,9 @@ Maturity (vocabulary in [`AUTONOMOUS_PLATFORM_ROADMAP.md`](AUTONOMOUS_PLATFORM_R
 | Part | Maturity | Basis |
 |---|---|---|
 | Worker manager: lifecycle, slots, ledger recording, crash reconciliation, per-engagement artifact isolation | `lab_verified` | `tests/test_worker_hardening.py`, `tests/test_isolated_workers.py` (Windows, Python 3.13) |
-| Subprocess backend: wall clock, output flood kill, cancel, process-tree termination, scrubbed environment | `lab_verified` on Windows; **POSIX branches (`killpg`, rlimits) are `implemented_unverified` on this machine** — the same tests run on Linux in CI, whose result is not known until it runs | tests above |
+| Subprocess backend: wall clock, output flood kill, cancel, process-tree termination, scrubbed environment | `lab_verified` on Windows (local) and on Linux (CI, Python 3.12 and 3.13: the POSIX branches — `killpg`, `setrlimit`, the relative process limit — ran in the 730-test compatibility jobs) | tests above |
 | Container backend lifecycle and command construction (preflight, naming, kill, rm, orphan sweep, fail-closed) | `lab_verified` against a *fake* `docker` executable | `ContainerBackendLifecycleTests` — proves **our** logic, not Docker's isolation |
-| Container backend **isolation** (non-root, no capabilities, read-only root, read-only evidence mount, loopback-only network, cgroup limits, kill-and-remove) | `implemented_unverified` | `tests/test_container_integration.py` is written but has **never been executed**: the development machine has no container runtime. The `container-isolation` CI job runs it and fails (never skips) if the runtime is missing |
+| Container backend **isolation** (non-root, no capabilities, read-only root, read-only evidence mount, loopback-only network, cgroup limits, kill-and-remove, no implicit pull, digest pinning, orphan sweep) | `lab_verified` on **one real runtime**: Docker 28.0.4, cgroup v2, AppArmor + builtin seccomp, GitHub-hosted Ubuntu 24.04 | `tests/test_container_integration.py` (14 tests, all passed in the `container-isolation` CI job, which fails — never skips — if the runtime is missing). It cannot run on the development machine (no runtime). Rootless Docker, Podman and cgroup v1 hosts are untested |
 | Egress allow-list firewall (`core/netpolicy.render_egress_firewall`) | `documented` | a rendered nftables template; never loaded into a real firewall |
 
 This document is deliberately explicit about what is and is not a security boundary.
@@ -163,6 +163,6 @@ A backend failure releases the engagement slot and is recorded rather than leavi
 
 ## Follow-ups
 
-Run the container isolation tests on a real runtime and record the result; apply and test the
-egress ruleset on a host; pin the test image by digest; register the real tool set (and load
-specs from configuration).
+Run the container isolation tests on rootless Docker and Podman; apply and test the egress
+ruleset on a host; pin the test image by digest; register the real tool set (and load specs from
+configuration).

@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from core.browser import (BrowserBudget, BrowserIntelligenceRunner, ChallengeRequired,
                           OriginScope, PageObservation, RouteSet, compare_identity_surfaces,
                           merge_surface_sources, normalize_route, parse_forms_from_html)
+from tests.support import require_browser_or_skip
 
 BASE = "http://app.local/"
 SCOPE = {"allowed_domains": ["app.local"], "allowed_http_ports": [80]}
@@ -289,17 +290,9 @@ class PlaywrightBrowserDriverE2ETests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            raise unittest.SkipTest("Playwright optional dependency is not installed")
-        # The pip package can be present without browser binaries (CI does not run
-        # `playwright install`). Probe an actual launch and skip if unavailable.
-        try:
-            with sync_playwright() as pw:
-                pw.chromium.launch(headless=True).close()
-        except Exception as exc:  # noqa: BLE001 - any launch failure means no usable browser
-            raise unittest.SkipTest("Playwright browser binary is unavailable: " + type(exc).__name__)
+        # The pip package can be present without browser binaries. Probe an actual launch: skip where there is
+        # none, fail where WITHERHOARD_REQUIRE_BROWSER=1 says there must be one (the CI `test` job).
+        require_browser_or_skip()
 
         class SpaHandler(BaseHTTPRequestHandler):
             def do_GET(self):
