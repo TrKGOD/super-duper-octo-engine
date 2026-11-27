@@ -45,6 +45,32 @@ class AuthenticationManager:
         if not value: raise AuthError("Required credential environment variable is unavailable: "+str(name))
         return value
 
+    @staticmethod
+    def _expires_at(result):
+        """Absolute expiry (epoch seconds) from a token response.
+
+        RFC 6749 token responses carry a *relative* ``expires_in``; the adapters only read an
+        absolute ``expires_at`` that real servers do not send, so sessions never expired or
+        refreshed proactively. Either field is now honoured.
+        """
+        now=time.time()
+        absolute=result.get("expires_at")
+        if absolute is not None:
+            try: return float(absolute)
+            except (TypeError, ValueError): return None
+        relative=result.get("expires_in")
+        if relative is not None:
+            try:
+                relative=float(relative)
+            except (TypeError, ValueError):
+                return None
+            return now+relative if relative > 0 else now
+        return None
+
+    # States in which stored credential material must not be handed to the broker.
+    _UNUSABLE_STATES=frozenset({AuthState.UNAUTHENTICATED.value,AuthState.AUTHENTICATING.value,
+        AuthState.REVOKED.value,AuthState.CHALLENGE_REQUIRED.value,AuthState.RECOVERY_FAILED.value})
+
     def register_identity(self, identity_id, adapter, config):
         if adapter not in self.adapters: raise AuthError("Unsupported authentication adapter")
         self.store.register_identity(self.engagement_id, identity_id, adapter, config)
@@ -58,10 +84,7 @@ class AuthenticationManager:
             self.audit("auth.challenge_required", {"identity_id":identity_id,"adapter":identity["adapter"]})
             raise AuthError("Human authentication step required (MFA/CAPTCHA/passkey/approval); automation paused")
         session_id="sess_"+uuid.uuid4().hex
-        expires_at=result.get("expires_at")
-        if isinstance(expires_at, str):
-            try: expires_at=float(expires_at)
-            except ValueError: expires_at=None
+        expires_at=self._expires_at(result)
         self.store.put(session_id,self.engagement_id,identity_id,AuthState.AUTHENTICATED.value,result,expires_at)
         self.audit("auth.session_authenticated", {"identity_id":identity_id,"session_id":session_id,"adapter":identity["adapter"]})
         return session_id
@@ -77,10 +100,7 @@ class AuthenticationManager:
         if not result or result.get("challenge_required"):
             self.store.set_state(session_id,self.engagement_id,identity_id,AuthState.CHALLENGE_REQUIRED.value if result and result.get("challenge_required") else AuthState.RECOVERY_FAILED.value)
             raise AuthError("Session recovery requires operator action")
-        expires_at=result.get("expires_at")
-        if isinstance(expires_at,str):
-            try: expires_at=float(expires_at)
-            except ValueError: expires_at=None
+        expires_at=self._expires_at(result)
         self.store.put(session_id,self.engagement_id,identity_id,AuthState.AUTHENTICATED.value,result,expires_at)
         self.audit("auth.session_recovered", {"identity_id":identity_id,"session_id":session_id,"method":"refresh_or_login"})
         return result
@@ -88,8 +108,15 @@ class AuthenticationManager:
     def material_for_broker(self, session_id, identity_id, transport=None):
         """Internal broker-only method. Never serialize its return value to an agent."""
         current=self.store.get(session_id,self.engagement_id,identity_id)
+        state=current["state"]
+        if state in self._UNUSABLE_STATES:
+            # Previously only the expiry was checked, so a session parked in
+            # CHALLENGE_REQUIRED / RECOVERY_FAILED kept yielding credentials.
+            self.audit("auth.session_unusable", {"identity_id":identity_id,"session_id":session_id,"state":state})
+            raise AuthError("Session is not usable (state="+state+"); operator action or re-authentication is required")
         expires=current["expires_at"]
-        if expires is not None and expires <= time.time()+self.policy.refresh_skew_seconds:
+        expiring=state in (AuthState.EXPIRING.value,AuthState.EXPIRED.value)
+        if expiring or (expires is not None and expires <= time.time()+self.policy.refresh_skew_seconds):
             self._recover(session_id,identity_id,transport)
             current=self.store.get(session_id,self.engagement_id,identity_id)
         identity=self.store.identity(self.engagement_id,identity_id)

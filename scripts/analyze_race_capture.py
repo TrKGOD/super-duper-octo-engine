@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from core.security_testing import analyze_race_capture
+from core.pathsafe import is_link_like
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -15,7 +16,7 @@ def main():
     if args.input.is_absolute() or ".." in args.input.parts or args.input.parts[:1] != (".local",):
         raise ValueError("Input must be confined to .local/")
     candidate=ROOT/args.input
-    if (ROOT/".local").is_symlink() or candidate.is_symlink():
+    if is_link_like((ROOT/".local")) or is_link_like(candidate):
         raise ValueError("Input path must not use symlinks")
     resolved=candidate.resolve(strict=True)
     if not resolved.is_file() or not resolved.is_relative_to((ROOT/".local").resolve(strict=True)):

@@ -6,6 +6,7 @@ import uuid
 from pathlib import PurePosixPath
 from datetime import datetime, timezone
 
+from core.redaction import redact_value
 from core.validation import (
     FindingValidationError,
     validate_finding,
@@ -43,7 +44,7 @@ class StateStore:
     def append_audit(self, engagement_id, actor, event_type, details):
         self.connection.execute(
             "INSERT INTO audit_events(engagement_id,actor,event_type,details_json,created_at) VALUES(?,?,?,?,?)",
-            (engagement_id, actor, event_type, json.dumps(details, sort_keys=True), utc_now()),
+            (engagement_id, actor, event_type, json.dumps(redact_value(details), sort_keys=True), utc_now()),
         )
 
     def create_engagement(self, engagement_id, authorization_reference, scope, rules, status="draft"):
@@ -257,6 +258,7 @@ class StateStore:
     def record_evidence(
         self, engagement_id, evidence_type, local_path, captured_by,
         sha256=None, redacted=True, captured_at=None, encryption_algorithm="none",
+        execution_id=None, task_id=None,
     ):
         local_path = self._validate_evidence_path(local_path)
         if not evidence_type or not captured_by:
@@ -275,15 +277,26 @@ class StateStore:
             ).fetchone()
             if exists is None:
                 raise KeyError(engagement_id)
-            self.connection.execute(
-                """INSERT INTO evidence
-                   (evidence_id,engagement_id,finding_id,evidence_type,local_path,sha256,redacted,captured_at,captured_by,encryption_algorithm)
-                   VALUES(?,?,NULL,?,?,?,?,?,?,?)""",
-                (evidence_id, engagement_id, evidence_type, local_path, sha256, int(bool(redacted)), timestamp, captured_by, encryption_algorithm),
-            )
+            if execution_id is None and task_id is None:
+                self.connection.execute(
+                    """INSERT INTO evidence
+                       (evidence_id,engagement_id,finding_id,evidence_type,local_path,sha256,redacted,captured_at,captured_by,encryption_algorithm)
+                       VALUES(?,?,NULL,?,?,?,?,?,?,?)""",
+                    (evidence_id, engagement_id, evidence_type, local_path, sha256, int(bool(redacted)), timestamp, captured_by, encryption_algorithm),
+                )
+            else:
+                # Execution association (migration 014). The DB trigger additionally refuses an
+                # execution that belongs to a different engagement.
+                self.connection.execute(
+                    """INSERT INTO evidence
+                       (evidence_id,engagement_id,finding_id,evidence_type,local_path,sha256,redacted,captured_at,captured_by,encryption_algorithm,execution_id,task_id)
+                       VALUES(?,?,NULL,?,?,?,?,?,?,?,?,?)""",
+                    (evidence_id, engagement_id, evidence_type, local_path, sha256, int(bool(redacted)), timestamp, captured_by, encryption_algorithm, execution_id, task_id),
+                )
             self.append_audit(
                 engagement_id, captured_by, "evidence.recorded",
-                {"evidence_id": evidence_id, "evidence_type": evidence_type, "sha256": sha256},
+                {"evidence_id": evidence_id, "evidence_type": evidence_type, "sha256": sha256,
+                 "execution_id": execution_id},
             )
         return evidence_id
 

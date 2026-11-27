@@ -8,7 +8,11 @@ The intended operator workflow is straightforward: provide an engagement and its
 
 > **Project maturity: early pre-alpha.** The repository implements workflow persistence, specialist dispatch, Skill selection, validated handoffs, evidence integrity checks, and a scope-enforcing HTTP broker. The initial Web/API vertical now performs bounded same-origin reconnaissance/crawling, endpoint and form discovery, static JavaScript analysis, low-impact security checks, and brokered exploitation/independent validation using separately pinned read-only requests. Deeper SQLi/SSRF/authz/OAuth/JWT testing, browser automation, general scanner integrations, and Mobile/Cloud/Active Directory execution remain unfinished. The project purpose is real authorized pentesting; this status statement describes what the current code can and cannot execute today.
 
-## Autonomous platform roadmap\n\nThe staged delivery plan, architecture invariants, acceptance gates and capability-status vocabulary are maintained in [docs/AUTONOMOUS_PLATFORM_ROADMAP.md](docs/AUTONOMOUS_PLATFORM_ROADMAP.md). This roadmap preserves Model 1 as a separate baseline and distinguishes documented methodology, implemented code, lab-verified behavior and production readiness.\n\n## Product objective
+## Autonomous platform roadmap
+
+The staged delivery plan, architecture invariants, acceptance gates and capability-status vocabulary are maintained in [docs/AUTONOMOUS_PLATFORM_ROADMAP.md](docs/AUTONOMOUS_PLATFORM_ROADMAP.md). This roadmap preserves Model 1 as a separate baseline and distinguishes documented methodology, implemented code, lab-verified behavior and production readiness.
+
+## Product objective
 
 The framework must turn an authorized engagement into an evidence-backed pentest workflow:
 
@@ -56,6 +60,17 @@ Separates agent reasoning from tool execution, documented in [docs/ISOLATED_EXEC
 
 A deterministic, CI-safe evaluation harness, documented in [docs/BENCHMARK_LAB.md](docs/BENCHMARK_LAB.md). It runs synthetic scenarios through the **real** attack graph → adaptive planner → exploit validation pipeline — contacting no live target and calling no model — and reports precision, recall, F1, endpoint coverage, validated-finding counts, runtime and (synthetic) cost, with a reproducible run manifest and a regression-comparison gate. Because it drives the real components, it doubles as the end-to-end integration check; the expensive real-agent benchmark stays a separate, gated path.
 
+## Architecture revalidation (branch `feature/architecture-revalidation`)
+
+A repository-wide revalidation hardened the existing components and connected them into one pipeline. The register of defects found and fixed, what is verified and how, and what is **not**, is [docs/REVALIDATION_STATUS.md](docs/REVALIDATION_STATUS.md). In short:
+
+- `core/pipeline/` runs observation → hypothesis → prioritisation → deterministic policy → tool selection → authorised execution → evidence → independent validation → graph/coverage → next cycle, end to end against a local synthetic fixture (`tests/test_pipeline_e2e.py`). Only the two authorization classes (object-level and function-level access control) have automated executors; hypotheses for other classes are recorded as `INCONCLUSIVE` with a structured request for specialist testing and are counted as *not executed*.
+- `core/execution_ledger.py` (migration `014`): one state machine for every request and tool run, with leases and crash reconciliation that never re-sends anything automatically.
+- `core/netpolicy.py`, `core/redaction.py`, `core/pathsafe.py`, `core/runtime.py`: centralised destination policy, secret redaction, link/junction-aware path confinement and cross-platform executable lookup.
+- Validation only trusts evidence it resolved from the vault and re-hashed; the container worker backend fails closed; experience memory promotes only validated findings; Skills are version- and hash-pinned; agent contracts are checked against the code (`docs/AGENT_CONTRACTS.md`).
+
+Maturity vocabulary: `documented` → `implemented_unverified` → `lab_verified` → `production_ready`. **Nothing in this repository is `production_ready`.**
+
 ## What is implemented
 
 - `scripts/validate_config.py`: validates a small set of safe bootstrap configuration invariants.
@@ -99,15 +114,28 @@ A deterministic, CI-safe evaluation harness, documented in [docs/BENCHMARK_LAB.m
 ## Local checks
 
 ```bash
-python -m pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt      # = requirements.txt + requirements-browser.txt + tooling
 python scripts/validate_config.py
-python scripts/skill_registry.py validate
+python scripts/validate_contracts.py
+python scripts/skill_registry.py validate          # versions and pinned content hashes of every Skill
 python scripts/validate_agent_tools.py
-python -m compileall -q core scripts tests
+python scripts/validate_agent_contracts.py --check-docs
+python -m compileall -q core scripts tests hooks
 python -m unittest discover -s tests -v
-python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json
+python scripts/evaluate_benchmark.py --cases benchmarks/cases --predictions benchmarks/predictions.example.json --allow-missing
 pre-commit run --all-files
 ```
+
+Dependencies are split: `requirements.txt` (runtime: `jsonschema`, `cryptography`), `requirements-browser.txt` (optional Playwright; the framework and its tests run without it and the real-browser tests report an explicit skip unless `WITHERHOARD_REQUIRE_BROWSER=1`, which the CI `test` job sets so that a broken Chromium install fails instead of skipping) and `requirements-dev.txt` (both plus tooling). The example predictions cover only a few of the synthetic cases, so the last evaluator command needs `--allow-missing`; it is an evaluator fixture, not an agent run.
+
+Container isolation tests need a real runtime and are skipped unless gated on. The `container-isolation` CI job runs them against a real Docker and fails rather than skips (it passed on the first run); the development machine has no container runtime:
+
+```bash
+docker pull busybox:1.36
+WITHERHOARD_CONTAINER_TESTS=1 python -m unittest -v tests.test_container_integration
+```
+
+Measured behaviour of the end-to-end pipeline against a local synthetic fixture (precision/recall against the fixture's own ground truth, evidence completeness, redundancy, cost): `python -m tests.test_pipeline_metrics`.
 
 ## Engagement configuration and sensitive data
 
@@ -197,10 +225,11 @@ This is a fixed sequential specialist-pipeline simulation, not autonomous Orches
 ## Planned / not yet implemented
 
 - Native Claude Task-tool delegation; the LLM planner creates validated plans and Python dispatches specialists sequentially.
-- Isolated execution container and network egress allowlisting; broker integrations for scanners and non-HTTP tools.
-- Managed KMS integration, key rotation/multi-key support, automated redaction review, retention/deletion and immutable evidence storage.
-- Hardened multi-user filesystem isolation and crash/recovery reconciliation between filesystem and SQLite.
-- Robust concurrent multi-process orchestration and resource governance (rate limiting, concurrency and response bounds).
+- Network egress allow-listing and other container runtimes: container isolation is verified on one real Docker runtime in CI, but the egress firewall template has never been applied to a host and rootless Docker / Podman were not tried. Broker integrations for scanners and non-HTTP tools.
+- Managed KMS integration, automated redaction review, retention/deletion and immutable evidence storage. (Operator-managed multi-key vault rotation exists: `python scripts/auth.py rotate-keys`.)
+- Hardened multi-user filesystem isolation and reconciliation between evidence files and SQLite rows. (Crash reconciliation of in-flight executions exists in the execution ledger.)
+- Robust concurrent multi-process orchestration; a manager and its SQLite connection belong to one thread.
+- Pipeline executors that actually send SQL injection, XSS and SSRF tests, and an SSRF oracle: those hypotheses are generated but explicitly not executed by the pipeline (the SQLi and reflected-XSS oracles judge evidence they are handed; nothing in the pipeline produces it; the operator-driven `scripts/active_ssrf_probe.py` analyzer pre-dates this work and is not wired into the pipeline or the validation engine).
 - Repeated authenticated Model 1/hybrid pipeline runs and a variance-aware benchmark report; the current comparison harness is implemented but has not been executed against a live Claude CLI in this session.
 
 ## Safety and limitations

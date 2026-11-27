@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 
 from core.auth.playwright_runner import PlaywrightAuthRunner
+from tests.support import require_browser_or_skip
 
 
 class BrowserLabHandler(BaseHTTPRequestHandler):
@@ -41,10 +42,9 @@ class BrowserLabHandler(BaseHTTPRequestHandler):
 class PlaywrightAuthenticationE2ETests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        try:
-            import playwright.sync_api  # noqa: F401
-        except ImportError:
-            raise unittest.SkipTest("Playwright optional dependency is not installed")
+        # The pip package can be installed without a browser binary, so probe a real launch: skip where there
+        # is none, fail where WITHERHOARD_REQUIRE_BROWSER=1 says there must be one (the CI `test` job).
+        require_browser_or_skip()
         cls.server = HTTPServer(("127.0.0.1", 0), BrowserLabHandler)
         cls.port = cls.server.server_address[1]
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)

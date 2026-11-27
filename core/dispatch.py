@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -17,7 +16,8 @@ from scripts.skill_registry import load_registry, select_skills
 from core.subsystem_coverage import summarize_coverage, CoverageError
 from core.design_intent import assess_design_intent
 from core.model_router import select_model, ModelRoutingError
-from core.design_intent import assess_design_intent
+from core.runtime import CHILD_TEXT_ENCODING, resolve_executable
+from core.pathsafe import is_link_like
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -170,7 +170,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
                   timeout_seconds=180, registry_path=None, domain=None, tags=None):
     if timeout_seconds < 10:
         raise DispatchError("timeout_seconds must be at least 10")
-    binary = shutil.which(claude_bin) if "/" not in claude_bin else claude_bin
+    binary = resolve_executable(claude_bin)
     if not binary:
         raise DispatchError("Claude Code CLI not found")
     row = workflow.store.connection.execute(
@@ -199,7 +199,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
             request_root = (workflow.project_root / ".local" / "requests").resolve(strict=True)
             for manifest in task_input["request_files"]:
                 candidate = workflow.project_root / manifest["path"]
-                if candidate.is_symlink():
+                if is_link_like(candidate):
                     raise DispatchError("Active request manifests must not be symlinks")
                 resolved = candidate.resolve(strict=True)
                 if not resolved.is_relative_to(request_root) or not resolved.is_file():
@@ -324,7 +324,7 @@ def dispatch_task(workflow, task_id, model, claude_bin="claude",
     started = time.monotonic()
     try:
         proc = subprocess.run(
-            command, input=prompt, capture_output=True, text=True,
+            command, input=prompt, capture_output=True, text=True, **CHILD_TEXT_ENCODING,
             timeout=timeout_seconds, check=False, cwd=ROOT,
             env=dict(os.environ, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"),
         )

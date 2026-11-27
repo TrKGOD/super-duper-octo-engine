@@ -25,6 +25,7 @@ from scripts.migrate import migrate
 from scripts.knowledge_base import connect, init_db
 from core.store import StateStore, utc_now
 from core.evidence import EvidenceVault
+from core.benchmark.synthetic import bola_request
 from core.validation_engine import FindingValidator
 from core.knowledge import KnowledgeRetriever, ingest_content
 from core.tools.observations import Observation, ObservationStore
@@ -190,14 +191,6 @@ def evaluate_tool_selection() -> dict:
 
 
 # -------------------------------------------------------------------------- reporting quality
-def _bola_request():
-    owner = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o1"]}
-    other = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o2"]}
-    return {"vulnerability_class": "object_authorization", "owner_response": owner,
-            "other_response": other, "owner_identity": "bob", "other_identity": "alice",
-            "object_reference": "order-7"}
-
-
 def _validated_finding(store, vault, validator, engagement_id, fid, title) -> dict:
     # Distinct content per finding: the vault is content-addressed, so identical bytes would
     # dedupe to one blob and tampering one finding's evidence would corrupt the other's.
@@ -209,7 +202,7 @@ def _validated_finding(store, vault, validator, engagement_id, fid, title) -> di
         "parameter": "id", "description": "Cross-identity object access.",
         "impact": "Tenant data exposure.", "severity": "high", "proposed_by": "recon-agent",
         "evidence_refs": [ev["evidence_id"]]})
-    validator.validate_finding(fid, _bola_request(), "validation-agent")
+    validator.validate_finding(fid, bola_request(vault, engagement_id, fid), "validation-agent")
     return ev
 
 
@@ -226,7 +219,7 @@ def evaluate_reporting() -> dict:
             store.create_engagement(engagement_id, "AUTH", {"allowed_domains": ["app.local"]}, {},
                                     status="active")
             vault = EvidenceVault(store, root)
-            validator = FindingValidator(store)
+            validator = FindingValidator(store, vault)
             _validated_finding(store, vault, validator, engagement_id, "rep-good", "IDOR sound")
             tampered = _validated_finding(store, vault, validator, engagement_id, "rep-bad", "IDOR tampered")
             (root / tampered["local_path"]).write_bytes(b"tampered-after-validation")

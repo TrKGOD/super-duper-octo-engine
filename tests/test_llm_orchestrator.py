@@ -8,6 +8,7 @@ from pathlib import Path
 from core.llm_orchestrator import generate_plan
 from core.orchestration import Workflow, WorkflowError
 from scripts.migrate import migrate
+from tests.support import finalize_fake_cli
 
 
 class LLMOrchestratorTests(unittest.TestCase):
@@ -46,8 +47,8 @@ class LLMOrchestratorTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(" + repr(plan) + ")}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
-        return str(fake)
+        fake_cli = finalize_fake_cli(fake)
+        return fake_cli
 
     def _approve_active(self):
         self.workflow.approve_engagement(
@@ -98,10 +99,10 @@ class LLMOrchestratorTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(plan)}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
         result = generate_plan(
             self.workflow, "eng-planner", "pinned-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
         self.assertTrue(result["active_execution_allowed"])
         self.assertEqual(result["available_request_manifests"], 1)

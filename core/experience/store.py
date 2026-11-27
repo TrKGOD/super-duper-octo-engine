@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from core.active_executor import _redact_text
+from core.redaction import redact
 from core.store import new_id, utc_now
 
 STATUSES = ("active", "under_review", "deprecated")
@@ -25,7 +25,7 @@ _ADVISORY = ("Advisory validated experience from another engagement; it is not e
 def _redact(value) -> str | None:
     if value is None:
         return None
-    return _redact_text(str(value))
+    return redact(str(value))
 
 
 def _host(asset: str) -> str:
@@ -94,6 +94,28 @@ class ExperienceError(ValueError):
     pass
 
 
+_MINT_KEY = object()
+
+
+class PromotionTicket:
+    """Proof that a finding passed the promotion gate.
+
+    ``ExperienceStore.add`` used to accept any record and stamp it ``validated``, so the "only
+    validated findings" rule lived solely in ``promote_finding`` and could be bypassed by calling
+    the store directly. The store now requires a ticket, which only :mod:`core.experience.promotion`
+    can mint after checking the finding and its verified validation record. (It is an in-process
+    guard against accidental bypass, not a defence against hostile code in the same process.)
+    """
+    __slots__ = ("finding_id", "validation_record_id", "engagement_id")
+
+    def __init__(self, finding_id: str, validation_record_id: str, engagement_id: str, *, _key=None):
+        if _key is not _MINT_KEY:
+            raise ExperienceError("A PromotionTicket can only be issued by the promotion gate")
+        self.finding_id = finding_id
+        self.validation_record_id = validation_record_id
+        self.engagement_id = engagement_id
+
+
 class ExperienceStore:
     def __init__(self, connection):
         self.connection = connection
@@ -128,9 +150,17 @@ class ExperienceStore:
               UNIQUE(signature, version))""")
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_experience_category ON experience_records(vulnerability_category,status)")
+        existing = {row[1] for row in self.connection.execute("PRAGMA table_info(experience_records)")}
+        for column in ("promotion_finding_id", "promotion_record_id"):      # provenance of the promotion
+            if column not in existing:
+                self.connection.execute(f"ALTER TABLE experience_records ADD COLUMN {column} TEXT")
         self.connection.commit()
 
-    def add(self, record: ExperienceRecord, *, promoted_by: str = "validation-agent") -> str:
+    def add(self, record: ExperienceRecord, *, ticket: PromotionTicket,
+            promoted_by: str = "validation-agent") -> str:
+        if not isinstance(ticket, PromotionTicket) or ticket.engagement_id != record.source_engagement_id:
+            raise ExperienceError("Experience can only be added through the promotion gate "
+                                  "(a valid PromotionTicket for the source engagement is required)")
         record = record.sanitized()
         signature = record.signature()
         now = utc_now()
@@ -154,8 +184,8 @@ class ExperienceStore:
             "endpoint_characteristics_json,tooling_json,execution_methodology,validation_methodology,"
             "evidence_reference_ids_json,expected_behavior,actual_behavior,final_disposition,confidence,"
             "false_positive_conditions_json,remediation,related_graph_entities_json,related_knowledge_patterns_json,"
-            "source_engagement_id,created_at,updated_at) "
-            "VALUES(?,?,?,'active',?,?,?,?,?,?,?,?,?,?,?,?,?,?,'validated',?,?,?,?,?,?,?,?)",
+            "source_engagement_id,created_at,updated_at,promotion_finding_id,promotion_record_id) "
+            "VALUES(?,?,?,'active',?,?,?,?,?,?,?,?,?,?,?,?,?,?,'validated',?,?,?,?,?,?,?,?,?,?)",
             (experience_id, signature, version, record.vulnerability_category, record.technology,
              record.technology_version, record.attack_surface, json.dumps(record.prerequisites),
              record.required_identity, record.required_privilege,
@@ -164,7 +194,7 @@ class ExperienceStore:
              json.dumps(record.evidence_reference_ids), record.expected_behavior, record.actual_behavior,
              confidence, json.dumps(record.false_positive_conditions), record.remediation,
              json.dumps(record.related_graph_entities), json.dumps(record.related_knowledge_patterns),
-             record.source_engagement_id, now, now))
+             record.source_engagement_id, now, now, ticket.finding_id, ticket.validation_record_id))
         self.connection.commit()
         return experience_id
 
@@ -240,5 +270,7 @@ class ExperienceStore:
             "related_graph_entities": json.loads(row["related_graph_entities_json"]),
             "related_knowledge_patterns": json.loads(row["related_knowledge_patterns_json"]),
             "source_engagement_id": row["source_engagement_id"], "retrieval_count": row["retrieval_count"],
+            "promotion_finding_id": row["promotion_finding_id"],
+            "promotion_record_id": row["promotion_record_id"],
             "created_at": row["created_at"], "updated_at": row["updated_at"],
         }

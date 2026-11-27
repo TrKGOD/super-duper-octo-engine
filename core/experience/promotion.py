@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from core.experience.store import ExperienceRecord, ExperienceStore
+from core.experience.store import _MINT_KEY, ExperienceRecord, ExperienceStore, PromotionTicket
 from core.validation_engine import ValidationRecordStore
 
 # Finding statuses that represent an independently confirmed finding.
@@ -35,10 +35,21 @@ def promote_finding(experience_store: ExperienceStore, state_store, finding_id: 
             "(status is '" + finding["status"] + "')")
 
     records = ValidationRecordStore(state_store.connection, finding["engagement_id"]).for_finding(finding_id)
-    supported = [r for r in records if r["disposition"] == "SUPPORTED"]
+    supported = [r for r in records if r["disposition"] == "SUPPORTED" and r["evidence_verified"]]
     if not supported:
-        raise PromotionError("A SUPPORTED validation record is required before promotion")
+        # Experience is reused across engagements, so the bar is higher than for the finding itself:
+        # the confirming validation must have been computed on vault-verified evidence.
+        raise PromotionError("A SUPPORTED validation record computed on vault-verified evidence "
+                             "is required before promotion")
     vrec = supported[-1]
+    characteristics = {"method": finding["method"], "parameter": finding["parameter"]}
+    if vrec.get("hypothesis_id"):
+        hypothesis = state_store.connection.execute(
+            "SELECT category,target_label FROM planner_hypotheses WHERE hypothesis_id=? AND engagement_id=?",
+            (vrec["hypothesis_id"], finding["engagement_id"])).fetchone()
+        if hypothesis is not None:             # lets a later engagement match the lead to its own endpoints
+            characteristics["path_template"] = hypothesis["target_label"]
+            characteristics["hypothesis_category"] = hypothesis["category"]
 
     evidence_refs = json.loads(finding["evidence_refs_json"])
     graph_entities = list(related_graph_entities)
@@ -52,7 +63,7 @@ def promote_finding(experience_store: ExperienceStore, state_store, finding_id: 
         technology=technology,
         required_identity=required_identity,
         prerequisites=json.loads(finding["preconditions_json"]) if finding["preconditions_json"] else [],
-        endpoint_characteristics={"method": finding["method"], "parameter": finding["parameter"]},
+        endpoint_characteristics=characteristics,
         tooling=[vrec["oracle"]],
         execution_methodology=finding["description"],
         validation_methodology=finding["validation_notes"] or vrec["explanation"],
@@ -63,4 +74,5 @@ def promote_finding(experience_store: ExperienceStore, state_store, finding_id: 
         related_knowledge_patterns=list(knowledge_patterns),
         confidence=0.7,
     )
-    return experience_store.add(record, promoted_by=promoted_by)
+    ticket = PromotionTicket(finding_id, vrec["record_id"], finding["engagement_id"], _key=_MINT_KEY)
+    return experience_store.add(record, ticket=ticket, promoted_by=promoted_by)

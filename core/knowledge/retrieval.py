@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import math
 
-from scripts.knowledge_base import search, search_patterns
+from scripts.knowledge_base import search, search_patterns, untrusted_block
 from core.knowledge.ingest import references_for
 
 MAX_CONTEXT_ITEMS = 8
@@ -76,8 +76,12 @@ class KnowledgeRetriever:
         rows = self.db.execute("SELECT document_id, vector_json FROM kb_embeddings").fetchall()
         scored = []
         for row in rows:
-            score = _cosine(query_vec, json.loads(row["vector_json"]))
-            if score > 0:
+            try:                                  # one corrupt row must not disable semantic retrieval
+                stored = json.loads(row["vector_json"])
+                score = _cosine(query_vec, stored)
+            except (ValueError, TypeError, OverflowError):
+                continue
+            if score > 0:                         # NaN compares false, so a non-finite score is dropped too
                 scored.append((score, row["document_id"]))
         scored.sort(reverse=True)
         results = []
@@ -87,7 +91,12 @@ class KnowledgeRetriever:
                 (document_id,)).fetchone()
             if doc is None:
                 continue
-            tagged = self._tag_provenance(dict(doc), kind="document")
+            doc = dict(doc)
+            for field in ("title", "platform", "source_url"):
+                # Same treatment as the full-text path (scripts.knowledge_base.search): imported text is
+                # delivered to an agent only inside an untrusted block with directive-like lines escaped.
+                doc[field] = untrusted_block(doc[field])
+            tagged = self._tag_provenance(doc, kind="document")
             tagged["semantic_score"] = round(score, 6)
             tagged["references"] = references_for(self.db, document_id)
             results.append(tagged)

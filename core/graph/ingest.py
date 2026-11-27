@@ -87,12 +87,14 @@ class GraphIngestor:
                                       provenance=_prov("operator"), confidence=1.0)
 
     def register_endpoint(self, method: str, origin: str, path: str, *, attributes=None,
-                          trust="control_plane") -> str:
+                          trust="control_plane", provenance="operator") -> str:
         key = _endpoint_key(method, origin, path)
         attrs = {"method": str(method).upper(), "origin": origin, "path": path}
         attrs.update(attributes or {})
+        # Confidence follows the trust of the source: only the operator's own declaration is certain.
         return self.graph.upsert_node("endpoint", key, label=path, attributes=attrs,
-                                      trust=trust, provenance=_prov("operator"), confidence=1.0)
+                                      trust=trust, provenance=_prov(provenance),
+                                      confidence=1.0 if trust == "control_plane" else 0.5)
 
     # -- observations (trusted pipeline) -----------------------------------
     def observe_access(self, identity_key: str, endpoint_node_id: str, *, evidence_refs=(),

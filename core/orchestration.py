@@ -12,6 +12,7 @@ from core.evidence_contracts import validate_evidence_contract, EvidenceContract
 from core.subsystem_coverage import validate_inventory, CoverageError
 from core.design_intent import validate_design_registry, DesignIntentError
 from core.model_router import validate_policy, ModelRoutingError
+from core.pathsafe import is_link_like
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDOFF_SCHEMA = json.loads((ROOT / "templates/handoff.schema.json").read_text(encoding="utf-8"))
@@ -239,14 +240,14 @@ class Workflow:
             if task.get("active_testing"):
                 for manifest in task.get("request_files", []):
                     candidate = self.project_root / manifest["path"]
-                    if candidate.is_symlink():
+                    if is_link_like(candidate):
                         raise WorkflowError("Active request manifests must not be symlinks")
                     try:
                         resolved = candidate.resolve(strict=True)
                         requests_root = (self.project_root / ".local" / "requests").resolve(strict=True)
                     except OSError as exc:
                         raise WorkflowError("Active request manifest is missing: " + manifest["path"]) from exc
-                    if self.project_root.joinpath(".local").is_symlink() or self.project_root.joinpath(".local", "requests").is_symlink() or not requests_root.is_relative_to(self.project_root) or not resolved.is_file() or not resolved.is_relative_to(requests_root) or resolved.stat().st_size > 65536:
+                    if is_link_like(self.project_root.joinpath(".local")) or is_link_like(self.project_root.joinpath(".local", "requests")) or not requests_root.is_relative_to(self.project_root) or not resolved.is_file() or not resolved.is_relative_to(requests_root) or resolved.stat().st_size > 65536:
                         raise WorkflowError("Active request manifest must be a regular file under .local/requests and at most 64 KiB")
                     raw = resolved.read_bytes()
                     if hashlib.sha256(raw).hexdigest() != manifest["sha256"]:

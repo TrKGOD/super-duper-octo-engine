@@ -2,10 +2,13 @@
 """Default-deny command guard; the only network path is the approved HTTP broker."""
 import hashlib
 import json
+import os
 import re
 import shlex
 import sqlite3
+import stat
 import sys
+from contextlib import closing
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +16,29 @@ CONFIG = ROOT / "config/engagement.local.json"
 DB = ".local/state.sqlite3"
 KB_DB = ".local/knowledge-base.sqlite3"
 KB_ALLOWED_SUBCOMMANDS = {"search", "search-patterns", "show"}
+
+
+def _is_link_like(path):
+    """True for a symbolic link *or* a Windows directory junction.
+
+    ``Path.is_symlink()`` is False for an NTFS junction, which any user can create (``mklink /J``), so a
+    junction at ``.local`` or ``config`` used to pass every guard below. This is deliberately a
+    self-contained copy of ``core.pathsafe.is_link_like``: the hook must not import project code, because
+    an import failure would crash it and a crashed hook is a non-blocking error in Claude Code (the tool
+    call would proceed). ``tests/test_command_guard.py`` pins the two implementations to the same behaviour.
+    """
+    candidate = Path(path)
+    try:
+        if candidate.is_symlink():
+            return True
+        if os.name == "nt":
+            info = os.lstat(candidate)
+            if getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                # only mount points (junctions) and symlinks redirect resolution; OneDrive placeholders do not
+                return getattr(info, "st_reparse_tag", 0) in (0xA0000003, 0xA000000C)
+        return False
+    except OSError:
+        return False
 
 
 def deny(message):
@@ -66,9 +92,10 @@ def safe_db_argument(value):
     engagements = local / "engagements"
     engagement_dir = db_path.parent
     config_dir = ROOT / "config"
-    if local.is_symlink() or config_dir.is_symlink() or (value != DB and (engagements.is_symlink() or engagement_dir.is_symlink())):
+    if (_is_link_like(local) or _is_link_like(config_dir)
+            or (value != DB and (_is_link_like(engagements) or _is_link_like(engagement_dir)))):
         return False
-    if config_path.is_symlink() or db_path.is_symlink():
+    if _is_link_like(config_path) or _is_link_like(db_path):
         return False
     return True
 
@@ -263,14 +290,14 @@ def allowed_argv(argv):
 
 def _active_request_is_approved(args, config):
     config_path, db_path = engagement_paths(args["db"])
-    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
+    if not config_path.is_file() or _is_link_like(config_path) or config.get("engagement_id") != args["engagement_id"]:
         return False
     manifest_path = ROOT / args["request_file"]
-    if manifest_path.is_symlink() or not manifest_path.is_file():
+    if _is_link_like(manifest_path) or not manifest_path.is_file():
         return False
     try:
         manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-        with sqlite3.connect(db_path) as connection:
+        with closing(sqlite3.connect(db_path)) as connection:
             connection.row_factory = sqlite3.Row
             engagement = connection.execute(
                 "SELECT status,rules_json FROM engagements WHERE engagement_id=?",
@@ -305,10 +332,10 @@ def _active_request_is_approved(args, config):
 
 def _active_surface_is_approved(args, config):
     config_path, db_path = engagement_paths(args["db"])
-    if not config_path.is_file() or config_path.is_symlink() or config.get("engagement_id") != args["engagement_id"]:
+    if not config_path.is_file() or _is_link_like(config_path) or config.get("engagement_id") != args["engagement_id"]:
         return False
     try:
-        with sqlite3.connect(db_path) as connection:
+        with closing(sqlite3.connect(db_path)) as connection:
             connection.row_factory = sqlite3.Row
             engagement = connection.execute(
                 "SELECT status,rules_json,scope_json FROM engagements WHERE engagement_id=?",
@@ -370,7 +397,7 @@ def main():
     security_args = active_security_args(argv)
     db_arg = active_args["db"] if active_args else surface_args["db"] if surface_args else security_args["db"] if security_args else orchestration_args["db"] if orchestration_args else DB
     config_path, db_path = engagement_paths(db_arg)
-    if config_path is None or not config_path.is_file() or config_path.is_symlink():
+    if config_path is None or not config_path.is_file() or _is_link_like(config_path):
         deny("The engagement-specific local config is required for agent runtime commands.")
     try:
         engagement = json.loads(config_path.read_text(encoding="utf-8"))
@@ -405,7 +432,7 @@ def main():
         return
     db_status = None
     try:
-        with sqlite3.connect(db_path) as connection:
+        with closing(sqlite3.connect(db_path)) as connection:
             row = connection.execute(
                 "SELECT status FROM engagements WHERE engagement_id=?",
                 (engagement.get("engagement_id"),),

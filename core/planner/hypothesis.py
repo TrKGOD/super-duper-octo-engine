@@ -139,6 +139,35 @@ class HypothesisStore:
                 "WHERE hypothesis_id=? AND engagement_id=?",
                 (float(score), json.dumps(breakdown, sort_keys=True), utc_now(), hid, self.engagement_id))
 
+    def record_attempt(self, hid: str, fingerprint: str, execution_id: str | None = None) -> None:
+        """Remember the context this attempt ran against (see core/planner/context.py)."""
+        with self.connection:
+            self.connection.execute(
+                "UPDATE planner_hypotheses SET attempt_fingerprint=?,last_execution_id=COALESCE(?,last_execution_id),"
+                "updated_at=? WHERE hypothesis_id=? AND engagement_id=?",
+                (fingerprint, execution_id, utc_now(), hid, self.engagement_id))
+
+    def mark_executed(self, hid: str) -> None:
+        with self.connection:
+            self.connection.execute(
+                "UPDATE planner_hypotheses SET executed=1,updated_at=? WHERE hypothesis_id=? AND engagement_id=?",
+                (utc_now(), hid, self.engagement_id))
+
+    def set_evidence_requests(self, hid: str, requests) -> None:
+        with self.connection:
+            self.connection.execute(
+                "UPDATE planner_hypotheses SET evidence_requests_json=?,updated_at=? "
+                "WHERE hypothesis_id=? AND engagement_id=?",
+                (json.dumps(list(requests or [])), utc_now(), hid, self.engagement_id))
+
+    def set_last_execution(self, hid: str, execution_id: str | None) -> None:
+        if execution_id:
+            with self.connection:
+                self.connection.execute(
+                    "UPDATE planner_hypotheses SET last_execution_id=?,updated_at=? "
+                    "WHERE hypothesis_id=? AND engagement_id=?",
+                    (execution_id, utc_now(), hid, self.engagement_id))
+
     def add_evidence(self, hid: str, refs, *, supporting: bool = True) -> None:
         current = self.get(hid)
         if current is None:
@@ -166,4 +195,7 @@ class HypothesisStore:
             "confidence": row["confidence"], "score": row["score"],
             "score_breakdown": json.loads(row["score_breakdown_json"]),
             "status": row["status"], "status_reason": row["status_reason"], "attempts": row["attempts"],
+            "attempt_fingerprint": row["attempt_fingerprint"],
+            "evidence_requests": json.loads(row["evidence_requests_json"]),
+            "last_execution_id": row["last_execution_id"], "executed": bool(row["executed"]),
         }

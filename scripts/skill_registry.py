@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -17,6 +18,23 @@ DOMAINS = {"web", "api", "mobile", "cloud", "active_directory"}
 
 class RegistryError(ValueError):
     """Raised when registry metadata is incomplete or inconsistent."""
+
+
+_SEMVER = re.compile(r"\d+\.\d+\.\d+")
+
+
+def skill_sha256(path: Path) -> str:
+    """SHA-256 of a skill file with line endings normalised (a CRLF checkout hashes like an LF one)."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _bump(version: str, part: str) -> str:
+    major, minor, patch = (int(piece) for piece in version.split("."))
+    if part == "major":
+        return f"{major + 1}.0.0"
+    if part == "minor":
+        return f"{major}.{minor + 1}.0"
+    return f"{major}.{minor}.{patch + 1}"
 
 
 def _frontmatter(path: Path) -> dict[str, str]:
@@ -35,7 +53,7 @@ def _frontmatter(path: Path) -> dict[str, str]:
     return values
 
 
-def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
+def load_registry(path: Path = DEFAULT_REGISTRY, *, verify_hashes: bool = True) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -49,7 +67,7 @@ def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
     names: set[str] = set()
     for item in data["skills"]:
         required = ("id", "name", "path", "domains", "tags", "compatible_agents",
-                    "prerequisites", "risk_class", "validation_status")
+                    "prerequisites", "risk_class", "validation_status", "version", "content_sha256")
         missing = [key for key in required if key not in item]
         if missing:
             raise RegistryError(f"Skill entry missing fields {missing}: {item.get('id', '<unknown>')}")
@@ -57,6 +75,10 @@ def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
             raise RegistryError(f"Duplicate skill id or name: {item['id']}")
         ids.add(item["id"])
         names.add(item["name"])
+        if not isinstance(item["version"], str) or not _SEMVER.fullmatch(item["version"]):
+            raise RegistryError(f"Skill version must be MAJOR.MINOR.PATCH: {item['id']}")
+        if not isinstance(item["content_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", item["content_sha256"]):
+            raise RegistryError(f"Skill content_sha256 must be 64 hex characters: {item['id']}")
         if item["risk_class"] not in RISK_CLASSES:
             raise RegistryError(f"Invalid risk_class for {item['id']}")
         if item["validation_status"] not in VALIDATION_STATUSES:
@@ -80,6 +102,11 @@ def load_registry(path: Path = DEFAULT_REGISTRY) -> dict:
             raise RegistryError(f"Registry name does not match SKILL.md frontmatter: {item['id']}")
         if not frontmatter.get("description"):
             raise RegistryError(f"Skill description is empty: {item['id']}")
+        if verify_hashes and skill_sha256(skill_path) != item["content_sha256"]:
+            # The methodology injected into an agent prompt is exactly what was reviewed and pinned.
+            raise RegistryError(
+                f"Skill content changed since it was registered (pinned SHA-256 mismatch): {item['id']}. Review the "
+                "change, then run `python scripts/skill_registry.py refresh --bump patch`.")
 
     # Enforce catalogue completeness in both directions: no orphan SKILL.md.
     registered_paths = {item["path"] for item in data["skills"]}
@@ -117,9 +144,29 @@ def select_skills(data: dict, domain: str | None = None, agent: str | None = Non
     return sorted(matches, key=lambda entry: entry["id"])
 
 
+def refresh(registry_path: Path = DEFAULT_REGISTRY, bump: str | None = None) -> list[str]:
+    """Re-pin skill hashes. A changed skill must also change its version (``bump``)."""
+    data = json.loads(registry_path.read_text(encoding="utf-8"))
+    changed = []
+    for item in data["skills"]:
+        actual = skill_sha256(ROOT / item["path"])
+        if "version" not in item or "content_sha256" not in item:
+            item["version"], item["content_sha256"] = item.get("version", "1.0.0"), actual     # first pin
+            changed.append(f"{item['id']}: pinned {item['version']}")
+        elif item["content_sha256"] != actual:
+            if bump is None:
+                raise RegistryError(f"{item['id']} changed; refusing to re-pin without --bump patch|minor|major")
+            item["version"] = _bump(item["version"], bump)
+            item["content_sha256"] = actual
+            changed.append(f"{item['id']}: -> {item['version']}")
+    registry_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    return changed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "list", "select"))
+    parser.add_argument("command", choices=("validate", "list", "select", "refresh"))
+    parser.add_argument("--bump", choices=("patch", "minor", "major"))
     parser.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
     parser.add_argument("--domain", choices=sorted(DOMAINS))
     parser.add_argument("--agent")
@@ -127,6 +174,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "refresh":
+            for line in refresh(args.registry, args.bump) or ["nothing to re-pin"]:
+                print(line)
+            return 0
         data = load_registry(args.registry)
         if args.command == "validate":
             print(f"Skill Registry valid: {len(data['skills'])} skills")

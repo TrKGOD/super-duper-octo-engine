@@ -5,37 +5,16 @@ This is a helper, not a complete secret/PII detector. Review the output manually
 """
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
-PATTERNS = [
-    ("private_key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.S)),
-    ("authorization_header", re.compile(r"(?im)^(\s*authorization\s*:\s*)(?:bearer|basic)\s+[^\s]+", re.I)),
-    ("cookie_header", re.compile(r"(?im)^(\s*(?:set-cookie|cookie)\s*:\s*).+$", re.I)),
-    ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("github_token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{30,})\b")),
-    ("slack_token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b")),
-    ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")),
-    ("credential_assignment", re.compile(r"(?i)(\b(?:password|passwd|client_secret|api[_-]?key|access[_-]?token|refresh[_-]?token|secret)\b\s*[:=]\s*)([\"']?)[^\s,;\"']+")),
-    ("url_credentials", re.compile(r"\b(https?://)[^/@\s:]+:[^/@\s]+@")),
-    ("email_address", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
-]
-
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from core.redaction import redact_with_counts
 
 def redact_text(text):
-    counts = {}
-    result = text
-    for name, pattern in PATTERNS:
-        result, count = pattern.subn(
-            lambda match: (match.group(1) + "[REDACTED]" if name in {
-                "authorization_header", "cookie_header", "credential_assignment"
-            } and match.lastindex else "[REDACTED]"),
-            result,
-        )
-        if count:
-            counts[name] = count
-    return result, counts
+    """Best-effort redaction incl. e-mail addresses; returns ``(clean_text, counts)``."""
+    return redact_with_counts(text, pii=True)
 
 
 def main():

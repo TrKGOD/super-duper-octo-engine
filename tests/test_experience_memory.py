@@ -14,18 +14,9 @@ from pathlib import Path
 from scripts.migrate import migrate
 from core.store import StateStore
 from core.evidence import EvidenceVault
+from core.benchmark.synthetic import bola_request
 from core.validation_engine import FindingValidator
 from core.experience import ExperienceStore, PromotionError, promote_finding
-
-OWNER_OK = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o1"]}
-OTHER_SAME = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o2"]}
-
-
-def bola_request():
-    return {"vulnerability_class": "object_authorization", "owner_response": OWNER_OK,
-            "other_response": OTHER_SAME, "owner_identity": "bob", "other_identity": "alice",
-            "object_reference": "order-7"}
-
 
 class ExperienceTestBase(unittest.TestCase):
     def setUp(self):
@@ -36,8 +27,10 @@ class ExperienceTestBase(unittest.TestCase):
         self.store = StateStore(db)
         self.store.create_engagement("eng", "AUTH", {}, {}, status="active")
         self.vault = EvidenceVault(self.store, self.root)
-        self.validator = FindingValidator(self.store)
-        self.exp = ExperienceStore(sqlite3.connect(":memory:"))
+        self.validator = FindingValidator(self.store, self.vault)
+        experience_connection = sqlite3.connect(":memory:")
+        self.addCleanup(experience_connection.close)           # the store is handed a connection it does not own
+        self.exp = ExperienceStore(experience_connection)
 
     def tearDown(self):
         try:
@@ -54,7 +47,7 @@ class ExperienceTestBase(unittest.TestCase):
             "asset": "https://app.local/api/orders", "method": "GET", "parameter": "id",
             "description": description, "impact": "Cross-tenant object read.", "severity": "high",
             "proposed_by": "recon-agent", "evidence_refs": [ev["evidence_id"]]})
-        self.validator.validate_finding(fid, bola_request(), "validation-agent")
+        self.validator.validate_finding(fid, bola_request(self.vault, "eng", fid), "validation-agent")
         return fid
 
 
@@ -85,7 +78,7 @@ class PromotionGateTests(ExperienceTestBase):
             "asset": "https://app.local", "method": "GET", "parameter": "id", "description": "check",
             "proposed_by": "recon-agent", "evidence_refs": [ev["evidence_id"]]})
         # Validate with a denial -> REFUTED -> finding rejected.
-        self.validator.validate_finding("r1", {**bola_request(), "other_response": {"status_code": 403}},
+        self.validator.validate_finding("r1", bola_request(self.vault, "eng", "r1", other="denied"),
                                         "validation-agent")
         with self.assertRaises(PromotionError):
             promote_finding(self.exp, self.store, "r1")

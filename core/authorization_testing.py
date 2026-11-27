@@ -37,7 +37,7 @@ def _normalize_json(value: Any) -> Any:
     if isinstance(value, list):
         return [_normalize_json(item) for item in value]
     if isinstance(value, str):
-        return re.sub(r"\\s+", " ", value).strip()
+        return re.sub(r"\s+", " ", value).strip()
     return value
 
 
@@ -47,7 +47,7 @@ def _response_fingerprint(body: str | None) -> str | None:
     try:
         parsed = json.loads(body)
     except (TypeError, ValueError):
-        normalized = re.sub(r"\\s+", " ", body).strip()
+        normalized = re.sub(r"\s+", " ", body).strip()
         if not normalized:
             return None
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
@@ -55,6 +55,9 @@ def _response_fingerprint(body: str | None) -> str | None:
         _normalize_json(parsed), sort_keys=True, separators=(",", ":"), ensure_ascii=False
     )
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+response_fingerprint = _response_fingerprint   # public name used by the validation engine
 
 
 def _is_success(status: Any) -> bool:

@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor, _resolve_and_authorize
 from core.orchestration import Workflow
+from core.pathsafe import is_link_like
 
 
 class SurfaceParser(HTMLParser):
@@ -148,12 +149,13 @@ def _request(executor, engagement_id, task_id, target, purpose, headers=None, me
         "follow_redirects": True,
     }
     raw = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
-    request_dir = ROOT / ".local" / "requests"
+    root = executor.project_root          # the executor's project, not the module-level repo ROOT
+    request_dir = root / ".local" / "requests"
     request_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if request_dir.is_symlink():
+    if is_link_like(request_dir):
         raise ActiveExecutionError(".local/requests must not be a symlink")
     rel = ".local/requests/" + request_id + ".json"
-    path = ROOT / rel
+    path = root / rel
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as stream:
         stream.write(raw)
@@ -190,11 +192,13 @@ def _analyse_js(text):
     return sorted(routes), indicators
 
 
-def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3, secret_headers=None, user_agent=None):
+def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_depth=3, secret_headers=None,
+                  user_agent=None, project_root=None):
     if not 1 <= max_pages <= 100 or not 0 <= max_depth <= 4:
         raise ActiveExecutionError("Bounds are max_pages 1..100 and max_depth 0..4")
     target_url = _canonical(target_url)
-    with Workflow(db, project_root=ROOT) as workflow:
+    root = Path(project_root) if project_root is not None else ROOT
+    with Workflow(db, project_root=root) as workflow:
         row = workflow.store.connection.execute(
             """SELECT t.agent,t.status,t.input_json,e.status AS engagement_status,e.scope_json,e.rules_json,
                       e.authorization_reference
@@ -213,7 +217,7 @@ def run_discovery(db, engagement_id, task_id, target_url, max_pages=50, max_dept
             raise ActiveExecutionError("Task must be active_testing and have a non-empty exact scope subset")
         scope = json.loads(row["scope_json"])
         _resolve_and_authorize(target_url, scope, task["scope_subset"])
-        executor = ActiveHTTPExecutor(workflow, ROOT)
+        executor = ActiveHTTPExecutor(workflow, root)
         # Optional authenticated mode uses only environment-backed secret header references.
         auth_headers = dict(secret_headers or {})
         base_headers = {"User-Agent": user_agent} if user_agent else {}
