@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Raised `cryptography` to `>=50.0.0,<51.0.0` (was `>=44.0.0,<47.0.0`) to clear four published advisories
+  (PYSEC-2026-3552/3553/3554, GHSA-537c-gmf6-5ccf) that the advisory dependency audit reported against
+  46.0.7; no code changes were needed and the full suite passes on Linux and Windows with 50.0.2.
 - **Architecture revalidation, hardening and end-to-end integration** (branch
   `feature/architecture-revalidation`; full register in `docs/REVALIDATION_STATUS.md`). Nothing here is
   `production_ready`; each item states how it was verified.

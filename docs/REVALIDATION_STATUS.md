@@ -17,9 +17,9 @@ Environment: Windows 11, Python 3.13 only. No container runtime, no WSL, no gitl
 | Validators | `validate_config`, `validate_contracts`, `skill_registry validate` (24 skills, pinned), `validate_agent_tools` (13), `validate_agent_contracts --check-docs` (12), `compileall core scripts tests hooks`: all pass |
 | Secret scan | gitleaks is not installed locally; a regex pass found only synthetic test fixtures, and the secret-shaped literals that gitleaks' default rules would likely flag were rebuilt at runtime. The CI `test` job runs gitleaks and **passed** on the first run. |
 | **Verified by CI** (first run on PR #42, GitHub-hosted runners) | `test` (Ubuntu 24.04, Python 3.11, Chromium installed, gitleaks): **green**. `container-isolation` (real **Docker 28.0.4**, cgroup v2, AppArmor + builtin seccomp): the 14 isolation tests and the 49 worker tests **passed — 65 tests, none skipped** (non-root, no capabilities, read-only root, read-only evidence mount, loopback-only network, cgroup memory/pids limits, kill-and-remove on timeout and cancel, no implicit pull, digest pinning, orphan sweep). `compatibility` on Ubuntu 24.04 with Python 3.12 and 3.13: **730 tests ran, including every POSIX branch** (`killpg`, `setrlimit`, relative process limit, permission test); the one error was a real-browser test run without a Chromium binary, fixed by the browser gate (`WITHERHOARD_REQUIRE_BROWSER`). |
-| Not verified | the Windows CI matrix (Windows Server 2022, Python 3.11 and 3.13 — still running when this was written; see the PR), rootless or non-Docker container runtimes, the egress firewall template on a host, the real-agent and architecture benchmarks (need the Claude CLI and an API key) |
-| `dependency-audit` (advisory) | **Found 4 advisories in `cryptography 46.0.7`** (PYSEC-2026-3552, -3553, -3554 and GHSA-537c-gmf6-5ccf), fixed only in 48.0.1 – 50.0.0, while `requirements.txt` caps `cryptography<47` (the cap predates this work). Not changed here: a major-version jump needs its own decision and test pass. |
-| Python 3.11 / 3.12 | 3.11 (`test` job) and 3.12 (`compatibility`) ran on Linux CI. The local repository scan for 3.12+-only syntax and post-3.11 APIs found nothing, which CI then confirmed on 3.11. |
+| Not verified | rootless or non-Docker container runtimes, the egress firewall template on a host, the real-agent and architecture benchmarks (need the Claude CLI and an API key) |
+| `dependency-audit` (advisory) | The first run **found 4 advisories in `cryptography 46.0.7`** (PYSEC-2026-3552, -3553, -3554 and GHSA-537c-gmf6-5ccf), fixed only in 48.0.1 – 50.0.0 while `requirements.txt` capped `cryptography<47`. **Resolved in PR #43**: the range is now `>=50.0.0,<51.0.0`; CI resolves 50.0.2, the whole suite is green on Linux and Windows with it, and the audit reports "No known vulnerabilities found". The job stays advisory: new findings appear in its job summary. |
+| Python versions | Ubuntu 24.04 with 3.11 (`test`), 3.12 and 3.13, and Windows Server 2022 with 3.11 and 3.13 all ran the full suite in CI (the Windows `compatibility` jobs run their steps under `bash`, so PowerShell cannot mask a failing validator). The earlier local scan for 3.12+-only syntax and post-3.11 APIs found nothing, which CI confirmed. |
 
 ### Measured results (synthetic only — not an estimate of real-world detection quality)
 
@@ -89,7 +89,7 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 
 * Container isolation is verified on one runtime only (Docker 28.0.4, cgroup v2, GitHub-hosted Ubuntu 24.04); rootless Docker, Podman and cgroup v1 hosts are untested, and a host that ignores cgroup limits would be caught by the same tests. The egress firewall template has never been applied to a host.
 * The subprocess backend is not a sandbox. `RLIMIT_AS` can stop Go tools from starting; the process limit is relative to the user's current task count and approximate.
-* `cryptography` is capped below the versions that fix four published advisories (see §1); the advisory `dependency-audit` job reports it.
+* `cryptography` is held to the 50.x line (`>=50.0.0,<51.0.0`): the floor clears four advisories reported by the audit (see §1), and the cap keeps the next major version out until CI has tested it. The audit is advisory and does not block merges.
 * Only two authorization classes have automated executors; legacy validation records written before the evidence chain are never reported as vault-verified.
 * Tool binaries are not version-probed. GitHub Actions are pinned by major tag, the test image by tag, dependencies by version — not by digest/commit.
 * The control plane (scope, authorization, window, object ownership) is the operator's attestation. A manager and its SQLite connection belong to one thread.
@@ -98,9 +98,7 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 
 ## 7. To resume
 
-1. Decide on the `cryptography` cap (`<47`): the fixed releases are 48.0.1 – 50.0.0, a major-version jump that needs its own test pass (CI is the natural place to try it).
-2. Read the Windows matrix results on PR #42 and fix what they reveal.
-3. Decide separately whether, and how, to automate SQLi/XSS/SSRF checks (needs an explicit design and authorization review).
-4. Pin the container test image and the GitHub Actions by digest/commit (needs network access to look the values up and verify them).
-5. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
-6. Commit and open PRs only when asked (no AI attribution lines, per the project's convention).
+1. Decide separately whether, and how, to automate SQLi/XSS/SSRF checks (needs an explicit design and authorization review).
+2. Pin the container test image and the GitHub Actions by digest/commit (needs network access to look the values up and verify them).
+3. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
+4. Commit and open PRs only when asked (no AI attribution lines, per the project's convention).
