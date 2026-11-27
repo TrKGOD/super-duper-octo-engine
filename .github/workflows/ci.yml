@@ -66,6 +66,11 @@ jobs:
   compatibility:
     name: compatibility (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # bash runs with -e on both platforms; the Windows default (PowerShell) reports only the LAST command's
+        # exit code, so a failing validator in a multi-command step would be masked.
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
