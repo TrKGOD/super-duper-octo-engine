@@ -8,7 +8,7 @@ from core.active_executor import ActiveExecutionError
 from core.security_testing import (
     _validate_readonly_pair, analyze_authentication_pair, analyze_cache_pair,
     analyze_http_framing, analyze_race_capture, analyze_ssrf_probe, execute_readonly_pair,
-    validate_scoped_callback_url,
+    load_marker_matched_callback_events, redact_callback_events, validate_scoped_callback_url,
 )
 
 
@@ -198,6 +198,88 @@ class SecurityAnalysisTests(unittest.TestCase):
             "evidence_refs": []}, marker="marker-unique-1234")
         self.assertEqual(result["status"], "observation")
         self.assertEqual(result["classification"], "ssrf_inconclusive")
+
+
+class CallbackLogTests(unittest.TestCase):
+    """Shared by scripts/active_ssrf_probe.py and the pipeline's SSRF orchestration."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / ".local").mkdir()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write(self, name, value):
+        path = self.root / ".local" / name
+        path.write_text(json.dumps(value), encoding="utf-8")
+        return ".local/" + name
+
+    def test_reads_and_filters_by_marker(self):
+        path = self._write("events.json", [
+            {"marker": "marker-unique-1234", "source_ip": "203.0.113.8"},
+            {"marker": "marker-unique-OTHER", "source_ip": "203.0.113.9"},
+        ])
+        events = load_marker_matched_callback_events(path, self.root, "marker-unique-1234")
+        self.assertEqual(events, [{"marker": "marker-unique-1234", "source_ip": "203.0.113.8"}])
+
+    def test_no_matching_events_returns_an_empty_list_not_an_error(self):
+        path = self._write("events.json", [{"marker": "marker-unique-OTHER"}])
+        self.assertEqual(load_marker_matched_callback_events(path, self.root, "marker-unique-1234"), [])
+
+    def test_rejects_a_path_outside_local(self):
+        outside = self.root / "events.json"
+        outside.write_text("[]", encoding="utf-8")
+        with self.assertRaisesRegex(ActiveExecutionError, "confined to .local"):
+            load_marker_matched_callback_events("events.json", self.root, "marker-unique-1234")
+
+    def test_rejects_path_traversal_and_absolute_paths(self):
+        with self.assertRaisesRegex(ActiveExecutionError, "confined to .local"):
+            load_marker_matched_callback_events(".local/../events.json", self.root, "marker-unique-1234")
+        with self.assertRaisesRegex(ActiveExecutionError, "confined to .local"):
+            load_marker_matched_callback_events(str(self.root / ".local" / "events.json"), self.root,
+                                                "marker-unique-1234")
+
+    def test_rejects_a_non_array_or_oversized_array(self):
+        path = self._write("object.json", {"not": "a list"})
+        with self.assertRaisesRegex(ActiveExecutionError, "JSON array"):
+            load_marker_matched_callback_events(path, self.root, "marker-unique-1234")
+        path = self._write("huge.json", [{"marker": "marker-unique-1234"}] * 101)
+        with self.assertRaisesRegex(ActiveExecutionError, "JSON array"):
+            load_marker_matched_callback_events(path, self.root, "marker-unique-1234")
+
+    def test_rejects_a_file_over_64kib(self):
+        path = self._write("big.json", [{"marker": "marker-unique-1234", "pad": "x" * 70000}])
+        with self.assertRaisesRegex(ActiveExecutionError, "64 KiB"):
+            load_marker_matched_callback_events(path, self.root, "marker-unique-1234")
+
+    def test_rejects_malformed_json(self):
+        path = self.root / ".local" / "bad.json"
+        path.write_text("not json", encoding="utf-8")
+        with self.assertRaisesRegex(ActiveExecutionError, "JSON"):
+            load_marker_matched_callback_events(".local/bad.json", self.root, "marker-unique-1234")
+
+    def test_rejects_a_missing_file(self):
+        with self.assertRaises((ActiveExecutionError, OSError)):
+            load_marker_matched_callback_events(".local/nope.json", self.root, "marker-unique-1234")
+
+    def test_rejects_an_invalid_marker_shape(self):
+        path = self._write("events.json", [])
+        for bad_marker in ("short", "has space", "has/slash", ""):
+            with self.subTest(marker=bad_marker):
+                with self.assertRaisesRegex(ActiveExecutionError, "marker"):
+                    load_marker_matched_callback_events(path, self.root, bad_marker)
+
+    def test_redact_callback_events_projects_a_known_field_set_only(self):
+        events = [{"marker": "m1", "timestamp": "t1", "source_ip": "1.2.3.4", "method": "GET",
+                  "path": "/x", "secret": "should-not-survive", "extra": object()}]
+        self.assertEqual(redact_callback_events(events),
+                         [{"marker": "m1", "timestamp": "t1", "source_ip": "1.2.3.4", "method": "GET", "path": "/x"}])
+
+    def test_redact_callback_events_tolerates_missing_fields(self):
+        self.assertEqual(redact_callback_events([{"marker": "m1"}]), [{"marker": "m1"}])
+        self.assertEqual(redact_callback_events([]), [])
 
 
 if __name__ == "__main__":

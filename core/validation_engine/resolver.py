@@ -20,13 +20,16 @@ from :mod:`core.validation_engine.facts`, not from the request.
 from __future__ import annotations
 
 import json
+from urllib.parse import unquote
 
 from core.authorization_testing import response_fingerprint
 from core.evidence import EvidenceError
+from core.html_context import classify_marker_context
 from core.validation_engine.errors import EvidenceResolutionError, ValidationError
 
 RESPONSE = "http_response"
 REQUEST = "http_request"
+OTHER = "other"   # a non-HTTP artifact, e.g. an operator-supplied out-of-band callback log
 
 # vulnerability class -> evidence roles, raw inline inputs that are refused, caller context keys
 SPECS = {
@@ -45,6 +48,10 @@ SPECS = {
     "reflected_input": {
         "roles": {"request": REQUEST, "response": RESPONSE},
         "inline": ("response_body", "response_headers", "context"),
+        "context": ("marker",)},
+    "ssrf": {
+        "roles": {"response": RESPONSE, "callback_log": OTHER},
+        "inline": ("marker_reflected", "callback_matched", "callback_events"),
         "context": ("marker",)},
     "security_header": {
         "roles": {"response": RESPONSE},
@@ -99,6 +106,12 @@ class EvidenceResolver:
         return {"method": payload.get("method"), "url": payload.get("url"), "body": payload.get("body"),
                 "evidence_refs": [evidence_id]}, descriptor
 
+    def other(self, evidence_id, role: str):
+        """A non-HTTP JSON artifact. Only its ``events`` array is read by any current builder."""
+        payload, descriptor = self._load(evidence_id, role, OTHER)
+        events = payload.get("events")
+        return {"events": events if isinstance(events, list) else [], "evidence_refs": [evidence_id]}, descriptor
+
     # -- building oracle input ---------------------------------------------------------------
     def materialize(self, vulnerability_class: str, request: dict, facts=None):
         """Return ``(oracle_request, descriptors)`` built only from verified evidence."""
@@ -123,9 +136,9 @@ class EvidenceResolver:
             raise ValidationError("Each evidence role must reference a distinct artifact")
 
         loaded, descriptors = {}, []
+        loaders = {RESPONSE: self.response, REQUEST: self.request, OTHER: self.other}
         for role, evidence_type in spec["roles"].items():
-            loader = self.response if evidence_type == RESPONSE else self.request
-            loaded[role], descriptor = loader(references[role], role)
+            loaded[role], descriptor = loaders[evidence_type](references[role], role)
             descriptors.append(descriptor)
         context = {key: request[key] for key in spec["context"] if key in request}
         builder = getattr(self, "_build_" + vulnerability_class)
@@ -158,15 +171,36 @@ class EvidenceResolver:
     def _build_reflected_input(self, loaded, context, facts):
         marker = str(context.get("marker", "")).strip()
         sent = f"{loaded['request'].get('url') or ''} {loaded['request'].get('body') or ''}"
-        if not marker or marker not in sent:
+        # A marker containing characters a URL query must percent-encode (e.g. "<", ">") never
+        # appears as a raw substring of a correctly-encoded request URL; unquoting is what makes
+        # that case match without weakening the check for a marker that truly was never sent.
+        if not marker or (marker not in sent and marker not in unquote(sent)):
             raise ValidationError("The marker was not part of the executed request recorded as evidence")
         content_type = next((str(v) for k, v in loaded["response"]["response_headers"].items()
                              if str(k).lower() == "content-type"), "")
         is_html = "html" in content_type.lower()
-        return {"marker": marker, "response_body": loaded["response"]["response_excerpt"] or "",
-                # The execution context cannot be proven from a response body alone, so the engine
-                # never asserts one: HTML reflection stays inconclusive until it is established.
-                "context": "unknown" if is_html else "non_html"}
+        body = loaded["response"]["response_excerpt"] or ""
+        if is_html:
+            try:
+                # core.html_context parses the verified response body itself (it does not trust a
+                # caller-supplied context) and is scoped to the one marker shape the automated
+                # pipeline constructs; a marker outside that shape (e.g. an operator's own sample)
+                # falls back to "unknown" rather than raising out of a validation attempt.
+                html_context = classify_marker_context(body, marker)
+            except ValueError:
+                html_context = "unknown"
+        else:
+            html_context = "non_html"
+        return {"marker": marker, "response_body": body, "context": html_context}
+
+    def _build_ssrf(self, loaded, context, facts):
+        marker = str(context.get("marker", "")).strip()
+        body = loaded["response"]["response_excerpt"] or ""
+        events = loaded["callback_log"]["events"]
+        # Re-checked here, from the verified artifact's own bytes, rather than trusting that
+        # whoever captured the callback log already filtered it correctly.
+        matched = any(isinstance(event, dict) and event.get("marker") == marker for event in events)
+        return {"marker": marker, "marker_reflected": marker in body, "callback_matched": matched}
 
     def _build_security_header(self, loaded, context, facts):
         return {**context, "response_headers": loaded["response"]["response_headers"]}

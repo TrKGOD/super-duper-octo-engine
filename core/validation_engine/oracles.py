@@ -2,8 +2,8 @@
 
 Each oracle maps observed evidence to a disposition using a deterministic rule, not the
 proposer's claim and not "the payload was accepted". Where a sound analyzer already exists
-it is reused (object/function authorization, SQLi differential); reflected-input and
-security-header oracles are added here. Every oracle returns
+it is reused (object/function authorization, SQLi differential); reflected-input,
+security-header and ssrf oracles are added here. Every oracle returns
 ``{"disposition", "explanation", "comparison"}``.
 """
 from __future__ import annotations
@@ -152,6 +152,41 @@ def reflected_input(request: dict) -> dict:
             "evidence_requests": requests}
 
 
+def ssrf(request: dict) -> dict:
+    """SSRF: an operator-verified out-of-band callback confirms; reflection alone does not.
+
+    Deliberately has no REFUTED outcome: one check that observed neither a callback nor a
+    reflection does not rule out blind or asynchronous SSRF (the same limitation
+    ``core.security_testing.analyze_ssrf_probe`` already states), so it can only ever be
+    SUPPORTED or INCONCLUSIVE.
+    """
+    marker = str(request.get("marker", "")).strip()
+    if not marker:
+        raise OracleError("ssrf requires a unique marker")
+    callback_matched = bool(request.get("callback_matched"))
+    reflected = bool(request.get("marker_reflected"))
+    comparison = {"marker": marker, "callback_matched": callback_matched, "marker_reflected": reflected}
+    requests: list = []
+    if callback_matched:
+        disposition = SUPPORTED
+        explanation = ("An out-of-band callback bearing the unique marker was received by the "
+                       "operator's own listener, consistent with the target issuing a request to "
+                       "an external destination it was asked to fetch.")
+    elif reflected:
+        disposition = INCONCLUSIVE
+        explanation = ("The marker was reflected in the application's own response, but no "
+                       "operator-observed callback was supplied; reflection alone does not "
+                       "establish that the target fetched the URL.")
+        requests = [evidence_request("confirm_outbound_fetch", explanation, marker=marker)]
+    else:
+        disposition = INCONCLUSIVE
+        explanation = ("Neither a callback nor a reflection was observed; this does not rule out "
+                       "blind or asynchronous SSRF.")
+        requests = [evidence_request("extend_observation_window", explanation, marker=marker)]
+    return {"disposition": disposition, "explanation": explanation, "comparison": comparison,
+            "evidence_requests": requests}
+
+
 _SECURITY_HEADERS = {
     "content-security-policy", "strict-transport-security", "x-content-type-options",
     "referrer-policy", "permissions-policy", "x-frame-options",
@@ -180,5 +215,6 @@ ORACLES = {
     "function_authorization": function_authorization,
     "sqli": sqli,
     "reflected_input": reflected_input,
+    "ssrf": ssrf,
     "security_header": security_header,
 }

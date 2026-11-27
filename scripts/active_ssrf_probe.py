@@ -10,8 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor
 from core.orchestration import Workflow
-from core.security_testing import _load_manifest, analyze_ssrf_probe, validate_scoped_callback_url
-from core.pathsafe import is_link_like
+from core.security_testing import (_load_manifest, analyze_ssrf_probe,
+                                   load_marker_matched_callback_events, redact_callback_events,
+                                   validate_scoped_callback_url)
 
 
 def main():
@@ -42,27 +43,9 @@ def main():
         events = []
         callback_evidence = []
         if args.callback_events:
-            event_path = args.callback_events
-            if event_path.is_absolute() or ".." in event_path.parts or event_path.parts[:1] != (".local",):
-                raise ActiveExecutionError("Callback evidence must be confined to .local/")
-            event_candidate = ROOT / event_path
-            local_root = ROOT / ".local"
-            if is_link_like(local_root) or is_link_like(event_candidate):
-                raise ActiveExecutionError("Callback evidence path must not use symlinks")
-            event_resolved = event_candidate.resolve(strict=True)
-            if not event_resolved.is_file() or not event_resolved.is_relative_to(local_root.resolve(strict=True)):
-                raise ActiveExecutionError("Callback evidence must be a regular file inside .local/")
-            if event_resolved.stat().st_size > 65536:
-                raise ActiveExecutionError("Callback evidence file exceeds 64 KiB")
-            supplied = json.loads(event_resolved.read_text(encoding="utf-8"))
-            if not isinstance(supplied, list) or len(supplied) > 100:
-                raise ActiveExecutionError("Callback evidence must be a JSON array of at most 100 events")
-            events = [item for item in supplied if isinstance(item, dict) and item.get("marker") == args.marker]
+            events = load_marker_matched_callback_events(args.callback_events, ROOT, args.marker)
             if events:
-                safe_events = [{
-                    key: event.get(key) for key in ("marker", "timestamp", "source_ip", "method", "path")
-                    if key in event
-                } for event in events]
+                safe_events = redact_callback_events(events)
                 artifact = executor.vault.capture(
                     args.engagement_id, "other",
                     "ssrf-callback-" + hashlib.sha256(args.marker.encode()).hexdigest()[:16] + ".json",
