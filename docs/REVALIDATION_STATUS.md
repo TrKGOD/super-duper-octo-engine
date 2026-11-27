@@ -1,6 +1,6 @@
 # Architectural Revalidation — Status & Defect Register
 
-Branch `feature/architecture-revalidation` (from `main` @ `292f287`). **Nothing is committed or pushed.**
+Developed on `feature/architecture-revalidation` (from `main` @ `292f287`) and merged to `main` in PR #42; follow-ups are PR #43 (`cryptography` 50.x), PR #44 (CI pins) and the pin of the CI-installed tools.
 An item is marked fixed only when a test that fails without the fix exists and passes.
 
 Maturity vocabulary (`AUTONOMOUS_PLATFORM_ROADMAP.md`): `documented` → `implemented_unverified` → `lab_verified` → `production_ready`.
@@ -12,7 +12,7 @@ Environment: Windows 11, Python 3.13 only. No container runtime, no WSL, no gitl
 
 | Check | Result |
 |---|---|
-| `python -m unittest discover -s tests` | **743 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** with default warning filters (baseline was 398 tests with 17 failing) |
+| `python -m unittest discover -s tests` | **750 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** (also with `ResourceWarning` raised as an error; baseline was 398 tests with 17 failing) |
 | Skips | 14 = the gated container-isolation class (`WITHERHOARD_CONTAINER_TESTS`), 2 = POSIX-only tests (an execute-permission-bit check, the reported process-limit detail). No other skip. |
 | Validators | `validate_config`, `validate_contracts`, `skill_registry validate` (24 skills, pinned), `validate_agent_tools` (13), `validate_agent_contracts --check-docs` (12), `compileall core scripts tests hooks`: all pass |
 | Secret scan | gitleaks is not installed locally; a regex pass found only synthetic test fixtures, and the secret-shaped literals that gitleaks' default rules would likely flag were rebuilt at runtime. The CI `test` job runs gitleaks and **passed** on the first run. |
@@ -79,7 +79,7 @@ Four target requests and ≈0.8 s per run. The two hypotheses never executed in 
 
 **Knowledge and memory (this pass)** — D-KB-1 no size cap on multi-format ingestion · D-KB-2 deep JSON escaped as `RecursionError` · D-KB-3 markup parse failure stored raw markup · D-KB-4 hidden `template`/`noscript` text delivered as content · D-KB-5 semantic retrieval returned titles/URLs unwrapped while full-text wrapped them · D-KB-6 non-finite embeddings and one corrupt vector row · D-KB-7 a failed ingest left a half-written document in the open transaction · D-KB-8 `kb_sources.py` error path raised `TypeError` (`json.dumps(file=…)`) and parsed feeds with DTDs (`test_kb_ingestion_safety` 26, `test_kb_sources` 10). Experience promotion without a verified record, report markup injection and dishonest coverage were also fixed (`test_experience_proposals`, `test_report_depth`, `test_planner_robustness`).
 
-**Docs/CI** — README roadmap heading with literal `\n`; README evaluator command failed without `--allow-missing`; stale register · D-CI-1 (found by the first Linux compatibility run) the real-browser auth test *errored* instead of skipping when the Playwright package was installed without a Chromium binary; a shared probe now launches a browser and skips, or fails when `WITHERHOARD_REQUIRE_BROWSER=1` (set by the CI `test` job so a broken Chromium install cannot pass by skipping) — `test_support` · D-CI-2 the advisory `pip-audit` job showed a red check on findings; it now publishes them to the job summary and annotates a warning.
+**Docs/CI** — README roadmap heading with literal `\n`; README evaluator command failed without `--allow-missing`; stale register · D-CI-1 (found by the first Linux compatibility run) the real-browser auth test *errored* instead of skipping when the Playwright package was installed without a Chromium binary; a shared probe now launches a browser and skips, or fails when `WITHERHOARD_REQUIRE_BROWSER=1` (set by the CI `test` job so a broken Chromium install cannot pass by skipping) — `test_support` · D-CI-2 the advisory `pip-audit` job showed a red check on findings; it now publishes them to the job summary and annotates a warning · D-CI-3 third-party actions, the container test image and the tools CI installs by name (`pip-audit`, the benchmark job's `@anthropic-ai/claude-code`) were floating references; they are now pinned to commit SHAs, a digest and exact versions, and `tests/test_ci_pins.py` (14 tests) fails on any floating one — its install check was run against the workflow as it stood before the pins and flagged exactly the two floating installs.
 
 ## 5. Deliberately not implemented
 
@@ -91,7 +91,8 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 * The subprocess backend is not a sandbox. `RLIMIT_AS` can stop Go tools from starting; the process limit is relative to the user's current task count and approximate.
 * `cryptography` is held to the 50.x line (`>=50.0.0,<51.0.0`): the floor clears four advisories reported by the audit (see §1), and the cap keeps the next major version out until CI has tested it. The audit is advisory and does not block merges.
 * Only two authorization classes have automated executors; legacy validation records written before the evidence chain are never reported as vault-verified.
-* Tool binaries are not version-probed. GitHub Actions are pinned to commit SHAs and the CI container test image to a digest; `tests/test_ci_pins.py` fails on any floating reference. Still unpinned: the `pip-audit` tool installed in the advisory job, the `@anthropic-ai/claude-code` npm package in the gated agent-benchmark job, and the Python dependencies (pinned by version, not by hash). Pins do not update themselves — refresh them deliberately; automated update PRs (Dependabot's `github-actions` ecosystem) are not enabled.
+* Tool binaries are not version-probed. GitHub Actions are pinned to commit SHAs, the CI container test image to a digest, and the tools CI installs by name to exact versions (`pip-audit==2.10.1`; `@anthropic-ai/claude-code@2.1.326`, the release the registry tagged `stable` when it was pinned); `tests/test_ci_pins.py` fails on any floating reference. **Nothing is hash-locked:** an exact version fixes the tool, not the packages it pulls in, and the Python dependencies are pinned by version or range, not by hash. The checker recognises `pip install` and `npm install` only — not `npx`, `pipx`, `apt-get` (the OS packages added by `playwright install --with-deps` come from the runner's mirror) or `curl | sh`. Pins do not update themselves — refresh them deliberately; Dependabot is not enabled, and its `github-actions` ecosystem would not see an inline `run:` pin anyway.
+* The `agent-benchmark` job is gated (repository variable plus API-key secret) and has not been run in CI. The recent `@anthropic-ai/claude-code` releases (2.1.199 – 2.1.332) all declare `engines.node >= 22.0.0`, while the job sets up Node 20, whose scheduled end of life was April 2026. npm warns about an engines mismatch by default rather than failing, but this is **unverified**: the Node version was left unchanged because the job cannot be exercised without the secret.
 * The control plane (scope, authorization, window, object ownership) is the operator's attestation. A manager and its SQLite connection belong to one thread.
 * Two classes are named `ToolRegistry` (`core/workers/tools.py` worker allow-list, `core/tools/registry.py` layered over it) and `core/validation.py` (finding schema) sits beside `core/validation_engine/` (exploit validation): layered, not duplicated, but a naming hazard left unchanged.
 * README/docs line endings are mixed (`core.autocrlf=true`); git normalises on commit.
@@ -100,5 +101,5 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 
 1. Decide separately whether, and how, to automate SQLi/XSS/SSRF checks (needs an explicit design and authorization review).
 2. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
-3. Pin the remaining CI tools (`pip-audit`, the agent-benchmark npm package) and decide whether to enable Dependabot for the pinned actions.
+3. Decide whether to enable Dependabot for the pinned actions and whether hash-locking the CI tools is worth the upkeep; run the gated agent-benchmark job once and reconcile its Node version with the package's `engines`.
 4. Commit and open PRs only when asked (no AI attribution lines, per the project's convention).

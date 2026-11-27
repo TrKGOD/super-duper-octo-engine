@@ -1,9 +1,14 @@
 name: CI
 
-# Third-party actions are pinned to full commit SHAs (the release is the trailing comment) and the container test
-# image to a digest, so a change in what CI executes is always a change in this repository.
-# tests/test_ci_pins.py fails on any floating reference. To update one, resolve the new release to its commit
-# (gh api repos/<owner>/<repo>/git/ref/tags/<tag>, dereferencing an annotated tag) and change SHA and comment together.
+# Third-party actions are pinned to full commit SHAs (the release is the trailing comment), the container test
+# image to a digest, and the tools CI installs by name (`pip install`, `npm install`) to exact versions, so a
+# change in what CI executes is always a change in this repository. tests/test_ci_pins.py fails on any floating
+# reference. To update an action, resolve the new release to its commit
+# (gh api repos/<owner>/<repo>/git/ref/tags/<tag>, dereferencing an annotated tag) and change SHA and comment
+# together; to update a tool, look up the release (pip index versions pip-audit; npm view
+# @anthropic-ai/claude-code dist-tags) and change its version. An exact version fixes the tool itself, not the
+# packages it depends on (nothing here is hash-locked), and not the advisory data pip-audit queries, which must
+# stay current.
 
 on:
   push:
@@ -165,7 +170,7 @@ jobs:
         id: audit
         continue-on-error: true
         run: |
-          python -m pip install pip-audit
+          python -m pip install pip-audit==2.10.1
           pip-audit -r requirements.txt -r requirements-browser.txt 2>&1 | tee audit.txt
           exit "${PIPESTATUS[0]}"
 
@@ -201,7 +206,7 @@ jobs:
       - name: Install benchmark dependencies
         run: |
           python -m pip install -r requirements.txt
-          npm install --global @anthropic-ai/claude-code
+          npm install --global @anthropic-ai/claude-code@2.1.326
       - name: Smoke-test the configured Claude Code specialist
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
