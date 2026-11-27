@@ -10,12 +10,14 @@ Everything below the fixture is the real stack: the scope-enforcing HTTP broker,
 vault, the execution ledger, the validation engine, the finding lifecycle, the attack graph and
 the adaptive planner. The only test double is the fixture target itself.
 """
+import html
 import json
 import os
 import unittest
 from http.server import BaseHTTPRequestHandler
+from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from core.execution_ledger import ExecutionLedger
 from core.graph import AttackGraph, GraphIngestor
@@ -39,6 +41,13 @@ class AccessPolicyFixture(BaseHTTPRequestHandler):
     protect_admin = False
     hits: list = []
 
+    # -- toggles for the automated sqli/xss/ssrf executors (core/pipeline/executor.py) ------------
+    sqli_vulnerable = False          # /search?q=: naive string-built lookup vs. exact-match only
+    reflect_unescaped = False        # /search?q=: raw echo vs. html.escape'd, when not sqli_vulnerable
+    ssrf_fetch_enabled = False       # /api/fetch?url=: "fetches" (records) the url vs. refuses it
+    ssrf_events_path = None          # Path a "fetch" appends a synthetic callback event to (or None)
+    lookup_rows = {"1": "widget-one", "2": "widget-two", "3": "widget-three"}
+
     def _send(self, status, body, content_type="application/json"):
         data = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(status)
@@ -50,7 +59,10 @@ class AccessPolicyFixture(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path).path
         who = self.tokens.get(self.headers.get("Authorization", ""))
-        type(self).hits.append((path, who))
+        # The raw path (query string included): two sqli/xss probes to the same route with
+        # DIFFERENT query values are not duplicates, and must not look like any to a test that
+        # compares hits for repeats (test_pipeline_metrics.py's duplicate-request count).
+        type(self).hits.append((self.path, who))
         if path == "/":
             self._send(200, b'<html><body><a href="/api/orders/7">order</a> <a href="/api/admin/users">users</a>'
                             b'<form action="/search" method="get"><input name="q"></form></body></html>',
@@ -72,6 +84,42 @@ class AccessPolicyFixture(BaseHTTPRequestHandler):
                 self._send(403, {"error": "forbidden"})
             else:
                 self._send(200, [{"user": "alice"}, {"user": "bob"}])
+        elif path == "/search":
+            # XSS fixture only: reflects "q" into the page, raw or HTML-escaped. Never reflects
+            # itself in a way that would also make the SQLi oracle's fingerprint differential
+            # meaningful (core/pipeline/executor.py's own reflection-confound check catches that
+            # case anyway, but /api/lookup below is the clean, unambiguous SQLi fixture).
+            term = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
+            shown = term if type(self).reflect_unescaped else html.escape(term)
+            self._send(200, f"<html><body><p>results for {shown}</p></body></html>".encode(), "text/html")
+        elif path == "/api/lookup":
+            # SQLi fixture only: a naive stand-in for "SELECT ... WHERE id = '{term}'" built by
+            # string concatenation when sqli_vulnerable, an exact match otherwise. Returns row
+            # VALUES (never the raw term), so neither case ever reflects the payload itself.
+            term = parse_qs(urlsplit(self.path).query).get("term", [""])[0]
+            if type(self).sqli_vulnerable and "' OR '1'='1" in term:
+                rows = list(type(self).lookup_rows.values())
+            elif type(self).sqli_vulnerable and "' OR '1'='2" in term:
+                rows = []
+            else:
+                rows = [v for k, v in type(self).lookup_rows.items() if k == term]
+            self._send(200, {"results": rows})
+        elif path == "/api/fetch":
+            target = parse_qs(urlsplit(self.path).query).get("url", [""])[0]
+            if type(self).ssrf_fetch_enabled:
+                # Stands in for the target server itself issuing the outbound request: instead of
+                # actually fetching anything, it appends a synthetic event to the path the test
+                # pointed ssrf_events_path at - as if an operator's own external listener had just
+                # logged an inbound hit carrying the marker. No real network fetch happens.
+                marker = parse_qs(urlsplit(target).query).get("wh", [""])[0]
+                events_path = type(self).ssrf_events_path
+                if marker and events_path is not None:
+                    existing = json.loads(events_path.read_text(encoding="utf-8")) if events_path.exists() else []
+                    existing.append({"marker": marker, "source_ip": "203.0.113.9"})
+                    events_path.write_text(json.dumps(existing), encoding="utf-8")
+                self._send(200, {"status": "fetched"})
+            else:
+                self._send(400, {"error": "external fetch is disabled"})
         else:
             self._send(404, {"error": "not found"})
 
@@ -87,9 +135,14 @@ class PipelineBase(unittest.TestCase):
         AccessPolicyFixture.hits = []
         AccessPolicyFixture.enforce_ownership = self.enforce_ownership
         AccessPolicyFixture.protect_admin = self.protect_admin
+        AccessPolicyFixture.sqli_vulnerable = False
+        AccessPolicyFixture.reflect_unescaped = False
+        AccessPolicyFixture.ssrf_fetch_enabled = False
+        AccessPolicyFixture.ssrf_events_path = None
         self.env = patch.dict(os.environ, ENV)
         self.env.start()
-        self.lab = LabEngagement(AccessPolicyFixture, allowed_classes=CLASSES, extra_rules=self.rules()).open()
+        self.lab = LabEngagement(AccessPolicyFixture, allowed_classes=CLASSES, extra_rules=self.rules(),
+                                 extra_scope=self.extra_scope()).open()
         self.connection = self.lab.workflow.store.connection
         self.graph = AttackGraph(self.connection, self.lab.engagement_id)
         self.ingest = GraphIngestor(self.graph)
@@ -101,6 +154,9 @@ class PipelineBase(unittest.TestCase):
         self.env.stop()
 
     def rules(self):
+        return {}
+
+    def extra_scope(self):
         return {}
 
     def pipeline(self, *, identities=None, registry=None, budget=None):
@@ -115,6 +171,19 @@ class PipelineBase(unittest.TestCase):
     def seed_endpoints_without_traffic(self):
         for path in ("/api/orders/{id}", "/api/admin/users"):
             self.ingest.register_endpoint("GET", self.origin, path, trust="observed", provenance="discovery")
+
+    def register_query_endpoint(self, method, path, param_name):
+        """Direct graph registration (bypassing the crawler) of an endpoint and one query
+        parameter, shaped exactly as core/pipeline/discovery.py's project_discovery would have
+        projected them -- including the empty ``attributes`` dict on the parameter node, which is
+        why core/pipeline/executor.py reads a parameter's name from ``label``, not ``attributes``."""
+        endpoint_id = self.ingest.register_endpoint(method, self.origin, path, trust="observed", provenance="discovery")
+        key = f"{method.upper()} {self.origin}{path}?{param_name}"
+        param_id = self.graph.upsert_node("parameter", key, label=param_name, trust="observed",
+                                          provenance=[{"source": "discovery"}], confidence=0.5)
+        self.graph.upsert_edge(endpoint_id, "ACCEPTS", param_id, trust="observed",
+                               provenance=[{"source": "discovery"}], confidence=0.5)
+        return endpoint_id
 
     def seed_control_plane(self, *, declare_owner: bool, bfla: bool = False):
         for who in ("alice", "bob", "admin"):
@@ -174,16 +243,23 @@ class TenStepAcceptanceTests(PipelineBase):
         self.assertGreater(categories["idor_bola"]["score"], 0)            # scored, transparently
         self.assertIn("impact", json.loads(categories["idor_bola"]["score_breakdown_json"])["factors"])
 
-        # Nothing was sent for the hypotheses that could not be justified yet: object ownership is
-        # undeclared, and injection testing has no automated executor.
+        # Nothing was sent for the IDOR hypothesis, which could not be justified yet: object
+        # ownership is undeclared. The sqli hypothesis DID run (it has an automated executor): a
+        # boolean-pair probe against /search?q=: the fixture's /search route reflects "q" back
+        # (HTML-escaped by default) for the XSS tests' sake, so the executor's own reflection-
+        # confound check (core/pipeline/executor.py) correctly declines to trust the fingerprint
+        # differential here, rather than reusing the pre-existing oracle's SUPPORTED verdict on a
+        # difference that is really just two different payload strings being echoed back.
         self.assertEqual(self.target_requests("/api/orders/7"), [])
         idor = self.hypothesis(category="idor_bola")
         self.assertEqual(idor["status"], "INCONCLUSIVE")
         self.assertEqual(json.loads(idor["evidence_requests_json"])[0]["kind"], "confirm_object_ownership")
         self.assertEqual(idor["executed"], 0)                                # an unexecuted attempt is not coverage
         sqli = self.hypothesis(category="sqli")
-        self.assertEqual(sqli["status_reason"], "no_automated_executor:sqli")
-        self.assertEqual(json.loads(sqli["evidence_requests_json"])[0]["kind"], "specialist_testing_required")
+        self.assertEqual(sqli["status"], "INCONCLUSIVE")
+        self.assertEqual(sqli["status_reason"], "reflection_confound")
+        self.assertEqual(json.loads(sqli["evidence_requests_json"])[0]["kind"], "possible_reflection_confound")
+        self.assertEqual(sqli["executed"], 1)                                     # this one DID reach the target
         # ...while the BFLA hypothesis, whose role restriction the operator DID declare, ran this cycle.
         self.assertEqual(self.hypothesis(category="bfla")["status"], "SUPPORTED")
         self.assertEqual({who for _, who in self.target_requests("/api/admin/users") if who}, {"admin", "alice"})
@@ -240,10 +316,10 @@ class TenStepAcceptanceTests(PipelineBase):
         idor_class = second["coverage"]["by_test_class"]["web-authorization-idor"]
         self.assertEqual((idor_class["attempted"], idor_class["SUPPORTED"]), (1, 1))
         sqli_class = second["coverage"]["by_test_class"]["web-sqli"]
-        self.assertEqual((sqli_class["hypotheses"], sqli_class["attempted"]), (1, 0))   # generated, never really tested
+        self.assertEqual((sqli_class["hypotheses"], sqli_class["attempted"], sqli_class["INCONCLUSIVE"]), (1, 1, 1))
         untested = second["coverage"]["untested_endpoints"]
-        self.assertTrue(any("/search" in key for key in untested),
-                        "the endpoint with no automated executor must be listed as a coverage gap")
+        # /search is no longer a gap: sqli has an automated executor now and really reached it.
+        self.assertFalse(any("/search" in key for key in untested))
         self.assertFalse(any("/api/orders/" in key for key in untested))
 
         # BFLA on the permissive fixture: the unprivileged identity reached the restricted function.
@@ -278,6 +354,113 @@ class NegativeCaseTests(PipelineBase):
             self.hypothesis(category="idor_bola")["hypothesis_id"])[0]
         self.assertTrue(record["evidence_verified"])
         self.assertEqual(record["disposition"], "REFUTED")
+
+
+class SingleParameterAutomationTests(PipelineBase):
+    """Focused positive/negative coverage for the three single-endpoint automated executors
+    (core/pipeline/strategies.py: sqli, xss, ssrf). Each endpoint is direct-registered
+    (``register_query_endpoint``), so these are independent of the crawler and of each other.
+    """
+
+    def rules(self):
+        return {"ssrf_callback_url": "https://callback.example.test/canary",
+                "ssrf_callback_events_path": ".local/ssrf-events.json"}
+
+    def extra_scope(self):
+        return {"allowed_domains": ["callback.example.test"]}
+
+    def test_sqli_true_positive_creates_a_finding(self):
+        self.register_query_endpoint("GET", "/api/lookup", "term")
+        AccessPolicyFixture.sqli_vulnerable = True
+        self.pipeline().run()
+        hyp = self.hypothesis(category="sqli")
+        self.assertEqual(hyp["status"], "SUPPORTED")
+        self.assertEqual(hyp["executed"], 1)
+        record = ValidationRecordStore(self.connection, self.lab.engagement_id).for_hypothesis(hyp["hypothesis_id"])[0]
+        self.assertTrue(record["evidence_verified"])
+        finding = self.connection.execute(
+            "SELECT * FROM findings WHERE engagement_id=?", (self.lab.engagement_id,)).fetchone()
+        self.assertIsNotNone(finding)
+        self.assertIn("SQL injection", finding["title"])
+        self.assertEqual(finding["status"], "validated")
+
+    def test_sqli_true_negative_against_a_parameterized_lookup(self):
+        self.register_query_endpoint("GET", "/api/lookup", "term")
+        AccessPolicyFixture.sqli_vulnerable = False
+        self.pipeline().run()
+        hyp = self.hypothesis(category="sqli")
+        self.assertEqual(hyp["status"], "REFUTED")
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) c FROM findings").fetchone()["c"], 0)
+
+    def test_sqli_refuses_a_state_changing_endpoint_without_sending_anything(self):
+        # candidates.py hardcodes state_changing=False on a sqli hypothesis regardless of the
+        # endpoint's real method, so the executor's own check is the only thing stopping this.
+        self.register_query_endpoint("POST", "/api/update", "term")
+        AccessPolicyFixture.sqli_vulnerable = True
+        before = len(AccessPolicyFixture.hits)
+        self.pipeline().run()
+        hyp = self.hypothesis(category="sqli")
+        self.assertEqual(hyp["status"], "INCONCLUSIVE")
+        self.assertEqual(hyp["status_reason"], "state_changing_endpoint")
+        self.assertEqual(hyp["executed"], 0)
+        self.assertEqual(len(AccessPolicyFixture.hits), before)        # nothing was ever sent
+
+    def test_xss_true_positive_when_the_marker_is_reflected_unescaped(self):
+        self.register_query_endpoint("GET", "/search", "q")
+        AccessPolicyFixture.reflect_unescaped = True
+        self.pipeline().run()
+        hyp = self.hypothesis(category="xss")
+        self.assertEqual(hyp["status"], "SUPPORTED")
+        finding = self.connection.execute(
+            "SELECT * FROM findings WHERE engagement_id=?", (self.lab.engagement_id,)).fetchone()
+        self.assertIsNotNone(finding)
+        self.assertIn("Reflected input", finding["title"])
+
+    def test_xss_true_negative_when_the_marker_is_escaped(self):
+        self.register_query_endpoint("GET", "/search", "q")
+        AccessPolicyFixture.reflect_unescaped = False
+        self.pipeline().run()
+        hyp = self.hypothesis(category="xss")
+        self.assertEqual(hyp["status"], "REFUTED")
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) c FROM findings").fetchone()["c"], 0)
+
+    def test_ssrf_supported_when_a_matching_callback_is_observed(self):
+        self.register_query_endpoint("GET", "/api/fetch", "url")
+        AccessPolicyFixture.ssrf_fetch_enabled = True
+        AccessPolicyFixture.ssrf_events_path = self.lab.root / ".local" / "ssrf-events.json"
+        self.pipeline().run()
+        hyp = self.hypothesis(category="ssrf")
+        self.assertEqual(hyp["status"], "SUPPORTED")
+        record = ValidationRecordStore(self.connection, self.lab.engagement_id).for_hypothesis(hyp["hypothesis_id"])[0]
+        self.assertTrue(record["evidence_verified"])
+        finding = self.connection.execute(
+            "SELECT * FROM findings WHERE engagement_id=?", (self.lab.engagement_id,)).fetchone()
+        self.assertIsNotNone(finding)
+        self.assertIn("Server-side request forgery", finding["title"])
+
+    def test_ssrf_inconclusive_and_never_refuted_without_a_callback(self):
+        self.register_query_endpoint("GET", "/api/fetch", "url")
+        AccessPolicyFixture.ssrf_fetch_enabled = False       # the target never fetches it
+        AccessPolicyFixture.ssrf_events_path = self.lab.root / ".local" / "ssrf-events.json"
+        self.pipeline().run()
+        hyp = self.hypothesis(category="ssrf")
+        self.assertEqual(hyp["status"], "INCONCLUSIVE")
+        self.assertNotEqual(hyp["status"], "REFUTED")
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) c FROM findings").fetchone()["c"], 0)
+
+
+class SsrfWithoutConfiguredCallbackTests(PipelineBase):
+    """A separate engagement (no ssrf_callback_url) so this never mixes with the tests above."""
+
+    def test_ssrf_hypothesis_is_inconclusive_and_never_probed(self):
+        # /api/fetch?url= also gets sqli and xss hypotheses (any endpoint with a parameter does);
+        # those run and reach the fixture, so only the SSRF hypothesis's own outcome is checked.
+        self.register_query_endpoint("GET", "/api/fetch", "url")
+        self.pipeline().run()
+        hyp = self.hypothesis(category="ssrf")
+        self.assertEqual(hyp["status"], "INCONCLUSIVE")
+        self.assertEqual(hyp["status_reason"], "ssrf_callback_not_configured")
+        self.assertEqual(hyp["executed"], 0)
 
 
 class PolicyAndSelectionTests(PipelineBase):

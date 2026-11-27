@@ -6,7 +6,9 @@ opens sockets, sends raw HTTP, performs concurrent requests or bypasses scope.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -237,6 +239,46 @@ def validate_scoped_callback_url(callback_url: str, scope: dict) -> str:
         raise ActiveExecutionError("SSRF callback host is excluded by engagement scope")
     return host
 
+
+def load_marker_matched_callback_events(path_text: str, root: Path, marker: str) -> list[dict]:
+    """Read an operator-maintained out-of-band callback log and return only events for ``marker``.
+
+    The log is produced by the operator's OWN external listener, outside this framework; this
+    function only validates its shape and filters it. Shared by ``scripts/active_ssrf_probe.py``
+    and the deterministic pipeline's SSRF orchestration so both apply exactly the same checks:
+    confined to ``.local/`` under ``root``, a regular file reached through no symlink or junction,
+    at most 64 KiB, and a JSON array of at most 100 objects.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._-]{8,96}", marker or ""):
+        raise ActiveExecutionError("SSRF marker must be a unique non-secret token")
+    path = Path(path_text)
+    if path.is_absolute() or ".." in path.parts or path.parts[:1] != (".local",):
+        raise ActiveExecutionError("Callback evidence must be confined to .local/")
+    root = Path(root)
+    local_root = root / ".local"
+    candidate = root / path
+    if is_link_like(local_root) or is_link_like(candidate):
+        raise ActiveExecutionError("Callback evidence path must not use symlinks")
+    resolved = candidate.resolve(strict=True)
+    if not resolved.is_file() or not resolved.is_relative_to(local_root.resolve(strict=True)):
+        raise ActiveExecutionError("Callback evidence must be a regular file inside .local/")
+    if resolved.stat().st_size > 65536:
+        raise ActiveExecutionError("Callback evidence file exceeds 64 KiB")
+    try:
+        supplied = json.loads(resolved.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ActiveExecutionError("Callback evidence must be valid UTF-8 JSON") from exc
+    if not isinstance(supplied, list) or len(supplied) > 100:
+        raise ActiveExecutionError("Callback evidence must be a JSON array of at most 100 events")
+    return [item for item in supplied if isinstance(item, dict) and item.get("marker") == marker]
+
+
+_CALLBACK_EVENT_FIELDS = ("marker", "timestamp", "source_ip", "method", "path")
+
+
+def redact_callback_events(events: list[dict]) -> list[dict]:
+    """Project each callback event to a small, known-safe field set before it becomes evidence."""
+    return [{key: event.get(key) for key in _CALLBACK_EVENT_FIELDS if key in event} for event in events]
 
 
 def analyze_race_capture(events: list[dict]) -> dict:

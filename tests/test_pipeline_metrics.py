@@ -10,9 +10,12 @@ the same run measures true positives AND false positives instead of assuming eit
 * coverage honesty: hypotheses with no automated executor are counted as not executed;
 * cost: target requests, ledger executions and wall-clock time.
 
-These are properties of a four-scenario synthetic fixture covering two authorization classes. They show
-the pipeline agrees with its ground truth there; they are NOT an estimate of detection quality on real
-applications and say nothing about injection, XSS or SSRF testing, which have no automated executor.
+These are properties of a four-scenario synthetic fixture covering two authorization classes; its
+discovered search form also produces sqli and xss hypotheses (both automated too, now), which this
+fixture's ground truth does not track (true/false positive counts stay about idor_bola/bfla only) but
+which still execute, get judged, and count toward coverage. All four show the pipeline agrees with
+its ground truth there; they are NOT an estimate of detection quality on real applications, and SSRF
+still has no automated executor reachable from this fixture (no URL-shaped parameter is discovered).
 
 Run ``python -m tests.test_pipeline_metrics`` to print the measured table.
 """
@@ -106,11 +109,19 @@ class _MeasuredScenario:
         self.assertEqual(metrics["duplicate_requests_while_testing"], 0, metrics)
         self.assertEqual(metrics["requests_in_a_cycle_with_nothing_new"], 0, metrics)
         self.assertEqual(metrics["repeat_stop_reason"], "no_ready_candidates")
-        # Honest coverage: the discovered search form produced an injection hypothesis that was never
-        # executed, and the metric says so instead of counting it as tested.
-        self.assertGreaterEqual(metrics["hypotheses_without_automated_executor"], 1, metrics)
-        self.assertEqual(metrics["hypotheses_executed"], 2, metrics)
-        self.assertIn("sqli", metrics["categories_not_executed"], metrics)
+        # sqli and xss (from the discovered search form) are automated too now: all 4 hypotheses
+        # execute, none left uncovered. Judged honestly, not confirmed: the fixture's /search
+        # route HTML-escapes "q", so xss correctly REFUTES, and sqli's boolean-pair probe gets the
+        # same escaped payload reflected back in both samples -- the executor's own reflection-
+        # confound check (core/pipeline/executor.py) declines to trust that differential rather
+        # than let the pre-existing oracle read it as a false SQL-injection confirmation.
+        self.assertEqual(metrics["hypotheses_without_automated_executor"], 0, metrics)
+        self.assertEqual(metrics["hypotheses_executed"], 4, metrics)
+        self.assertEqual(metrics["categories_not_executed"], [], metrics)
+        sqli = self.hypothesis(category="sqli")
+        self.assertEqual((sqli["status"], sqli["status_reason"]), ("INCONCLUSIVE", "reflection_confound"))
+        xss = self.hypothesis(category="xss")
+        self.assertEqual(xss["status"], "REFUTED")
 
 
 class PermissiveFixtureMetrics(_MeasuredScenario, PipelineBase):

@@ -47,6 +47,13 @@ class ChainBase(unittest.TestCase):
     def response(self, name, status=200, body="", headers=None, engagement="eng"):
         return capture_http_response(self.vault, engagement, name, status=status, body=body, headers=headers)
 
+    def callback_log(self, name, events, engagement="eng"):
+        """An "other"-typed artifact, exactly as the SSRF orchestration captures a callback log."""
+        payload = json.dumps({"events": events}, sort_keys=True).encode()
+        stored = self.vault.capture(engagement, "other", name + "-callback.json", payload,
+                                    "synthetic-fixture", redacted=True)
+        return stored["evidence_id"]
+
     def finding(self, fid="f1"):
         ev = self.vault.capture("eng", "http_exchange", fid + "-x.txt", b"synthetic " + fid.encode(),
                                 "recon-agent", redacted=True)
@@ -189,19 +196,50 @@ class OtherOraclesOnVerifiedEvidenceTests(ChainBase):
             "h2", 200, "x", headers={"Content-Security-Policy": "default-src 'self'"})}
         self.assertEqual(self.engine().validate(request).disposition, REFUTED)
 
-    def test_reflected_input_never_confirms_without_an_established_context(self):
-        marker = "wh-probe-7f3a"
+    def test_reflected_input_confirms_only_when_context_is_actually_established(self):
+        # core.html_context classifies an unambiguous, unescaped body-text reflection: context IS
+        # established, so this one DOES confirm (unlike before core/html_context.py existed).
+        marker = "<wh-probe-7f3a>"
         sent = capture_http_request(self.vault, "eng", "reflect-req", url="https://app.local/search?q=" + marker)
         html = self.response("reflect-html", 200, "<p>" + marker + "</p>", headers={"Content-Type": "text/html"})
         record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": marker,
                                          "evidence": {"request": sent, "response": html}})
-        self.assertEqual(record.disposition, INCONCLUSIVE)
-        self.assertEqual(record.evidence_requests[0]["kind"], "determine_execution_context")
+        self.assertEqual(record.disposition, SUPPORTED)
+
+        escaped_html = self.response("reflect-html-escaped", 200, "<p>&lt;wh-probe-7f3a&gt;</p>",
+                                     headers={"Content-Type": "text/html"})
+        record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": marker,
+                                         "evidence": {"request": sent, "response": escaped_html}})
+        self.assertEqual(record.disposition, REFUTED)
+
         json_response = self.response("reflect-json", 200, '{"q": "' + marker + '"}',
                                       headers={"Content-Type": "application/json"})
         record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": marker,
                                          "evidence": {"request": sent, "response": json_response}})
         self.assertNotEqual(record.disposition, SUPPORTED)
+
+    def test_reflected_input_stays_inconclusive_when_context_cannot_be_established(self):
+        # A marker outside the bracket shape core.html_context supports falls back to "unknown"
+        # rather than raising, and a marker split across two different HTML regions is genuinely
+        # ambiguous - core.html_context never guesses either case into a confirmation.
+        bare_marker = "wh-probe-plain"
+        sent = capture_http_request(self.vault, "eng", "reflect-req-bare", url="https://app.local/search?q=" + bare_marker)
+        html = self.response("reflect-html-bare", 200, "<p>" + bare_marker + "</p>", headers={"Content-Type": "text/html"})
+        record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": bare_marker,
+                                         "evidence": {"request": sent, "response": html}})
+        self.assertEqual(record.disposition, INCONCLUSIVE)
+        self.assertEqual(record.evidence_requests[0]["kind"], "determine_execution_context")
+
+        ambiguous_marker = "<wh-probe-ambig1>"
+        sent2 = capture_http_request(self.vault, "eng", "reflect-req-ambig",
+                                     url="https://app.local/search?q=" + ambiguous_marker)
+        ambiguous_html = self.response(
+            "reflect-html-ambiguous", 200,
+            f"<p>{ambiguous_marker}</p><script>\"{ambiguous_marker}\"</script>",
+            headers={"Content-Type": "text/html"})
+        record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": ambiguous_marker,
+                                         "evidence": {"request": sent2, "response": ambiguous_html}})
+        self.assertEqual(record.disposition, INCONCLUSIVE)
 
     def test_the_marker_must_have_been_part_of_the_executed_request(self):
         sent = capture_http_request(self.vault, "eng", "other-req", url="https://app.local/search?q=something")
@@ -209,6 +247,63 @@ class OtherOraclesOnVerifiedEvidenceTests(ChainBase):
         with self.assertRaisesRegex(ValidationError, "marker"):
             self.engine().validate({"vulnerability_class": "reflected_input", "marker": "wh-probe-9z",
                                     "evidence": {"request": sent, "response": html}})
+
+    def test_a_percent_encoded_marker_in_the_sent_url_still_counts_as_sent(self):
+        # A query VALUE containing "<"/">" is correctly percent-encoded by any URL-encoding
+        # client; the request evidence records the URL as actually sent (encoded), so the
+        # "was it really sent" check must unquote before comparing, not reject every such marker.
+        marker = "<wh-xss-ab12cd34ef56ab12>"
+        encoded_url = "https://app.local/search?q=%3Cwh-xss-ab12cd34ef56ab12%3E"
+        sent = capture_http_request(self.vault, "eng", "encoded-req", url=encoded_url)
+        html = self.response("encoded-html", 200, "<p>" + marker + "</p>", headers={"Content-Type": "text/html"})
+        record = self.engine().validate({"vulnerability_class": "reflected_input", "marker": marker,
+                                         "evidence": {"request": sent, "response": html}})
+        self.assertEqual(record.disposition, SUPPORTED)
+
+    def test_a_marker_absent_even_after_unquoting_still_raises(self):
+        marker = "<wh-xss-ab12cd34ef56ab12>"
+        sent = capture_http_request(self.vault, "eng", "unrelated-req",
+                                    url="https://app.local/search?q=%73omething-else-entirely")
+        html = self.response("unrelated-html", 200, "<p>" + marker + "</p>", headers={"Content-Type": "text/html"})
+        with self.assertRaisesRegex(ValidationError, "marker"):
+            self.engine().validate({"vulnerability_class": "reflected_input", "marker": marker,
+                                    "evidence": {"request": sent, "response": html}})
+
+    def test_ssrf_confirms_only_on_a_verified_callback_match(self):
+        response = self.response("ssrf-resp", 200, "{}", headers={"Content-Type": "application/json"})
+        matched = self.callback_log("ssrf-matched", [{"marker": "wh-ssrf-1", "source_ip": "203.0.113.9"}])
+        record = self.engine().validate({"vulnerability_class": "ssrf", "marker": "wh-ssrf-1",
+                                         "evidence": {"response": response, "callback_log": matched}})
+        self.assertEqual(record.disposition, SUPPORTED)
+
+        empty_log = self.callback_log("ssrf-empty", [])
+        record = self.engine().validate({"vulnerability_class": "ssrf", "marker": "wh-ssrf-1",
+                                         "evidence": {"response": response, "callback_log": empty_log}})
+        self.assertEqual(record.disposition, INCONCLUSIVE)
+        self.assertNotEqual(record.disposition, REFUTED)
+
+    def test_ssrf_callback_match_is_recomputed_from_the_verified_log_not_trusted(self):
+        # A log that only holds events for OTHER markers must not confirm this one, even though a
+        # (differently-filtered) log exists: the resolver re-checks the marker itself.
+        response = self.response("ssrf-resp-2", 200, "{}", headers={"Content-Type": "application/json"})
+        other_markers_log = self.callback_log("ssrf-other", [{"marker": "wh-ssrf-DIFFERENT"}])
+        record = self.engine().validate({"vulnerability_class": "ssrf", "marker": "wh-ssrf-1",
+                                         "evidence": {"response": response, "callback_log": other_markers_log}})
+        self.assertNotEqual(record.disposition, SUPPORTED)
+
+    def test_ssrf_reflection_without_a_callback_is_inconclusive_not_confirmed(self):
+        response = self.response("ssrf-resp-3", 200, "wh-ssrf-1 appears here", headers={"Content-Type": "text/plain"})
+        empty_log = self.callback_log("ssrf-empty-2", [])
+        record = self.engine().validate({"vulnerability_class": "ssrf", "marker": "wh-ssrf-1",
+                                         "evidence": {"response": response, "callback_log": empty_log}})
+        self.assertEqual(record.disposition, INCONCLUSIVE)
+        self.assertEqual(record.evidence_requests[0]["kind"], "confirm_outbound_fetch")
+
+    def test_ssrf_evidence_must_be_exactly_response_and_callback_log(self):
+        response = self.response("ssrf-resp-4", 200, "{}")
+        with self.assertRaisesRegex(ValidationError, "Evidence roles"):
+            self.engine().validate({"vulnerability_class": "ssrf", "marker": "wh-ssrf-1",
+                                    "evidence": {"response": response}})
 
 
 class LifecycleGateTests(ChainBase):

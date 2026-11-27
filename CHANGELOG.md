@@ -1,6 +1,31 @@
 # Changelog
 
 ## Unreleased
+- Automated SQLi, reflected-input (XSS) and SSRF executors, each deliberately narrower than "test
+  this endpoint" — see `core/pipeline/strategies.py` for the full statement of scope:
+  - SQLi sends one quote-delimited boolean pair (`' OR '1'='1` / `' OR '1'='2`) against an endpoint's
+    first query (or GET-form) parameter and reuses the pre-existing differential oracle unchanged.
+    A new reflection-confound check in the executor declines to trust the differential when the
+    endpoint simply echoes the payload back (raw or HTML-escaped) — a false positive the oracle was
+    never exercised against before a real sender existed.
+  - XSS sends one benign, non-executing marker and classifies where it lands with a new module,
+    `core/html_context.py` (29 tests): a single deterministic `HTMLParser` pass, never a payload-
+    mutation engine, falling back to "unknown" (never executable) on any ambiguity. Wired into
+    `core/validation_engine/resolver.py`, which previously always asserted "unknown" for HTML by design.
+  - SSRF orchestrates the existing, operator-driven canary workflow (`scripts/active_ssrf_probe.py`)
+    automatically once the operator has configured and is running their own scope-validated callback
+    listener (`rules_of_engagement.ssrf_callback_url`); this framework still never hosts one itself.
+    A new `ssrf` validation oracle and evidence role (`core/validation_engine/{oracles,resolver}.py`)
+    carries the callback-log check through the same verified-evidence chain as every other class, and
+    deliberately has no REFUTED outcome (absence of a callback never disproves blind SSRF).
+  - `core/security_testing.py` gained `load_marker_matched_callback_events` and `redact_callback_events`,
+    shared by the script and the new executor; the resolver's "was the marker really sent" check now
+    also compares against the unquoted URL, since a marker containing `<`/`>` is always percent-encoded
+    in a correctly-built request and would otherwise always fail that check.
+  - Scoped by explicit, per-class operator choice before any code was written (not decided unilaterally):
+    numeric-context/UNION/stacked/time-based SQLi, dynamic XSS breakout-payload generation, and SSRF
+    callback/listener infrastructure of this framework's own remain out of scope. See
+    `docs/REVALIDATION_STATUS.md` §5–7 for the full limitations and follow-ups.
 - CI supply chain: every third-party GitHub Action is pinned to a full commit SHA (the release is kept in a
   trailing comment), the container test image to a digest, and the tools CI installs by name (`pip-audit`,
   and `@anthropic-ai/claude-code` in the gated agent-benchmark job) to exact versions, so a change in what CI
