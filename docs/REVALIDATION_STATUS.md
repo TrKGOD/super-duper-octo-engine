@@ -12,7 +12,7 @@ Environment: Windows 11, Python 3.13 only. No container runtime, no WSL, no gitl
 
 | Check | Result |
 |---|---|
-| `python -m unittest discover -s tests` | **736 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** with default warning filters (baseline was 398 tests with 17 failing) |
+| `python -m unittest discover -s tests` | **743 tests, 0 failures, 0 errors, 16 skipped, 0 warnings** with default warning filters (baseline was 398 tests with 17 failing) |
 | Skips | 14 = the gated container-isolation class (`WITHERHOARD_CONTAINER_TESTS`), 2 = POSIX-only tests (an execute-permission-bit check, the reported process-limit detail). No other skip. |
 | Validators | `validate_config`, `validate_contracts`, `skill_registry validate` (24 skills, pinned), `validate_agent_tools` (13), `validate_agent_contracts --check-docs` (12), `compileall core scripts tests hooks`: all pass |
 | Secret scan | gitleaks is not installed locally; a regex pass found only synthetic test fixtures, and the secret-shaped literals that gitleaks' default rules would likely flag were rebuilt at runtime. The CI `test` job runs gitleaks and **passed** on the first run. |
@@ -91,7 +91,7 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 * The subprocess backend is not a sandbox. `RLIMIT_AS` can stop Go tools from starting; the process limit is relative to the user's current task count and approximate.
 * `cryptography` is held to the 50.x line (`>=50.0.0,<51.0.0`): the floor clears four advisories reported by the audit (see §1), and the cap keeps the next major version out until CI has tested it. The audit is advisory and does not block merges.
 * Only two authorization classes have automated executors; legacy validation records written before the evidence chain are never reported as vault-verified.
-* Tool binaries are not version-probed. GitHub Actions are pinned by major tag, the test image by tag, dependencies by version — not by digest/commit.
+* Tool binaries are not version-probed. GitHub Actions are pinned to commit SHAs and the CI container test image to a digest; `tests/test_ci_pins.py` fails on any floating reference. Still unpinned: the `pip-audit` tool installed in the advisory job, the `@anthropic-ai/claude-code` npm package in the gated agent-benchmark job, and the Python dependencies (pinned by version, not by hash). Pins do not update themselves — refresh them deliberately; automated update PRs (Dependabot's `github-actions` ecosystem) are not enabled.
 * The control plane (scope, authorization, window, object ownership) is the operator's attestation. A manager and its SQLite connection belong to one thread.
 * Two classes are named `ToolRegistry` (`core/workers/tools.py` worker allow-list, `core/tools/registry.py` layered over it) and `core/validation.py` (finding schema) sits beside `core/validation_engine/` (exploit validation): layered, not duplicated, but a naming hazard left unchanged.
 * README/docs line endings are mixed (`core.autocrlf=true`); git normalises on commit.
@@ -99,6 +99,6 @@ After a safety stop during this work I did **not** build exploit-oriented probe 
 ## 7. To resume
 
 1. Decide separately whether, and how, to automate SQLi/XSS/SSRF checks (needs an explicit design and authorization review).
-2. Pin the container test image and the GitHub Actions by digest/commit (needs network access to look the values up and verify them).
-3. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
+2. Try the container isolation tests on rootless Docker or Podman, and apply the egress ruleset on a host.
+3. Pin the remaining CI tools (`pip-audit`, the agent-benchmark npm package) and decide whether to enable Dependabot for the pinned actions.
 4. Commit and open PRs only when asked (no AI attribution lines, per the project's convention).
