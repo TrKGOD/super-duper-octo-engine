@@ -1,5 +1,8 @@
 # Runtime dependencies of the framework itself (everything under core/ and scripts/ that is not optional).
 # jsonschema   - handoff / evidence / benchmark contract validation
-# cryptography - OIDC signature verification, authentication-vault encryption (Fernet), evidence integrity
+# cryptography - OIDC signature verification, authentication-vault encryption (Fernet), evidence integrity.
+#                >=50.0.0 clears the advisories the dependency audit reported against 46.x (PYSEC-2026-3552,
+#                -3553, -3554 and GHSA-537c-gmf6-5ccf); the upper bound keeps the next major version out until
+#                it has been through CI.
 jsonschema==4.23.0
-cryptography>=44.0.0,<47.0.0
+cryptography>=50.0.0,<51.0.0
