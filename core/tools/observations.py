@@ -12,7 +12,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from core.active_executor import _redact_text, _strip_sensitive_query
+from core.active_executor import _strip_sensitive_query
+from core.redaction import redact_value
 from core.graph.store import AttackGraph
 from core.store import new_id, utc_now
 
@@ -25,14 +26,7 @@ _DISPOSITION_BY_TYPE = {
 }
 
 
-def _redact_value(value):
-    if isinstance(value, str):
-        return _redact_text(value)
-    if isinstance(value, dict):
-        return {k: _redact_value(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_redact_value(v) for v in value]
-    return value
+_redact_value = redact_value  # key-aware: {"password": "x"} is redacted, not just string leaves
 
 
 @dataclass

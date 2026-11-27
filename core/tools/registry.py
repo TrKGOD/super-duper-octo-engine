@@ -9,9 +9,12 @@ Phase 5 worker broker (see `adapter.py`); the registry never runs anything itsel
 """
 from __future__ import annotations
 
+import os
 import shutil
+import sys
 from dataclasses import dataclass, field
 
+from core.tools.parsers import PARSERS
 from core.tools.profiles import ProfilePolicy, validate_profile
 from core.workers.tools import ToolSpec
 
@@ -44,6 +47,7 @@ class ToolDefinition:
     status: str = "registered"
     documentation: str | None = None
     description: str = ""
+    requires: tuple = ()                # named prerequisites the runtime must declare (e.g. "http_broker")
 
     def validate(self) -> "ToolDefinition":
         if not self.tool_id or not isinstance(self.spec, ToolSpec):
@@ -63,12 +67,21 @@ class ToolDefinition:
                 "vulnerability_classes": list(self.vulnerability_classes),
                 "execution_profile": self.execution_profile, "state_changing": self.state_changing,
                 "risk": self.risk, "network": self.network, "adapter": self.adapter,
-                "parser": self.parser, "status": self.status}
+                "parser": self.parser, "status": self.status, "requires": list(self.requires)}
+
+
+_PLATFORM = {"win32": "windows", "linux": "linux", "darwin": "darwin"}
 
 
 class ToolRegistry:
     def __init__(self):
         self._tools: dict[str, ToolDefinition] = {}
+        # Prerequisites the *runtime* has actually established (name -> bool). A built-in tool that
+        # needs the HTTP broker is not "available" merely because it is registered.
+        self.environment: dict[str, bool] = {}
+
+    def declare(self, prerequisite: str, ok: bool) -> None:
+        self.environment[str(prerequisite)] = bool(ok)
 
     def register(self, definition: ToolDefinition) -> None:
         self._tools[definition.validate().tool_id] = definition
@@ -114,15 +127,43 @@ class ToolRegistry:
         return sorted((t for t in self._tools.values() if vulnerability_class in t.vulnerability_classes),
                       key=lambda t: t.tool_id)
 
-    def check_availability(self, tool_id: str) -> str:
-        """Truthful availability: a built-in tool is available; a binary tool is available only
-        if its executable is on PATH, otherwise it requires operator configuration."""
+    def availability_report(self, tool_id: str) -> dict:
+        """Evidence for a tool's availability, check by check — never an assumption.
+
+        Checks: operating-system support, executable presence and permissions, declared runtime
+        prerequisites, and that the named parser actually exists (``get_parser`` silently falls
+        back to a passthrough parser for an unknown id, which would hide a typo). The detected
+        *version* is reported as unverified: probing it means executing the tool, which only the
+        worker broker may do.
+        """
         definition = self.get(tool_id)
+        platform = _PLATFORM.get(sys.platform, sys.platform)
+        checks = [{"check": "os_supported", "ok": platform in definition.supported_os, "detail": platform}]
+        located = None
+        if definition.binary is not None:
+            located = shutil.which(definition.binary)
+            checks.append({"check": "binary_on_path", "ok": located is not None, "detail": located})
+            checks.append({"check": "executable", "ok": bool(located) and os.access(located, os.X_OK),
+                           "detail": located})
+        for prerequisite in definition.requires:
+            checks.append({"check": "prerequisite:" + prerequisite,
+                           "ok": bool(self.environment.get(prerequisite)), "detail": None})
+        parser_known = definition.parser == "passthrough" or definition.parser in PARSERS
+        checks.append({"check": "parser_registered", "ok": parser_known, "detail": definition.parser})
         if definition.status == "disabled":
-            return "disabled"
-        if definition.binary is None:
-            return "available"
-        return "available" if shutil.which(definition.binary) else "requires_operator_configuration"
+            state = "disabled"
+        elif not checks[0]["ok"]:
+            state = "unsupported_platform"
+        elif all(item["ok"] for item in checks):
+            state = "available"
+        else:
+            state = "requires_operator_configuration"
+        return {"tool_id": tool_id, "state": state, "checks": checks,
+                "version": {"declared": definition.version, "detected": None, "verified": False}}
+
+    def check_availability(self, tool_id: str) -> str:
+        """Truthful availability state (see :meth:`availability_report` for the evidence)."""
+        return self.availability_report(tool_id)["state"]
 
     def check_version(self, tool_id: str) -> dict:
         definition = self.get(tool_id)

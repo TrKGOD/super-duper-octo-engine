@@ -9,6 +9,7 @@ from core.dispatch import DispatchError, dispatch_plan
 from core.evidence import EvidenceVault
 from core.orchestration import Workflow
 from scripts.migrate import migrate
+from tests.support import finalize_fake_cli
 
 
 class EnumerationFirstPipelineTests(unittest.TestCase):
@@ -124,11 +125,11 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(handoff)}))\n"
         )
         fake.write_text(script, encoding="utf-8")
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
 
         result = dispatch_plan(
             self.workflow, "eng-enumeration-first", "pinned-test-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
 
         self.assertEqual(result["status"], "completed")
@@ -183,11 +184,11 @@ class EnumerationFirstPipelineTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(handoff)}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
         from core.dispatch import dispatch_task
         result = dispatch_task(
             self.workflow, created[0]["task_id"], "pinned-test-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
         self.assertEqual(result["status"], "needs_operator")
         self.assertIn("explicitly approved", result["summary"])

@@ -18,8 +18,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
+from core.errors import classify_exception
 from core.evidence import EvidenceVault
+from core.execution_ledger import ExecutionError, ExecutionLedger
 from core.execution_policy import validate_execution_limits
+from core.redaction import is_sensitive_name, redact
+from core.netpolicy import DestinationDenied, EgressPolicy, parse_host
+from core.pathsafe import is_link_like
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUEST_SCHEMA = json.loads((ROOT / "templates/active-http-request.schema.json").read_text(encoding="utf-8"))
@@ -114,6 +119,12 @@ def _validate_request_scope(url, scope, task_scope):
     if parsed.username or parsed.password or parsed.fragment:
         raise ActiveExecutionError("URL userinfo and fragments are not permitted")
     host = parsed.hostname.encode("idna").decode("ascii").lower().rstrip(".")
+    try:
+        # Rejects non-canonical IP notation (2130706433, 0x7f.1, 0177.0.0.1, 127.1) and
+        # scoped IPv6 literals: resolvers turn them into addresses the allow-list never saw.
+        parse_host(host)
+    except DestinationDenied as exc:
+        raise ActiveExecutionError("Destination host is not permitted: " + exc.reason) from exc
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     domain_allowed = any(_host_matches(host, item) for item in scope.get("allowed_domains", []))
     app_allowed = _application_match(url, scope.get("allowed_applications", []))
@@ -156,10 +167,13 @@ def _resolve_and_authorize(url, scope, task_scope):
 
     if _is_excluded(host, addresses, scope):
         raise ActiveExecutionError("Target matches an excluded asset")
-    for address in addresses:
-        ip = ipaddress.ip_address(address)
-        if not ip.is_global and not _ip_in_scope(address, scope):
-            raise ActiveExecutionError("DNS resolved to a non-public IP that is not explicitly in scope")
+    try:
+        # Every resolved address must pass: one private/metadata record in an otherwise public
+        # answer (split-horizon / DNS-rebinding style) rejects the whole destination.
+        EgressPolicy.from_scope(scope).check_resolved(addresses)
+    except DestinationDenied as exc:
+        raise ActiveExecutionError(
+            "DNS resolved to a non-public IP that is not explicitly in scope (" + exc.reason + ")") from exc
     task_host_allowed = any(
         _application_match(url, [item]) if "://" in str(item) else _host_matches(host, item)
         for item in task_scope
@@ -187,12 +201,9 @@ class _PinnedHTTPConnection(http.client.HTTPConnection):
             self.sock = raw
 
 
-def _redact_text(value):
-    text = value
-    text = re.sub(r"(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)[^\s,;]+", r"\1[REDACTED]", text)
-    text = re.sub(r"(?i)((?:password|passwd|secret|token|api[_-]?key|access[_-]?key)\s*[\"']?\s*[:=]\s*[\"']?)[^\"'\s&,}]+", r"\1[REDACTED]", text)
-    text = re.sub(r"(?i)(set-cookie\s*[:=]\s*)[^;\r\n]+", r"\1[REDACTED]", text)
-    return text
+# Redaction and sensitive-name detection live in core.redaction (one implementation).
+# The underscore names are kept because other modules and tests import them from here.
+_redact_text = redact
 
 
 def _cookie_security_flags(headers):
@@ -214,12 +225,7 @@ def _cookie_security_flags(headers):
     return result
 
 
-def _is_sensitive_name(name):
-    normalized = re.sub(r"[^a-z0-9]", "", str(name).lower())
-    return any(term in normalized for term in (
-        "authorization", "authtoken", "token", "secret", "password",
-        "apikey", "accesskey", "cookie", "session", "oauthcode",
-    ))
+_is_sensitive_name = is_sensitive_name
 
 
 def _strip_sensitive_query(url):
@@ -242,6 +248,29 @@ def _safe_headers(headers):
         else:
             result[key] = _redact_text(str(value))
     return result
+
+
+_AUTH_HEADER_NAME = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}")
+_AUTH_FORBIDDEN_HEADERS = {"host", "content-length", "transfer-encoding", "connection", "upgrade",
+                           "te", "trailer", "proxy-authorization", "proxy-connection", "accept-encoding"}
+
+
+def _safe_auth_headers(material):
+    """Vet header material produced by an authentication adapter before it is sent.
+
+    Adapter output is configuration-derived (environment variables, a browser session), so it
+    is treated as untrusted for framing purposes: no line breaks/NUL in names or values, a
+    valid token name, and no header that controls routing or message framing.
+    """
+    if not isinstance(material, dict):
+        raise ActiveExecutionError("Authentication material must be a header mapping")
+    for name, value in material.items():
+        if (not isinstance(name, str) or not _AUTH_HEADER_NAME.fullmatch(name)
+                or name.lower() in _AUTH_FORBIDDEN_HEADERS):
+            raise ActiveExecutionError("Authentication material contains a forbidden header name")
+        if not isinstance(value, str) or not value or any(ch in value for ch in "\r\n\x00"):
+            raise ActiveExecutionError("Authentication material contains an unsafe header value")
+    return material
 
 
 def _validate_request(request):
@@ -410,6 +439,9 @@ class ActiveHTTPExecutor:
         self.workflow = workflow
         self.project_root = Path(project_root).resolve()
         self.vault = EvidenceVault(workflow.store, self.project_root)
+        # Every broker request is also an execution in the unified ledger: state machine,
+        # evidence association and crash reconciliation (see core/execution_ledger.py).
+        self.ledger = ExecutionLedger(workflow.store.connection, lease_seconds=180)
 
     def execute_request_file(self, engagement_id, task_id, request_file):
         task_row = self.workflow.store.connection.execute(
@@ -447,11 +479,11 @@ class ActiveHTTPExecutor:
         if request_path.is_absolute() or ".." in request_path.parts or request_path.parts[:2] != (".local", "requests"):
             raise ActiveExecutionError("Request files must be confined to .local/requests/")
         candidate = self.project_root / request_path
-        if candidate.is_symlink():
+        if is_link_like(candidate):
             raise ActiveExecutionError("Request file must not be a symlink")
         resolved = candidate.resolve(strict=True)
         local_root = self.project_root / ".local"
-        if local_root.is_symlink() or (self.project_root / ".local" / "requests").is_symlink():
+        if is_link_like(local_root) or is_link_like((self.project_root / ".local" / "requests")):
             raise ActiveExecutionError(".local and .local/requests must not be symlinks")
         requests_root = (self.project_root / ".local" / "requests").resolve(strict=True)
         if not requests_root.is_relative_to(self.project_root) or not resolved.is_file() or not resolved.is_relative_to(requests_root):
@@ -505,15 +537,34 @@ class ActiveHTTPExecutor:
         connection = self.workflow.store.connection
         token = _acquire_slot(connection, engagement_id, rps, lease_seconds=max(30, request.get("timeout_seconds", 8) + 10))
         started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        log_execution_id = uuid.uuid4().hex
+        state_changing = method in {"POST", "PUT", "PATCH", "DELETE"} or request.get("upload") is not None
+        ledger_id = None
         try:
+            ledger_id = self.ledger.create(
+                engagement_id=engagement_id, kind="http", tool_id="active-http",
+                execution_profile="active_controlled" if state_changing else "safe", task_id=task_id,
+                request={"request_id": request_id, "method": method, "target_host": host},
+                side_effect_risk="state_changing" if state_changing else "read_only",
+                external_ref=log_execution_id, actor=task_row["agent"])
+            self.ledger.authorize(ledger_id, {
+                "decision": "allow", "source": "active_executor.policy", "agent": task_row["agent"],
+                "manifest_sha256": digest, "test_classes": sorted(rules_classes)}, actor="active_executor")
+            self.ledger.start(ledger_id, actor="active_executor")
             with connection:
                 connection.execute(
                     """INSERT INTO active_request_log
                        (execution_id,engagement_id,task_id,request_id,target_host,method,started_at,outcome,evidence_refs_json)
                        VALUES(?,?,?,?,?,?,?,'running','[]')""",
-                    (uuid.uuid4().hex, engagement_id, task_id, request_id, host, method, started_at),
+                    (log_execution_id, engagement_id, task_id, request_id, host, method, started_at),
                 )
-        except Exception:
+        except Exception as exc:
+            if ledger_id is not None:
+                try:
+                    self.ledger.fail(ledger_id, failure_class=classify_exception(exc), message=str(exc),
+                                     uncertain_outcome=False)
+                except ExecutionError:
+                    pass
             _release_slot(connection, engagement_id, token)
             raise
         try:
@@ -529,6 +580,7 @@ class ActiveHTTPExecutor:
                 try:
                     from core.auth import AuthenticationManager, SessionStore
                     from core.auth.broker_transport import BrokerAuthTransport
+                    from core.auth.playwright_runner import PlaywrightAuthRunner
                     auth_store = SessionStore(self.workflow.store.db_path)
                     identity = auth_store.identity(engagement_id, auth_identity_id)
                     auth_config = identity["config"]
@@ -538,13 +590,16 @@ class ActiveHTTPExecutor:
                             self.workflow, engagement_id, task.get("scope_subset", []),
                             auth_config.get("base_url", ""), acquire_slot=False,
                         )
+                    browser_runner = PlaywrightAuthRunner(scope_guard=lambda login_url: _resolve_and_authorize(
+                        login_url, scope, task.get("scope_subset", []))[2])
                     auth_manager = AuthenticationManager(
-                        auth_store, engagement_id, transport=transport,
+                        auth_store, engagement_id, transport=transport, browser_runner=browser_runner,
                         audit=lambda event, details: self.workflow.store.append_audit(
                             engagement_id, "authentication-manager", event, details
                         ),
                     )
-                    headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id, transport=transport))
+                    headers.update(_safe_auth_headers(auth_manager.material_for_broker(
+                        auth_session_id, auth_identity_id, transport=transport)))
                 except Exception as exc:
                     raise ActiveExecutionError("Authentication manager could not provide the configured session") from exc
             headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
@@ -554,12 +609,14 @@ class ActiveHTTPExecutor:
                 boundary = "PentestAgent-" + hashlib.sha256(request_id.encode()).hexdigest()[:24]
                 file_bytes = base64.b64decode(upload["content_base64"], validate=True)
                 disposition = 'form-data; name="file"; filename="' + upload["filename"] + '"'
-                body = (("--" + boundary + "\\r\\nContent-Disposition: " + disposition +
-                         "\\r\\nContent-Type: " + upload["content_type"] + "\\r\\n\\r\\n").encode("ascii")
-                        + file_bytes + ("\\r\\n--" + boundary + "--\\r\\n").encode("ascii"))
+                # CRLF (not the two characters backslash, r): the multipart framing must be valid.
+                body = (("--" + boundary + "\r\nContent-Disposition: " + disposition +
+                         "\r\nContent-Type: " + upload["content_type"] + "\r\n\r\n").encode("ascii")
+                        + file_bytes + ("\r\n--" + boundary + "--\r\n").encode("ascii"))
                 headers["Content-Type"] = "multipart/form-data; boundary=" + boundary
             current_url = url
             redirects = 0
+            self.ledger.mark_dispatched(ledger_id)
             while True:
                 status, response_headers, response_body, truncated, location = _send_once(
                     current_url, method, headers, body,
@@ -571,7 +628,8 @@ class ActiveHTTPExecutor:
                     recovery = auth_manager.handle_response(auth_session_id, auth_identity_id, status, method, transport=transport)
                     if recovery.get("retry"):
                         headers = _resolve_request_headers(request)
-                        headers.update(auth_manager.material_for_broker(auth_session_id, auth_identity_id))
+                        headers.update(_safe_auth_headers(auth_manager.material_for_broker(
+                            auth_session_id, auth_identity_id)))
                         headers.setdefault("User-Agent", "PentestAgentFramework/0.1 (+authorized-security-testing)")
                         status, response_headers, response_body, truncated, location = _send_once(
                             current_url, method, headers, body,
@@ -581,8 +639,10 @@ class ActiveHTTPExecutor:
                         )
                 if status not in {301, 302, 303, 307, 308} or not location or not request.get("follow_redirects", True):
                     break
-                if method == "POST":
-                    raise ActiveExecutionError("POST redirects are disabled")
+                if method in {"POST", "PUT", "PATCH", "DELETE"}:
+                    # A 307/308 would re-send the state-changing request (and its body) to a new
+                    # target: that is a second state change nobody approved.
+                    raise ActiveExecutionError(method + " redirects are disabled: a state-changing request is never re-sent")
                 if redirects >= 2:
                     raise ActiveExecutionError("Redirect limit exceeded")
                 next_url = urljoin(current_url, location)
@@ -614,12 +674,12 @@ class ActiveHTTPExecutor:
             request_artifact = self.vault.capture(
                 engagement_id, "http_request", request_id + "-request.json",
                 json.dumps(safe_request, ensure_ascii=False, indent=2).encode(),
-                task_row["agent"], redacted=True,
+                task_row["agent"], redacted=True, execution_id=ledger_id, task_id=task_id,
             )
             response_artifact = self.vault.capture(
                 engagement_id, "http_response", request_id + "-response.json",
                 json.dumps(safe_response, ensure_ascii=False, indent=2).encode(),
-                task_row["agent"], redacted=True,
+                task_row["agent"], redacted=True, execution_id=ledger_id, task_id=task_id,
             )
             evidence_refs = [request_artifact["evidence_id"], response_artifact["evidence_id"]]
             finished_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -633,8 +693,11 @@ class ActiveHTTPExecutor:
                     engagement_id, task_row["agent"], "active_http.request_completed",
                     {"task_id": task_id, "request_id": request_id, "method": method,
                      "target_host": host, "status_code": status, "evidence_refs": evidence_refs,
-                     "request_manifest_sha256": digest},
+                     "request_manifest_sha256": digest, "ledger_execution_id": ledger_id},
                 )
+            self.ledger.complete(ledger_id, evidence_refs=evidence_refs, exit_status=status,
+                                 resource_usage={"redirects": redirects, "response_truncated": bool(truncated)},
+                                 actor="active_executor")
             return {
                 "request_id": request_id, "method": method, "target": host,
                 "status_code": status, "redirects": redirects,
@@ -643,6 +706,7 @@ class ActiveHTTPExecutor:
                 "response_excerpt": (response_body or "")[:65536],
                 "response_body_truncated": truncated,
                 "evidence_refs": evidence_refs,
+                "execution_id": ledger_id,
             }
         except Exception as exc:
             with connection:
@@ -655,6 +719,13 @@ class ActiveHTTPExecutor:
                     {"task_id": task_id, "request_id": request_id, "target_host": host,
                      "reason": str(exc)[:300]},
                 )
+            try:
+                # FAILED if the request provably never left (or was read-only); a state-changing
+                # request that may already have been sent becomes RECONCILIATION_REQUIRED.
+                self.ledger.fail(ledger_id, failure_class=classify_exception(exc), message=str(exc),
+                                 actor="active_executor")
+            except ExecutionError:
+                pass
             raise
         finally:
             if "auth_store" in locals():

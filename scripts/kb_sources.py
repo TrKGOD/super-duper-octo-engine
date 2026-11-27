@@ -4,13 +4,16 @@
 This adapter stores discovery metadata only. It does not download article bodies or
 assume that a feed item grants redistribution rights.
 """
-import argparse,json,sys,urllib.request,xml.etree.ElementTree as ET
+import argparse,json,re,sys,urllib.request,xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT=Path(__file__).resolve().parents[1]
 CONFIG=ROOT/"config/knowledge-sources.example.json"
 MAX_BYTES=1_000_000
+# A feed never needs a DTD. Refusing it removes entity-expansion ("billion laughs") from untrusted XML
+# before the parser sees it, independently of the expat version in use.
+_DTD=re.compile(rb"<!\s*(?:DOCTYPE|ENTITY)",re.I)
 ALLOWED_HOSTS={"portswigger.net","www.portswigger.net","blog.projectdiscovery.io","www.microsoft.com","security.googleblog.com","blog.cloudflare.com","www.rapid7.com"}
 
 class AllowlistedRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -32,6 +35,9 @@ def fetch_feed(url):
     return data
 
 def parse_feed(data,source_name):
+    raw=data.encode("utf-8","replace") if isinstance(data,str) else data
+    if len(raw)>MAX_BYTES: raise ValueError("Feed exceeds size limit.")
+    if _DTD.search(raw): raise ValueError("Feed contains a DTD or entity declaration; refusing to parse it.")
     root=ET.fromstring(data); items=[]
     nodes=root.findall(".//item")+root.findall(".//{http://www.w3.org/2005/Atom}entry")
     for node in nodes:
@@ -56,5 +62,5 @@ def main():
         print(json.dumps({"discovered":len(out),"output":str(target),"note":"Metadata only; manually verify disclosure and rights before ingesting."}))
         return 0
     except Exception as exc:
-        print(json.dumps({"error":str(exc)},file=sys.stderr)); return 2
+        print(json.dumps({"error":str(exc)}),file=sys.stderr); return 2
 if __name__=="__main__": raise SystemExit(main())

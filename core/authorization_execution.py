@@ -5,41 +5,19 @@ orchestrates the existing scope-enforcing broker; it never performs network I/O.
 """
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from core.active_executor import ActiveExecutionError
+from core.manifests import load_request_manifest
 from core.authorization_testing import compare_object_access
+from core.pathsafe import is_link_like
 
 
 _READ_ONLY_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
 def _load_manifest(executor, relative_path: str) -> dict[str, Any]:
-    path = Path(relative_path)
-    if (
-        path.is_absolute()
-        or ".." in path.parts
-        or path.parts[:2] != (".local", "requests")
-    ):
-        raise ActiveExecutionError("Authorization manifests must be confined to .local/requests/")
-    candidate = executor.project_root / path
-    if candidate.is_symlink():
-        raise ActiveExecutionError("Authorization manifest must not be a symlink")
-    resolved = candidate.resolve(strict=True)
-    requests_root = (executor.project_root / ".local" / "requests").resolve(strict=True)
-    if not resolved.is_file() or not resolved.is_relative_to(requests_root):
-        raise ActiveExecutionError("Authorization manifest is outside the requests directory")
-    if resolved.stat().st_size > 65536:
-        raise ActiveExecutionError("Authorization manifest exceeds 64 KiB")
-    try:
-        value = json.loads(resolved.read_text(encoding="utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ActiveExecutionError("Authorization manifest must be valid UTF-8 JSON") from exc
-    if not isinstance(value, dict):
-        raise ActiveExecutionError("Authorization manifest must be a JSON object")
-    return value
+    return load_request_manifest(executor.project_root, relative_path, label="Authorization")
 
 
 def _validate_pair(owner: dict[str, Any], other: dict[str, Any]) -> None:

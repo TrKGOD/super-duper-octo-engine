@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 from core.active_executor import ActiveExecutionError, ActiveHTTPExecutor
 from core.orchestration import Workflow
 from core.security_testing import _load_manifest, analyze_ssrf_probe, validate_scoped_callback_url
+from core.pathsafe import is_link_like
 
 
 def main():
@@ -46,7 +47,7 @@ def main():
                 raise ActiveExecutionError("Callback evidence must be confined to .local/")
             event_candidate = ROOT / event_path
             local_root = ROOT / ".local"
-            if local_root.is_symlink() or event_candidate.is_symlink():
+            if is_link_like(local_root) or is_link_like(event_candidate):
                 raise ActiveExecutionError("Callback evidence path must not use symlinks")
             event_resolved = event_candidate.resolve(strict=True)
             if not event_resolved.is_file() or not event_resolved.is_relative_to(local_root.resolve(strict=True)):

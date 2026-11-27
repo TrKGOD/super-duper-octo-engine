@@ -6,37 +6,19 @@ opens sockets, sends raw HTTP, performs concurrent requests or bypasses scope.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from core.active_executor import ActiveExecutionError
+from core.manifests import load_request_manifest
+from core.pathsafe import is_link_like
 
 READ_ONLY = {"GET", "HEAD", "OPTIONS"}
 
 
 def _load_manifest(executor, relative_path: str) -> dict[str, Any]:
-    path = Path(relative_path)
-    if path.is_absolute() or ".." in path.parts or path.parts[:2] != (".local", "requests"):
-        raise ActiveExecutionError("Security-test manifests must be confined to .local/requests/")
-    local_root = executor.project_root / ".local"
-    requests_dir = local_root / "requests"
-    candidate = executor.project_root / path
-    if local_root.is_symlink() or requests_dir.is_symlink() or candidate.is_symlink():
-        raise ActiveExecutionError("Security-test manifest path must not use symlinks")
-    resolved = candidate.resolve(strict=True)
-    root = requests_dir.resolve(strict=True)
-    if not resolved.is_file() or not resolved.is_relative_to(root) or resolved.stat().st_size > 65536:
-        raise ActiveExecutionError("Security-test manifest is outside the requests directory or too large")
-    try:
-        data = json.loads(resolved.read_text(encoding="utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ActiveExecutionError("Security-test manifest must be UTF-8 JSON") from exc
-    if not isinstance(data, dict):
-        raise ActiveExecutionError("Security-test manifest must be a JSON object")
-    return data
+    return load_request_manifest(executor.project_root, relative_path, label="Security-test")
 
 
 def _validate_readonly_pair(left: dict, right: dict, identity_mode: str) -> None:

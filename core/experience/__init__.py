@@ -10,7 +10,9 @@ import sqlite3
 from pathlib import Path
 
 from core.experience.promotion import PromotionError, promote_finding
-from core.experience.store import ExperienceError, ExperienceRecord, ExperienceStore, STATUSES
+from core.experience.proposals import CATEGORY_MAP, LEAD_CONFIDENCE_CAP, propose_from_experience
+from core.experience.store import (ExperienceError, ExperienceRecord, ExperienceStore, PromotionTicket,
+                                   STATUSES)
 
 
 def open_experience_store(path) -> ExperienceStore:
@@ -22,5 +24,6 @@ def open_experience_store(path) -> ExperienceStore:
 
 __all__ = [
     "ExperienceStore", "ExperienceRecord", "ExperienceError", "STATUSES",
-    "promote_finding", "PromotionError", "open_experience_store",
+    "promote_finding", "PromotionError", "open_experience_store", "PromotionTicket",
+    "propose_from_experience", "CATEGORY_MAP", "LEAD_CONFIDENCE_CAP",
 ]

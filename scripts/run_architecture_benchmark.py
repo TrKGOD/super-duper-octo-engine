@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -17,6 +16,8 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))  # allow `python scripts/<name>.py` to import core.*
+from core.runtime import CHILD_TEXT_ENCODING, resolve_executable
 PREDICTION_SCHEMA = json.loads((ROOT / "templates/prediction.schema.json").read_text(encoding="utf-8"))
 PLAN_SCHEMA = json.loads((ROOT / "templates/plan.schema.json").read_text(encoding="utf-8"))
 PREDICTION_VALIDATOR = Draft202012Validator(PREDICTION_SCHEMA)
@@ -70,7 +71,7 @@ def invoke(binary, model, agent, prompt, timeout):
                "--output-format", "json", "--max-turns", "1", "--tools", ""]
     started = time.monotonic()
     proc = subprocess.run(
-        command, input=prompt, capture_output=True, text=True, timeout=timeout,
+        command, input=prompt, capture_output=True, text=True, timeout=timeout, **CHILD_TEXT_ENCODING,
         check=False, env=dict(os.environ, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"),
     )
     elapsed = round(time.monotonic() - started, 3)
@@ -109,7 +110,7 @@ def validate_architecture_sequence(tasks, architecture):
 
 
 def run(args):
-    binary = shutil.which(args.claude_bin) if "/" not in args.claude_bin else args.claude_bin
+    binary = resolve_executable(args.claude_bin)
     if not binary:
         raise RuntimeError("Claude Code CLI not found")
     tasks = load_plan(args.plan)

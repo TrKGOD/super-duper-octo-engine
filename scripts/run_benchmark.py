@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -14,6 +13,8 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))  # allow `python scripts/<name>.py` to import core.*
+from core.runtime import CHILD_TEXT_ENCODING, resolve_executable
 SCHEMA_PATH = ROOT / "templates/prediction.schema.json"
 
 
@@ -86,7 +87,7 @@ def run_one(case, agent_text, agent_name, model, timeout, binary, scope_id):
     ]
     started = time.monotonic()
     proc = subprocess.run(
-        cmd, input=prompt, capture_output=True, text=True, timeout=timeout,
+        cmd, input=prompt, capture_output=True, text=True, timeout=timeout, **CHILD_TEXT_ENCODING,
         check=False,
         env=dict(os.environ, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"),
     )
@@ -136,7 +137,7 @@ def validate_case(case, path):
 
 
 def run(cases_dir, agent, model, timeout, scope_id, claude_bin):
-    binary = shutil.which(claude_bin) if "/" not in claude_bin else claude_bin
+    binary = resolve_executable(claude_bin)
     if not binary:
         raise RuntimeError("Claude Code CLI not found or unauthenticated")
     agent_path = ROOT / ".claude" / "agents" / (agent + ".md")

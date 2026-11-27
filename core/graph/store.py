@@ -12,7 +12,7 @@ import hashlib
 import json
 
 from core.graph.schema import (GraphError, ensure_authorization_trust, stronger_trust,
-                               validate_edge, validate_node_type)
+                               trust_rank, validate_edge, validate_node_type)
 from core.store import utc_now
 
 
@@ -71,15 +71,22 @@ class AttackGraph:
                      json.dumps(provenance), float(confidence), now, now),
                 )
             else:
-                merged_attrs = {**json.loads(row["attributes_json"]), **attributes}
+                # A weaker-trust assertion may *add* facts about a node but must never overwrite
+                # or strengthen what a stronger source established. Previously ``{**old, **new}``
+                # let an observation or an inference rewrite the attributes (including the
+                # ``origin``/``path`` the planner's policy check reads) of a control-plane node.
+                weaker = trust_rank(trust) > trust_rank(row["trust"])
+                stored = json.loads(row["attributes_json"])
+                merged_attrs = {**attributes, **stored} if weaker else {**stored, **attributes}
                 merged_prov = _merge_provenance(json.loads(row["provenance_json"]), provenance)
+                new_label = (row["label"] or label) if weaker else (label or row["label"])
+                new_confidence = float(row["confidence"]) if weaker else max(float(confidence), float(row["confidence"]))
                 self.connection.execute(
                     "UPDATE graph_nodes SET label=?,attributes_json=?,trust=?,provenance_json=?,"
                     "confidence=?,updated_at=? WHERE node_id=? AND engagement_id=?",
-                    (label or row["label"], json.dumps(merged_attrs, sort_keys=True),
+                    (new_label, json.dumps(merged_attrs, sort_keys=True),
                      stronger_trust(trust, row["trust"]), json.dumps(merged_prov),
-                     max(float(confidence), float(row["confidence"])), now,
-                     node_id, self.engagement_id),
+                     new_confidence, now, node_id, self.engagement_id),
                 )
         return node_id
 
@@ -114,15 +121,18 @@ class AttackGraph:
                      json.dumps(evidence_refs), float(confidence), now, now),
                 )
             else:
-                merged_attrs = {**json.loads(row["attributes_json"]), **attributes}
+                weaker = trust_rank(trust) > trust_rank(row["trust"])   # same rule as for nodes
+                stored = json.loads(row["attributes_json"])
+                merged_attrs = {**attributes, **stored} if weaker else {**stored, **attributes}
                 merged_prov = _merge_provenance(json.loads(row["provenance_json"]), provenance)
                 merged_ev = _merge_provenance(json.loads(row["evidence_refs_json"]), evidence_refs)
+                new_confidence = float(row["confidence"]) if weaker else max(float(confidence), float(row["confidence"]))
                 self.connection.execute(
                     "UPDATE graph_edges SET attributes_json=?,trust=?,provenance_json=?,evidence_refs_json=?,"
                     "confidence=?,updated_at=? WHERE edge_id=? AND engagement_id=?",
                     (json.dumps(merged_attrs, sort_keys=True), stronger_trust(trust, row["trust"]),
                      json.dumps(merged_prov), json.dumps(merged_ev),
-                     max(float(confidence), float(row["confidence"])), now, edge_id, self.engagement_id),
+                     new_confidence, now, edge_id, self.engagement_id),
                 )
         return edge_id
 

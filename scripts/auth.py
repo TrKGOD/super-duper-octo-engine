@@ -18,6 +18,8 @@ def main():
     parser.add_argument("--db", default=".local/state.sqlite3")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("genkey")
+    sub.add_parser("rotate-keys", help="re-encrypt every stored session under the FIRST key of "
+                                       "WITHERHOARD_AUTH_VAULT_KEY (comma-separated: new key first, old keys after)")
     register = sub.add_parser("register")
     register.add_argument("--engagement-id", required=True)
     register.add_argument("--identity-id", required=True)
@@ -68,6 +70,9 @@ def main():
             elif args.command == "revoke":
                 manager.revoke(args.session_id, args.identity_id)
                 print(json.dumps({"session_id": args.session_id, "revoked": True}))
+            elif args.command == "rotate-keys":
+                # All-or-nothing: one undecryptable row aborts the transaction and nothing is rewritten.
+                print(json.dumps({"sessions_re_encrypted": store.rotate_keys()}))
         finally:
             store.close()
 

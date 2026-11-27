@@ -7,6 +7,7 @@ from pathlib import Path
 from core.dispatch import DispatchError, dispatch_plan, dispatch_task
 from core.orchestration import Workflow
 from scripts.migrate import migrate
+from tests.support import finalize_fake_cli
 
 
 class DispatchTests(unittest.TestCase):
@@ -65,8 +66,8 @@ class DispatchTests(unittest.TestCase):
             " 'usage': {'input_tokens': 200, 'output_tokens': 80}}))\n"
         )
         fake.write_text(script, encoding="utf-8")
-        fake.chmod(0o755)
-        return str(fake)
+        fake_cli = finalize_fake_cli(fake)
+        return fake_cli
 
     def test_dispatch_selects_skill_invokes_agent_and_persists_handoff(self):
         result = dispatch_task(
@@ -138,10 +139,10 @@ class DispatchTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(handoff)}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
         result = dispatch_plan(
             self.workflow, "eng-dispatch-test", "pinned-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
         self.assertEqual(result["status"], "completed")
         self.assertEqual(len(result["results"]), 2)
@@ -201,10 +202,10 @@ class DispatchTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(handoff)}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
         result = dispatch_task(
             self.workflow, active_task_id, "pinned-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
         self.assertEqual(result["status"], "needs_operator")
 
@@ -341,10 +342,10 @@ class DispatchTests(unittest.TestCase):
             "print(json.dumps({'result': json.dumps(handoff)}))\n",
             encoding="utf-8",
         )
-        fake.chmod(0o755)
+        fake_cli = finalize_fake_cli(fake)
         result = dispatch_plan(
             self.workflow, "eng-dispatch-test", "pinned-model",
-            claude_bin=str(fake), timeout_seconds=30,
+            claude_bin=fake_cli, timeout_seconds=30,
         )
         self.assertEqual(result["status"], "needs_operator")
         self.assertEqual(

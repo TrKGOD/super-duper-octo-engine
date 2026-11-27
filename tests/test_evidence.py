@@ -1,10 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from core.evidence import EvidenceError, EvidenceVault
 from core.store import StateStore
 from scripts.migrate import migrate
+from tests.support import make_dir_link
 
 
 class EvidenceVaultTests(unittest.TestCase):
@@ -69,6 +71,25 @@ class EvidenceVaultTests(unittest.TestCase):
         self.assertFalse(verification["valid"])
         self.assertNotEqual(verification["expected_sha256"], verification["actual_sha256"])
 
+    def test_the_bytes_returned_are_the_bytes_that_were_verified_even_if_the_file_changes_afterwards(self):
+        """Check/use race: ``read()`` used to hash one read of the file and return a second, independent read,
+        so a file swapped in between was accepted as verified evidence. One read now feeds both."""
+        original = b"original verified evidence"
+        result = self.vault.capture("eng-test", "log", "race.log", original, "operator")
+        real_read_bytes, reads = Path.read_bytes, []
+
+        def swap_after_first_read(path):
+            reads.append(path)
+            data = real_read_bytes(path)
+            return data if len(reads) == 1 else b"substituted after the integrity check"
+
+        with patch.object(Path, "read_bytes", swap_after_first_read):
+            content = self.vault.read(result["evidence_id"])
+            verification = self.vault.verify(result["evidence_id"])
+        self.assertEqual(content, original)
+        self.assertFalse(verification["valid"], "the second call re-reads the substituted file and must not validate it")
+        self.assertEqual(len(reads), 2, "read() and verify() must each read the artifact exactly once")
+
     def test_rejects_traversal_unsupported_types_and_oversize(self):
         with self.assertRaises(EvidenceError):
             self.vault.capture("../outside", "log", "x.txt", b"x", "operator")
@@ -83,7 +104,9 @@ class EvidenceVaultTests(unittest.TestCase):
         local = self.root / ".local"
         outside = self.root / "outside"
         outside.mkdir()
-        local.symlink_to(outside, target_is_directory=True)
+        # A real symlink where permitted; an NTFS junction on unprivileged Windows. Both are
+        # directory redirects the vault must refuse (is_symlink() alone misses junctions).
+        make_dir_link(local, outside)
         with self.assertRaises(EvidenceError):
             self.vault.capture("eng-test", "log", "x.txt", b"x", "operator")
 

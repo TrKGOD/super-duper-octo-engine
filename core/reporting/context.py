@@ -63,6 +63,9 @@ class ReportContext:
                                  "reason": "missing or failed evidence integrity verification"})
                 continue
             vclass, record_ids, records_ok = self._validation_class(row["finding_id"])
+            supporting = [r for r in ValidationRecordStore(self.store.connection, self.engagement_id)
+                          .for_finding(row["finding_id"]) if r["disposition"] == "SUPPORTED"]
+            verified = bool(supporting) and all(r["evidence_verified"] for r in supporting)
             included.append({
                 "finding_id": row["finding_id"], "title": row["title"], "status": row["status"],
                 "severity": row["severity"], "asset": row["asset"], "method": row["method"],
@@ -71,6 +74,7 @@ class ReportContext:
                 "preconditions": json.loads(row["preconditions_json"] or "[]"),
                 "validated_by": row["validated_by"], "validation_notes": row["validation_notes"],
                 "validation_records": record_ids, "validation_records_integrity_ok": records_ok,
+                "validation_evidence_verified": verified,
                 "evidence": [{"evidence_id": e["evidence_id"], "type": e["evidence_type"],
                               "sha256": e["sha256"], "redacted": bool(e["redacted"]),
                               "integrity_verified": True} for e in evidence],
@@ -92,6 +96,56 @@ class ReportContext:
                                        for c in candidates],
             "note": "Unvalidated findings and scanner candidates are NOT confirmed vulnerabilities.",
         }
+
+    def investigation(self) -> dict:
+        """What was investigated, what is still open, and what was never tested."""
+        rows = self.store.connection.execute(
+            "SELECT * FROM planner_hypotheses WHERE engagement_id=? ORDER BY score DESC,hypothesis_id",
+            (self.engagement_id,)).fetchall()
+        by_class: dict = {}
+        unresolved = []
+        no_executor = 0
+        for row in rows:
+            bucket = by_class.setdefault(row["test_class"], {
+                "hypotheses": 0, "executed": 0, "supported": 0, "refuted": 0, "inconclusive": 0, "blocked": 0})
+            bucket["hypotheses"] += 1
+            bucket["executed"] += 1 if row["executed"] else 0
+            key = {"SUPPORTED": "supported", "REFUTED": "refuted", "INCONCLUSIVE": "inconclusive",
+                   "BLOCKED": "blocked"}.get(row["status"])
+            if key:
+                bucket[key] += 1
+            if row["status"] not in ("SUPPORTED", "REFUTED"):
+                unresolved.append({
+                    "hypothesis_id": row["hypothesis_id"], "category": row["category"],
+                    "test_class": row["test_class"], "target": row["target_label"], "status": row["status"],
+                    "reason": row["status_reason"], "executed": bool(row["executed"]),
+                    "evidence_requests": json.loads(row["evidence_requests_json"] or "[]")})
+            if str(row["status_reason"] or "").startswith("no_automated_executor"):
+                no_executor += 1
+        tested = {e["dst_node_id"] for e in self.store.connection.execute(
+            "SELECT dst_node_id FROM graph_edges WHERE engagement_id=? AND edge_type='TARGETS'",
+            (self.engagement_id,)).fetchall()}
+        endpoints = self.store.connection.execute(
+            "SELECT node_id,node_key FROM graph_nodes WHERE engagement_id=? AND node_type='endpoint' "
+            "ORDER BY node_key", (self.engagement_id,)).fetchall()
+        return {
+            "hypotheses_total": len(rows), "coverage_by_test_class": by_class,
+            "unresolved_hypotheses": unresolved,
+            "untested_endpoints": [e["node_key"] for e in endpoints if e["node_id"] not in tested],
+            "hypotheses_without_automated_executor": no_executor,
+        }
+
+    def execution_summary(self) -> dict:
+        """Execution-ledger view: what ran, what failed and what an operator still has to settle."""
+        rows = self.store.connection.execute(
+            "SELECT kind,status,COUNT(*) c FROM executions WHERE engagement_id=? GROUP BY kind,status",
+            (self.engagement_id,)).fetchall()
+        pending = self.store.connection.execute(
+            "SELECT execution_id,tool_id,status FROM executions WHERE engagement_id=? "
+            "AND status IN ('INTERRUPTED','RECONCILIATION_REQUIRED') ORDER BY created_at",
+            (self.engagement_id,)).fetchall()
+        return {"by_kind_and_status": [{"kind": r["kind"], "status": r["status"], "count": r["c"]} for r in rows],
+                "awaiting_operator_reconciliation": [dict(p) for p in pending]}
 
     def attack_surface(self) -> dict:
         def nodes(node_type):

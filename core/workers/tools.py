@@ -2,13 +2,19 @@
 
 Only registered tools may run in a worker, and only with validated parameters substituted
 into fixed argv slots — a parameter value becomes exactly one argv element and can never
-introduce new arguments, so there is no argument injection. Each tool declares its
-permissions, network needs, risk, timeout and output ceiling (directive §12.4).
+introduce new arguments, so there is no argument *splitting*. Because most CLIs also treat a
+leading ``-`` as an option marker, a string value that starts with ``-`` is rejected unless the
+parameter explicitly opts in (``allow_leading_dash``); otherwise a value such as
+``--output=/etc/cron.d/x`` would still be interpreted by the tool as a flag. Each tool declares
+its permissions, network needs, risk, timeout and output ceiling.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+
+_CONTROL = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")      # control characters other than TAB
+NETWORK_MODES = ("none", "egress_allowlist")
 
 
 class ToolError(ValueError):
@@ -22,6 +28,10 @@ class ToolParam:
     required: bool = True
     choices: tuple = ()
     pattern: str | None = None
+    allow_leading_dash: bool = False
+    max_length: int = 2048
+    min_value: int | None = None
+    max_value: int | None = None
 
     def coerce(self, value):
         if self.type == "int":
@@ -30,16 +40,24 @@ class ToolParam:
                     value = int(value)
                 except (TypeError, ValueError) as exc:
                     raise ToolError(f"Parameter '{self.name}' must be an integer") from exc
+            if self.min_value is not None and value < self.min_value:
+                raise ToolError(f"Parameter '{self.name}' must be >= {self.min_value}")
+            if self.max_value is not None and value > self.max_value:
+                raise ToolError(f"Parameter '{self.name}' must be <= {self.max_value}")
             return str(value)
         if self.type == "enum":
             if value not in self.choices:
                 raise ToolError(f"Parameter '{self.name}' must be one of {list(self.choices)}")
             return str(value)
         text = str(value)
+        if len(text) > self.max_length:
+            raise ToolError(f"Parameter '{self.name}' exceeds {self.max_length} characters")
+        if _CONTROL.search(text):
+            raise ToolError(f"Parameter '{self.name}' contains a control character")
+        if text.startswith("-") and not self.allow_leading_dash:
+            raise ToolError(f"Parameter '{self.name}' must not start with '-' (it would be read as an option)")
         if self.pattern is not None and not re.fullmatch(self.pattern, text):
             raise ToolError(f"Parameter '{self.name}' does not match the allowed pattern")
-        if "\x00" in text:
-            raise ToolError(f"Parameter '{self.name}' contains a NUL byte")
         return text
 
 
@@ -56,6 +74,12 @@ class ToolSpec:
     risk: str = "low"
     timeout_seconds: int = 30
     max_output_bytes: int = 1_000_000
+
+    def __post_init__(self):
+        if self.network not in NETWORK_MODES:
+            raise ToolError(f"Tool '{self.tool_id}': network must be one of {list(NETWORK_MODES)}")
+        if not 0 < self.timeout_seconds <= 600 or not 0 < self.max_output_bytes <= 64_000_000:
+            raise ToolError(f"Tool '{self.tool_id}': timeout/output limits are out of range")
 
     def build_argv(self, values: dict) -> list:
         values = dict(values or {})

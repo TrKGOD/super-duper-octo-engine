@@ -1,0 +1,5 @@
+# Runtime dependencies of the framework itself (everything under core/ and scripts/ that is not optional).
+# jsonschema   - handoff / evidence / benchmark contract validation
+# cryptography - OIDC signature verification, authentication-vault encryption (Fernet), evidence integrity
+jsonschema==4.23.0
+cryptography>=44.0.0,<47.0.0

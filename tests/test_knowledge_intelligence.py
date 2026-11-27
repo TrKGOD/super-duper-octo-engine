@@ -157,7 +157,8 @@ class EmbeddingSeamTests(KBTestBase):
         retriever = KnowledgeRetriever(self.db, embedder=stable_embedder)
         results = retriever.semantic_documents("server side request forgery metadata")
         self.assertTrue(results)
-        self.assertEqual(results[0]["title"], "ssrf")
+        # Imported text reaches an agent only inside an untrusted block (same as the full-text path).
+        self.assertEqual(results[0]["title"], "```UNTRUSTED_KB_CONTENT\nssrf\n```")
 
     def test_semantic_is_empty_without_embedder(self):
         ingest_content(self.db, "anything", "text/plain", meta(title="x"))

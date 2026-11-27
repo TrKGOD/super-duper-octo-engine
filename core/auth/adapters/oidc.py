@@ -146,6 +146,7 @@ class OIDCAdapter(AuthAdapter):
                 "access_token": access_token,
                 "refresh_token": token_response.get("refresh_token"),
                 "id_token": id_token, "expires_at": token_response.get("expires_at"),
+                "expires_in": token_response.get("expires_in"),
                 "token_type": token_response.get("token_type", "Bearer")}
 
     def refresh(self, material, config, secret_resolver, transport=None):
@@ -166,5 +167,5 @@ class OIDCAdapter(AuthAdapter):
         return {"headers": {"Authorization": "Bearer " + access_token},
                 "access_token": access_token,
                 "refresh_token": response.get("refresh_token", refresh_token),
-                "expires_at": response.get("expires_at"),
+                "expires_at": response.get("expires_at"), "expires_in": response.get("expires_in"),
                 "token_type": response.get("token_type", "Bearer")}

@@ -1,4 +1,5 @@
-jsonschema==4.23.0
+# Everything needed to develop and test: runtime + optional browser drivers + tooling.
+# `pip install -r requirements-dev.txt` keeps working exactly as before.
+-r requirements.txt
+-r requirements-browser.txt
 pre-commit==4.0.1
-cryptography>=44.0.0,<47.0.0
-playwright==1.55.0

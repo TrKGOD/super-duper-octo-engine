@@ -1,6 +1,57 @@
 # Changelog
 
 ## Unreleased
+- **Architecture revalidation, hardening and end-to-end integration** (branch
+  `feature/architecture-revalidation`; full register in `docs/REVALIDATION_STATUS.md`). Nothing here is
+  `production_ready`; each item states how it was verified.
+  - *Pipeline*: `core/pipeline/` connects discovery, graph facts, hypotheses, deterministic policy, tool
+    selection, the scope-enforcing broker, the evidence vault, independent validation, graph/coverage and
+    the next cycle, proven end to end against a local synthetic access-control fixture
+    (`tests/test_pipeline_e2e.py`, measured in `tests/test_pipeline_metrics.py`). Only object-level and
+    function-level authorization have automated executors; SQLi/XSS/SSRF hypotheses are recorded as
+    `INCONCLUSIVE` with a structured request for specialist testing and are counted as not executed.
+  - *Persistence*: execution ledger (migration `014`) with compare-and-swap transitions, leases, an
+    append-only event log, evidence↔execution links and crash reconciliation that never re-sends a request;
+    migrations gained checksums, gap/duplicate detection and staged upgrade (`scripts/migrate.py`).
+  - *Network and secrets*: `core/netpolicy.py` (canonical-notation, metadata and IPv6-wrapper handling, DNS
+    pinning), redirect rules for state-changing methods, multipart CRLF fix, `core/redaction.py` (one
+    implementation, key-aware, applied to audit events), `core/pathsafe.py` (link- and junction-aware),
+    `core/runtime.py` (cross-platform executable lookup and child encoding).
+  - *Authentication*: header-injection guards that compared against the wrong characters, `expires_in`
+    handling, no credentials from parked sessions, vault key rotation (`rotate-keys`) and ciphertext
+    binding, browser-login scope/DNS/WebSocket guards. New variable `WITHERHOARD_AUTH_VAULT_KEY`
+    (`HACKBOT_AUTH_VAULT_KEY` still honoured).
+  - *Workers*: container backend fails closed (preflight, no fallback), kills and removes containers on
+    timeout/cancel, digest pinning, no implicit pull, mount-option injection refused; subprocess backend
+    terminates whole process trees, kills output floods and supports cancellation; the `docker` client is
+    no longer held to the tool's memory/process limits (it crashed under them); option injection into
+    tool parameters refused; atomic slot accounting; on POSIX the process limit is now relative to the
+    user's current task count (an absolute `RLIMIT_NPROC` broke any forking or multi-threaded tool on a
+    busy host). The container *isolation* tests exist
+    (`tests/test_container_integration.py`) but have not been run on a real runtime.
+  - *Validation and planning*: oracles run only on evidence the engine resolved from the vault and
+    re-hashed; inconclusive results carry evidence requests; findings move only on verified records;
+    executor failures no longer strand hypotheses; retries only when structural facts changed; coverage
+    counts only executed tests; weaker-trust graph upserts cannot overwrite stronger facts.
+  - *Knowledge and memory*: ingestion bounds (size, JSON depth/values, embeddings), fail-closed markup
+    parsing and atomic rollback; semantic retrieval wraps untrusted text like the full-text path;
+    research-feed discovery refuses DTDs and its error path no longer crashes; experience promotion needs a
+    verified validation record and proposals are leads, never evidence.
+  - *Reports, skills, agents*: confirmed-only reports with explicit validation basis, unresolved
+    hypotheses and limitations, markup-injection-safe rendering; Skills are version- and
+    content-hash-pinned; `config/agent-contracts.json` is validated against agent files, the dispatch
+    allow-list, the handoff schema and the skill registry (`docs/AGENT_CONTRACTS.md` is generated).
+  - *CI and dependencies*: Windows and multi-version compatibility jobs, an agent-contract check, a
+    gated `container-isolation` job that fails instead of skipping, an advisory `pip-audit` job;
+    `requirements.txt` / `requirements-browser.txt` / `requirements-dev.txt` split.
+  - *Command guard*: `hooks/command_guard.py` now recognises Windows junctions (it used `is_symlink()`,
+    which is `False` for a junction, so a junction at `.local`/`config` passed every guard); the helper is
+    self-contained on purpose and pinned to `core.pathsafe` by tests.
+  - *Fixed along the way*: 17 environment-dependent test failures on Windows (classified in the register,
+    none skipped); 19 leaked sqlite connections in tests; `shutil.rmtree(onerror=)` deprecation; the README roadmap heading with literal `\n` sequences; the README evaluator command
+    that failed without `--allow-missing`.
+  - *Not done*: SSRF/XSS/SQLi automation, container and firewall verification on a real host, tool version
+    probing, KMS integration. See the limitations section of the register.
 - Added intelligence-layer benchmarking (`core/benchmark/intelligence.py`, rank-aware metrics
   in `core/benchmark/metrics.py`, `scripts/run_intelligence_benchmark.py`) — Intelligence Layer
   Component H: deterministic, CI-safe evaluators that run the **real** retriever, tool selector +

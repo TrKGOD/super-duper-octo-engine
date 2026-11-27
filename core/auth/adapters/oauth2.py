@@ -29,4 +29,4 @@ class OAuth2Adapter(AuthAdapter):
             raise RuntimeError("OAuth2 response did not contain an access token")
         return {"headers": {"Authorization": "Bearer " + response["access_token"]},
                 "access_token": response["access_token"], "refresh_token": response.get("refresh_token"),
-                "expires_at": response.get("expires_at"), "token_type": response.get("token_type", "Bearer")}
+                "expires_at": response.get("expires_at"), "expires_in": response.get("expires_in"), "token_type": response.get("token_type", "Bearer")}

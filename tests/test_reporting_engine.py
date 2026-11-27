@@ -15,21 +15,12 @@ from pathlib import Path
 from scripts.migrate import migrate
 from core.store import StateStore
 from core.evidence import EvidenceVault
+from core.benchmark.synthetic import bola_request
 from core.validation_engine import FindingValidator
 from core.graph import AttackGraph
 from core.tools.observations import Observation, ObservationStore
 from core.reporting import ReportingEngine, ReportingError
 from core.evidence_adapters import import_nessus
-
-OWNER_OK = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o1"]}
-OTHER_SAME = {"status_code": 200, "response_excerpt": '{"id":1}', "evidence_refs": ["o2"]}
-
-
-def bola_request():
-    return {"vulnerability_class": "object_authorization", "owner_response": OWNER_OK,
-            "other_response": OTHER_SAME, "owner_identity": "bob", "other_identity": "alice",
-            "object_reference": "order-7"}
-
 
 class ReportingTestBase(unittest.TestCase):
     def setUp(self):
@@ -40,7 +31,7 @@ class ReportingTestBase(unittest.TestCase):
         self.store = StateStore(db)
         self.store.create_engagement("eng", "AUTH", {"allowed_domains": ["app.local"]}, {}, status="active")
         self.vault = EvidenceVault(self.store, self.root)
-        self.validator = FindingValidator(self.store)
+        self.validator = FindingValidator(self.store, self.vault)
         self.engine = ReportingEngine(self.store, self.root)
         self.ev = self._validated_finding()
         self._seed_surface_and_candidate()
@@ -60,7 +51,7 @@ class ReportingTestBase(unittest.TestCase):
             "asset": "https://app.local/api/orders", "method": "GET", "parameter": "id",
             "description": "Cross-identity object access.", "impact": "Tenant data exposure.",
             "severity": "high", "proposed_by": "recon-agent", "evidence_refs": [ev["evidence_id"]]})
-        self.validator.validate_finding(fid, bola_request(), "validation-agent")
+        self.validator.validate_finding(fid, bola_request(self.vault, "eng", fid), "validation-agent")
         return ev
 
     def _seed_surface_and_candidate(self):

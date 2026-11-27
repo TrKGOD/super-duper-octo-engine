@@ -3,7 +3,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -13,6 +12,8 @@ from jsonschema import Draft202012Validator
 from core.dispatch import dispatch_plan, DispatchError
 from core.active_executor import _safe_url, _validate_request, _validate_request_scope
 from core.orchestration import Workflow, WorkflowError, _scope_assets
+from core.runtime import CHILD_TEXT_ENCODING, resolve_executable
+from core.pathsafe import is_link_like
 from scripts.skill_registry import load_registry, select_skills
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +44,7 @@ def _parse_plan(stdout):
 def _available_request_manifests(project_root, scope, exact_assets, budget, allowed_classes, used_request_ids):
     request_root = Path(project_root).resolve() / ".local" / "requests"
     local_root = Path(project_root).resolve() / ".local"
-    if local_root.is_symlink() or request_root.is_symlink():
+    if is_link_like(local_root) or is_link_like(request_root):
         raise WorkflowError(".local and .local/requests must not be symlinks")
     if not request_root.exists():
         return []
@@ -52,7 +53,7 @@ def _available_request_manifests(project_root, scope, exact_assets, budget, allo
         raise WorkflowError("Request manifest directory must be under .local/")
     available = []
     for path in sorted(resolved_root.glob("*.json")):
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
+        if is_link_like(path) or not path.is_file() or path.stat().st_size > 65536:
             continue
         raw = path.read_bytes()
         try:
@@ -87,7 +88,7 @@ def _available_request_manifests(project_root, scope, exact_assets, budget, allo
 
 
 def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_seconds=120):
-    binary = shutil.which(claude_bin) if "/" not in claude_bin else claude_bin
+    binary = resolve_executable(claude_bin)
     if not binary:
         raise DispatchError("Claude Code CLI not found")
     row = workflow.store.connection.execute(
@@ -215,7 +216,7 @@ def generate_plan(workflow, engagement_id, model, claude_bin="claude", timeout_s
     ]
     try:
         proc = subprocess.run(
-            command, input=prompt, capture_output=True, text=True,
+            command, input=prompt, capture_output=True, text=True, **CHILD_TEXT_ENCODING,
             timeout=timeout_seconds, check=False, cwd=workflow.project_root,
             env=dict(os.environ, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"),
         )

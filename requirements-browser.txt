@@ -1,0 +1,5 @@
+# Optional: real headless-Chromium drivers (core/auth/playwright_runner.py, core/browser/playwright_driver.py).
+# Importing playwright is lazy: the framework and its tests run without it, and the browser tests report
+# an explicit skip when no browser binary is available. Install the browser itself separately:
+#   python -m playwright install chromium            (add --with-deps on Linux)
+playwright==1.55.0

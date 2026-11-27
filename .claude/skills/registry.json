@@ -29,7 +29,9 @@
         "operator-supplied directory evidence or approved lab"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "8ba87fcde063abf294258b3305604c372e2b2ea3b787d26ec2a68e0c1f8df8ca"
     },
     {
       "id": "api-security",
@@ -59,7 +61,9 @@
         "supplied API inventory or approved isolated lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "054d623afb2adc4d8cbe47db907bebfe1780e0e91179b20317979aaafc96ae61"
     },
     {
       "id": "cloud-security",
@@ -88,7 +92,9 @@
         "operator-supplied configuration exports or approved lab"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "9bfc9098b820b921bef5e2a7e35c04d08928b420858d519faf66cb02879a2efa"
     },
     {
       "id": "enumeration",
@@ -124,7 +130,9 @@
       ],
       "risk_class": "passive_analysis",
       "validation_status": "catalogued_unverified",
-      "description": "Practical Web/API attack-surface enumeration and vulnerability-lead generation"
+      "description": "Practical Web/API attack-surface enumeration and vulnerability-lead generation",
+      "version": "1.0.0",
+      "content_sha256": "f4acc10e6873dde88727317c1f58d487186db9276ca147d54d983037c9c9fe3f"
     },
     {
       "id": "knowledge-base",
@@ -154,7 +162,9 @@
         "source provenance and rights basis"
       ],
       "risk_class": "research_context",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "8d02216b16d87cabd282c078f40ef4e52c6a4aae3d95cc5b99efb020e50657f7"
     },
     {
       "id": "mobile-security",
@@ -185,7 +195,9 @@
         "supplied application artifacts or approved lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "e44860047672f0ff368c80495f6408e6a89d1e0e61b06176ee772d07e2e4aa03"
     },
     {
       "id": "reconnaissance",
@@ -214,7 +226,9 @@
         "operator-supplied passive data"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "5b87c83d518c30f4f3a3b8c3b16a2ef4fe1e8d6d9d99620d9e2f4cb7d42cf223"
     },
     {
       "id": "validation",
@@ -245,7 +259,9 @@
         "validator identity distinct from proposer"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "d2085f1ee08de96941550b07ae7df6d41bcb26d6f34e9081d5c18914154482eb"
     },
     {
       "id": "web-authentication",
@@ -272,7 +288,9 @@
         "supplied evidence or approved test accounts in a lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "a324a3fa3a89f843c506631462efe32fe693b209c43d3c4410e85e6b48586507"
     },
     {
       "id": "web-authorization-idor",
@@ -300,7 +318,9 @@
         "synthetic accounts and approved test objects"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "1068f257fcd347e2589b10f59821744714e302d1dba75aed17c6b6588552e0ce"
     },
     {
       "id": "web-oauth-jwt",
@@ -331,7 +351,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "implemented_unverified",
-      "description": "Offline OIDC discovery, OAuth flow and JWT policy evidence analysis; no token signature verification"
+      "description": "Offline OIDC discovery, OAuth flow and JWT policy evidence analysis; no token signature verification",
+      "version": "1.0.0",
+      "content_sha256": "3af3f148294724c86ac3109fcce4b49932cccdf7f13411139872365c591f17dd"
     },
     {
       "id": "web-sqli",
@@ -359,7 +381,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "implemented_unverified",
-      "description": "Offline contextual SQL injection differential evidence analysis; no payload generation or active probes"
+      "description": "Offline contextual SQL injection differential evidence analysis; no payload generation or active probes",
+      "version": "1.0.0",
+      "content_sha256": "1f5b1b6afd5ff342ae430b414acc7f97f0f2c290499f34e1c3864af552a06a45"
     },
     {
       "id": "web-ssrf",
@@ -386,7 +410,9 @@
         "controlled lab or safe supplied evidence"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "c7ec05813bd7d0ad8628f52cb63c0abb7d29ea2cb373587cb04bb2a530b6e30e"
     },
     {
       "id": "web-xss",
@@ -413,7 +439,9 @@
         "supplied evidence or approved lab"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "701e897ccbc4a9fc651fd764b03038c4c2d7dc91f46bce23838c34db987c484e"
     },
     {
       "id": "active-http-testing",
@@ -440,7 +468,9 @@
         "operator-reviewed SHA-256-pinned request manifest"
       ],
       "risk_class": "controlled_validation_guidance",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "c0481045f23f20b04e9034fc2daf5a040b9f25e3c080a6f3d65f0fdeebbbe886"
     },
     {
       "id": "engagement-scope",
@@ -467,7 +497,9 @@
         "operator-supplied written authorization and program scope"
       ],
       "risk_class": "passive_analysis",
-      "validation_status": "catalogued_unverified"
+      "validation_status": "catalogued_unverified",
+      "version": "1.0.0",
+      "content_sha256": "90e6be2f30e57435c65b280938d7e3972ae623c12dd45826f5c265b9df0afb25"
     },
     {
       "id": "active-web-api-discovery",
@@ -500,7 +532,9 @@
         "exact task scope subset"
       ],
       "risk_class": "controlled_read_only_http",
-      "validation_status": "implemented_unverified"
+      "validation_status": "implemented_unverified",
+      "version": "1.0.0",
+      "content_sha256": "fa6466a19a5c678f140e9def962aef7cf22a5a3407afdbf7d08878cb398a1bcf"
     },
     {
       "id": "web-ssrf-advanced",
@@ -530,7 +564,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "implemented_unverified",
-      "description": "Specialist methodology pack for ssrf advanced investigation"
+      "description": "Specialist methodology pack for ssrf advanced investigation",
+      "version": "1.0.0",
+      "content_sha256": "462a35d5d4a862bf716a2adc48a91db1aacf8a69c81c7333034b3d0e06e3ee09"
     },
     {
       "id": "web-authn-mfa",
@@ -561,7 +597,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "implemented_unverified",
-      "description": "Specialist methodology pack for authn mfa investigation"
+      "description": "Specialist methodology pack for authn mfa investigation",
+      "version": "1.0.0",
+      "content_sha256": "a1adce03b6393efcae1a4d807134feae103fd5c1d843457357e0265ce09e79c5"
     },
     {
       "id": "web-authorization-bac",
@@ -592,7 +630,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified",
-      "description": "Specialist methodology pack for authorization bac investigation"
+      "description": "Specialist methodology pack for authorization bac investigation",
+      "version": "1.0.0",
+      "content_sha256": "d8e56fd128fb0c1c867a1918ef469a8435a60312c67631656b317e743c54ef4e"
     },
     {
       "id": "web-injection-csrf",
@@ -623,7 +663,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified",
-      "description": "Specialist methodology pack for injection csrf investigation"
+      "description": "Specialist methodology pack for injection csrf investigation",
+      "version": "1.0.0",
+      "content_sha256": "9e271079273e11c3451dc6f5137d26bc6c875f0e7509cdd0ed6103d2c92728ca"
     },
     {
       "id": "web-information-disclosure",
@@ -654,7 +696,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified",
-      "description": "Specialist methodology pack for information disclosure investigation"
+      "description": "Specialist methodology pack for information disclosure investigation",
+      "version": "1.0.0",
+      "content_sha256": "4164b349752c6686dc69ae2adff9d58f538c3195d7924c93b0af26a9bfb6176d"
     },
     {
       "id": "web-http-cache-race",
@@ -685,7 +729,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "implemented_unverified",
-      "description": "Specialist methodology pack for http cache race investigation"
+      "description": "Specialist methodology pack for http cache race investigation",
+      "version": "1.0.0",
+      "content_sha256": "d189cbfddb3ab1674329efaebbcd459e697b7511da28e5fa743dbca6de4b293a"
     },
     {
       "id": "web-remaining-classes",
@@ -717,7 +763,9 @@
       ],
       "risk_class": "controlled_validation_guidance",
       "validation_status": "catalogued_unverified",
-      "description": "Specialist methodology pack for remaining classes investigation"
+      "description": "Specialist methodology pack for remaining classes investigation",
+      "version": "1.0.0",
+      "content_sha256": "885d2997d4530794af03ab3445bd1d093d88d5df86c88afde47219d4ec98f7c2"
     }
   ]
 }

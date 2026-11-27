@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scripts.run_benchmark import parse_model_json, run, validate_case
 from scripts.runtime_smoke import parse_agent_result
+from tests.support import finalize_fake_cli
 
 
 class BenchmarkRunnerTests(unittest.TestCase):
@@ -41,10 +42,10 @@ class BenchmarkRunnerTests(unittest.TestCase):
                 "'usage':{'input_tokens':120,'output_tokens':35},'duration_ms':900}))\n",
                 encoding="utf-8",
             )
-            fake.chmod(0o755)
+            fake_cli = finalize_fake_cli(fake)
             predictions, manifest = run(
                 cases, "vulnerability-agent", "pinned-model", 60,
-                "synthetic-lab-v1", str(fake),
+                "synthetic-lab-v1", fake_cli,
             )
             self.assertEqual(predictions["predictions"][0]["case_id"], "SYN-TEST-001")
             self.assertEqual(manifest["execution"], "claude_code_cli_prompt_via_stdin")

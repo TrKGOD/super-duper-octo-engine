@@ -7,6 +7,12 @@ eligible independent review by someone other than the proposer. Retesting after
 remediation compares fresh evidence through the same oracle and never auto-repeats a
 state-changing test.
 
+**Verified-evidence gate.** Only a validation computed on evidence that the engine itself
+resolved from the vault and integrity-checked (``record.evidence_verified``) may move a
+finding anywhere but ``needs_more_evidence``. A result derived from data embedded in the
+request is recorded, but it can neither confirm, reject nor resolve a finding: otherwise any
+agent could manufacture a "confirmed" finding by passing fabricated response bodies.
+
 Lifecycle mapping (directive §9.5 adapted to existing statuses):
 DISCOVERED→`observation`/`hypothesis`, VALIDATION_PENDING→`validation_pending`,
 CONFIRMED→`validated`, REFUTED→`rejected`, INCONCLUSIVE→`needs_more_evidence`,
@@ -15,13 +21,21 @@ STILL_PRESENT→re-`validated`.
 """
 from __future__ import annotations
 
+from core.graph.store import AttackGraph
 from core.validation_engine.engine import ExploitValidationEngine, ValidationError
+from core.validation_engine.facts import GraphFacts
 from core.validation_engine.records import INCONCLUSIVE, REFUTED, SUPPORTED, ValidationRecordStore
+from core.validation_engine.resolver import EvidenceResolver
+
+UNVERIFIED_NOTE = ("Validation ran on data embedded in the request, not on vault-verified evidence; "
+                   "it cannot change the finding. Re-run with evidence references.")
 
 
 class FindingValidator:
-    def __init__(self, store, *, validator_id: str = "exploit-validation-engine", version: str = "1.0"):
+    def __init__(self, store, vault=None, *, validator_id: str = "exploit-validation-engine",
+                 version: str = "1.0"):
         self.store = store
+        self.vault = vault
         self.validator_id = validator_id
         self.version = version
 
@@ -32,10 +46,12 @@ class FindingValidator:
             raise ValidationError("Unknown finding: " + str(finding_id))
         return row
 
-    def _engine(self, engagement_id: str) -> ExploitValidationEngine:
+    def engine_for(self, engagement_id: str) -> ExploitValidationEngine:
+        resolver = EvidenceResolver(self.vault, engagement_id) if self.vault is not None else None
+        facts = GraphFacts(AttackGraph(self.store.connection, engagement_id)) if resolver else None
         return ExploitValidationEngine(
             engagement_id, record_store=ValidationRecordStore(self.store.connection, engagement_id),
-            validator_id=self.validator_id, version=self.version)
+            resolver=resolver, facts=facts, validator_id=self.validator_id, version=self.version)
 
     def validate_finding(self, finding_id: str, request: dict, validator: str) -> dict:
         finding = self._finding(finding_id)
@@ -44,8 +60,14 @@ class FindingValidator:
                                   + finding["status"] + ")")
         if validator.strip() == finding["proposed_by"]:
             raise ValidationError("The proposing agent cannot validate its own finding")
-        record = self._engine(finding["engagement_id"]).validate({**request, "finding_id": finding_id})
+        record = self.engine_for(finding["engagement_id"]).validate({**request, "finding_id": finding_id})
 
+        if not record.evidence_verified:
+            status = self.store.transition_finding(finding_id, "needs_more_evidence", validator,
+                                                   validation_notes=UNVERIFIED_NOTE)
+            return {"disposition": record.disposition, "record_id": record.record_id,
+                    "finding_status": status, "gated": "unverified_evidence",
+                    "evidence_requests": record.evidence_requests}
         if record.disposition == SUPPORTED:
             self.store.record_finding_review(finding_id, validator, {
                 "decision": "eligible_for_independent_validation",
@@ -59,7 +81,8 @@ class FindingValidator:
         else:
             status = self.store.transition_finding(finding_id, "needs_more_evidence", validator,
                                                    validation_notes=record.explanation)
-        return {"disposition": record.disposition, "record_id": record.record_id, "finding_status": status}
+        return {"disposition": record.disposition, "record_id": record.record_id,
+                "finding_status": status, "evidence_requests": record.evidence_requests}
 
     def retest_finding(self, finding_id: str, request: dict, validator: str) -> dict:
         finding = self._finding(finding_id)
@@ -70,9 +93,15 @@ class FindingValidator:
         if validator.strip() == finding["proposed_by"]:
             raise ValidationError("The proposing agent cannot retest its own finding")
 
+        engine = self.engine_for(finding["engagement_id"])
+        if engine.resolver is None:
+            # Refuse *before* touching the finding: an unverifiable retest must not be able to
+            # knock a validated finding out of that state (nor "verify" a fix on fabricated data).
+            raise ValidationError("Retesting requires evidence references resolved from the vault")
+        # Validate first: malformed or foreign evidence raises here and leaves the finding as it was.
+        record = engine.validate({**request, "finding_id": finding_id})
         self.store.transition_finding(finding_id, "retest_pending", validator,
                                       validation_notes="Retest after remediation.")
-        record = self._engine(finding["engagement_id"]).validate({**request, "finding_id": finding_id})
 
         if record.disposition == REFUTED:
             status = self.store.transition_finding(finding_id, "resolved", validator,
@@ -91,4 +120,5 @@ class FindingValidator:
                                                    validation_notes="Retest inconclusive: " + record.explanation)
             outcome = "INCONCLUSIVE"
         return {"disposition": record.disposition, "outcome": outcome,
-                "record_id": record.record_id, "finding_status": status}
+                "record_id": record.record_id, "finding_status": status,
+                "evidence_requests": record.evidence_requests}

@@ -13,6 +13,7 @@ import json
 import re
 import statistics
 import sys
+from core.pathsafe import is_link_like
 from pathlib import Path
 from typing import Any
 
@@ -158,7 +159,7 @@ def analyze_oauth_flow(flow: dict) -> dict[str, Any]:
 
 _SQL_ERROR = re.compile(
     r"(?:SQL syntax.*MySQL|Warning: mysql_|PostgreSQL.*ERROR|ORA-\d{4,5}|"
-    r"SQLite\\/JDBC|ODBC SQL Server Driver|Unclosed quotation mark|"
+    r"SQLite/JDBC|sqlite3\.OperationalError|SQLITE_ERROR|ODBC SQL Server Driver|Unclosed quotation mark|"
     r"SQLSTATE\[[0-9A-Z]+\])", re.IGNORECASE
 )
 
@@ -221,7 +222,7 @@ def _load_local_json(path_text: str) -> dict:
     if path.is_absolute() or ".." in path.parts or path.parts[0] != ".local":
         raise ValueError("Input must be a relative file under .local/")
     root = Path(".local")
-    if root.is_symlink() or path.is_symlink():
+    if is_link_like(root) or is_link_like(path):
         raise ValueError("Symlinked local evidence is not accepted")
     resolved = path.resolve(strict=True)
     if not resolved.is_relative_to(root.resolve(strict=True)) or not resolved.is_file() or resolved.stat().st_size > 262144:

@@ -13,13 +13,16 @@ Isolation strength depends on the backend:
   by default, never privileged, no docker socket). See docs/ISOLATED_EXECUTION.md for the
   threat model and residual risks.
 """
-from core.workers.backends import (ContainerWorkerBackend, SubprocessWorkerBackend, WorkerBackend)
+from core.workers.backends import (ContainerConfigError, ContainerRuntimeUnavailable,
+                                  ContainerWorkerBackend, SubprocessWorkerBackend, WorkerBackend,
+                                  WorkerBackendError)
 from core.workers.manager import Worker, WorkerError, WorkerManager
-from core.workers.resources import ExecutionResult, ResourceError, ResourceLimits
+from core.workers.resources import CancelToken, ExecutionResult, ResourceError, ResourceLimits
 from core.workers.tools import ToolError, ToolParam, ToolRegistry, ToolSpec
 
 __all__ = [
     "WorkerManager", "Worker", "WorkerError", "WorkerBackend", "SubprocessWorkerBackend",
     "ContainerWorkerBackend", "ResourceLimits", "ExecutionResult", "ResourceError",
-    "ToolRegistry", "ToolSpec", "ToolParam", "ToolError",
+    "ToolRegistry", "ToolSpec", "ToolParam", "ToolError", "CancelToken",
+    "WorkerBackendError", "ContainerRuntimeUnavailable", "ContainerConfigError",
 ]

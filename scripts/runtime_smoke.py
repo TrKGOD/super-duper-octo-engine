@@ -4,10 +4,14 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))  # allow `python scripts/<name>.py` to import core.*
+from core.runtime import CHILD_TEXT_ENCODING, resolve_executable
 
 
 def parse_agent_result(stdout):
@@ -36,7 +40,7 @@ def main():
     args = parser.parse_args()
     if args.timeout_seconds < 10:
         parser.error("--timeout-seconds must be at least 10")
-    binary = shutil.which(args.claude_bin) if "/" not in args.claude_bin else args.claude_bin
+    binary = resolve_executable(args.claude_bin)
     if not binary:
         print("Claude Code CLI not found", file=sys.stderr)
         return 2
@@ -57,7 +61,7 @@ def main():
     started = time.monotonic()
     try:
         proc = subprocess.run(
-            command, input=prompt, capture_output=True, text=True,
+            command, input=prompt, capture_output=True, text=True, **CHILD_TEXT_ENCODING,
             timeout=args.timeout_seconds, check=False,
             env=dict(os.environ, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"),
         )
