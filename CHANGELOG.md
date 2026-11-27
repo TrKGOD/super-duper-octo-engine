@@ -2,9 +2,12 @@
 
 ## Unreleased
 - CI supply chain: every third-party GitHub Action is pinned to a full commit SHA (the release is kept in a
-  trailing comment) and the container test image to a digest, so a change in what CI executes is always a
-  change in this repository. `tests/test_ci_pins.py` fails on any floating reference and has its own tests
-  for the checker. Unpinned and noted in the register: the `pip-audit` tool and the agent-benchmark npm package.
+  trailing comment), the container test image to a digest, and the tools CI installs by name (`pip-audit`,
+  and `@anthropic-ai/claude-code` in the gated agent-benchmark job) to exact versions, so a change in what CI
+  executes is always a change in this repository. `tests/test_ci_pins.py` fails on any floating reference
+  (including a `pip install` or `npm install` of an unpinned package, even one split across continuation
+  lines) and has its own tests for the checker. An exact version fixes the tool, not its dependencies:
+  nothing is hash-locked.
 - Raised `cryptography` to `>=50.0.0,<51.0.0` (was `>=44.0.0,<47.0.0`) to clear four published advisories
   (PYSEC-2026-3552/3553/3554, GHSA-537c-gmf6-5ccf) that the advisory dependency audit reported against
   46.0.7; no code changes were needed and the full suite passes on Linux and Windows with 50.0.2.

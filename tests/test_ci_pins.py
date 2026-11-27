@@ -1,11 +1,19 @@
 """CI supply-chain pins are a checked property, not a convention.
 
-A floating action tag (``@v4``) is whatever its maintainer moves it to; a floating image tag likewise. Every
-third-party action therefore has to be pinned to a full commit SHA with the release named in a trailing comment,
-and the container test image to a digest, so that a change in what CI executes is always a change in this repository.
-The checker works on the raw text (YAML parsers drop comments) and has its own tests, so it cannot pass vacuously.
+A floating action tag (``@v4``) is whatever its maintainer moves it to; a floating image tag likewise, and so is a
+tool installed by name (``pip install pip-audit`` takes whatever release is current that day). Every third-party
+action therefore has to be pinned to a full commit SHA with the release named in a trailing comment, the container
+test image to a digest, and every package a ``pip install`` or ``npm install`` names to an exact version, so that a
+change in what CI executes is always a change in this repository.
+
+What a green result does not cover, stated so that it is not over-read: an exact version fixes the package, not what
+it depends on (nothing is hash-locked); ``-r requirements*.txt`` files are reviewed as files, not checked here; and
+ways of fetching code the workflows do not use today (``npx``, ``pipx``, ``apt-get``, ``curl | sh``, ``go install``)
+are not recognised. The checker works on the raw text (YAML parsers drop comments) and has its own tests, so it
+cannot pass vacuously.
 """
 import re
+import shlex
 import unittest
 from pathlib import Path
 
@@ -17,6 +25,97 @@ PINNED_ACTION = re.compile(r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")
 RELEASE_COMMENT = re.compile(r"^\s+#\s*v\d+\.\d+\.\d+\s*$")
 DIGEST_IMAGE = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
 IMAGE_VARIABLE = re.compile(r"^\s*WITHERHOARD_CONTAINER_TEST_IMAGE:\s*\"?(?P<image>[^\"\s#]+)\"?")
+
+# Tools installed by name. After `pip install` / `npm install`, an option listed here consumes the next token as its
+# value (a file or a prefix, not a package); every other non-option token is a package specification.
+PIP_COMMAND = re.compile(r"^pip(?:3(?:\.\d+)?)?$")
+PIP_VALUE_OPTIONS = frozenset({"-r", "--requirement", "-c", "--constraint", "-e", "--editable", "-i", "--index-url",
+                               "--extra-index-url", "-f", "--find-links", "-t", "--target", "--prefix", "--root",
+                               "--platform", "--python-version", "--only-binary", "--no-binary", "--cache-dir"})
+PIP_EXACT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(?:\[[A-Za-z0-9._,-]+\])?==\d[0-9A-Za-z.+!_-]*$")
+NPM_INSTALL_WORDS = frozenset({"install", "i", "add"})
+NPM_VALUE_OPTIONS = frozenset({"--prefix", "--registry", "--tag", "-w", "--workspace", "--loglevel", "--cache"})
+NPM_EXACT = re.compile(r"^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
+LOCAL_PATH = re.compile(r"^(?:\.{1,2}(?:[\\/]|$)|[\\/~]|[A-Za-z]:[\\/]|file:)")   # part of this checkout, not a registry
+CONTROL_OPERATORS = frozenset({"&&", "||", ";", ";;", "&", "|", "|&", "(", ")"})
+REDIRECTION = re.compile(r"^(?:&>>?|[<>][<>&|]*)$")
+
+
+def logical_lines(lines):
+    """``(first line number, text)`` for each shell line, with backslash continuations joined as the shell reads them.
+
+    A comment line ending in a backslash does not continue: the shell ends a comment at the newline."""
+    start, parts = None, []
+    for number, line in enumerate(lines, 1):
+        if start is None:
+            start = number
+        text = line.rstrip()
+        if text.endswith("\\") and not text.lstrip().startswith("#"):
+            parts.append(text[:-1])
+            continue
+        parts.append(text)
+        yield start, " ".join(part.strip() for part in parts)
+        start, parts = None, []
+    if parts:                                                 # a continuation on the last line of the file
+        yield start, " ".join(part.strip() for part in parts)
+
+
+def shell_commands(text):
+    """The commands on one shell line as token lists: cut at control operators, comments and redirections dropped.
+
+    A line that does not tokenise (an unbalanced quote: not every YAML line is shell) is split on whitespace, so it
+    is still scanned instead of skipped."""
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        tokens = text.split()
+    commands, current, skip = [], [], False
+    for token in tokens:
+        if skip:
+            skip = False
+        elif token in CONTROL_OPERATORS:
+            commands.append(current)
+            current = []
+        elif REDIRECTION.match(token):
+            if current and current[-1].isdigit():
+                current.pop()                                 # the file-descriptor prefix of `2>&1`
+            skip = True                                       # and the target of the redirection
+        else:
+            current.append(token)
+    commands.append(current)
+    return [command for command in commands if command]
+
+
+def install_arguments(command):
+    """``(manager, arguments)`` when the command installs packages with pip or npm, otherwise None."""
+    for index in range(len(command) - 1):
+        word, following = command[index], command[index + 1]
+        if PIP_COMMAND.match(word) and following == "install":
+            return "pip", command[index + 2:]
+        if word == "npm" and following in NPM_INSTALL_WORDS:
+            return "npm", command[index + 2:]
+    return None
+
+
+def named_installs(lines):
+    """``(line number, manager, specification)`` for every registry package a pip or npm install names."""
+    for number, text in logical_lines(lines):
+        for command in shell_commands(text):
+            found = install_arguments(command)
+            if not found:
+                continue
+            manager, arguments = found
+            value_options = PIP_VALUE_OPTIONS if manager == "pip" else NPM_VALUE_OPTIONS
+            skip = False
+            for token in arguments:
+                if skip:
+                    skip = False
+                elif token.startswith("-"):
+                    skip = "=" not in token and token in value_options
+                elif not LOCAL_PATH.match(token):
+                    yield number, manager, token
 
 
 def unpinned(lines):
@@ -39,7 +138,11 @@ def unpinned(lines):
         image = IMAGE_VARIABLE.match(line)
         if image and not DIGEST_IMAGE.match(image.group("image")):
             problems.append((number, f"container test image not pinned by digest: {image.group('image')}"))
-    return problems
+    for number, manager, specification in named_installs(lines):
+        exact, form = (PIP_EXACT, "name==X.Y.Z") if manager == "pip" else (NPM_EXACT, "name@X.Y.Z")
+        if not exact.match(specification):
+            problems.append((number, f"{manager} install of '{specification}' is not pinned to an exact version ({form})"))
+    return sorted(problems)
 
 
 class PinCheckerTests(unittest.TestCase):
@@ -80,6 +183,86 @@ class PinCheckerTests(unittest.TestCase):
         self.assertEqual(unpinned([f'      WITHERHOARD_CONTAINER_TEST_IMAGE: "busybox@sha256:{digest}"  # busybox:1.36']), [])
 
 
+class InstallCheckerTests(unittest.TestCase):
+    """Tools installed by name: every package a ``pip install`` or ``npm install`` names needs an exact version."""
+
+    def test_floating_installs_are_flagged(self):
+        for line in ("          python -m pip install pip-audit",
+                     "          python -m pip install pip-audit>=2.9",         # unquoted, `>` is a redirection
+                     '          python -m pip install "pip-audit>=2.9"',
+                     '          python -m pip install "pip-audit~=2.9"',
+                     "          python -m pip install pip-audit==2.*",
+                     "          python -m pip install --upgrade pip",
+                     "          python -m pip install pip-audit==2.10.1 requests",
+                     "          pip3 install -U pip-audit",
+                     "          python -m pip install git+https://github.com/pypa/pip-audit",
+                     "          python -m pip install https://example.invalid/pip_audit-2.10.1-py3-none-any.whl",
+                     "          npm install --global @anthropic-ai/claude-code",
+                     "          npm install --global @anthropic-ai/claude-code@latest",
+                     "          npm install --global @anthropic-ai/claude-code@next",
+                     "          npm install --global @anthropic-ai/claude-code@^2.1.326",
+                     "          npm install --global @anthropic-ai/claude-code@~2.1.326",
+                     "          npm install --global @anthropic-ai/claude-code@2.1",
+                     "          npm i -g typescript",
+                     "          npm add left-pad@1.x",
+                     "          npm install github:someone/some-tool",
+                     "          python -m pip install pip-audit==2.10.1 && npm install --global typescript"):
+            with self.subTest(line=line.strip()):
+                self.assertTrue(unpinned([line]), line)
+
+    def test_the_reason_names_the_package_and_the_form(self):
+        (number, reason), = unpinned(["", "          npm install --global @anthropic-ai/claude-code@latest"])
+        self.assertEqual(number, 2)
+        self.assertIn("@anthropic-ai/claude-code@latest", reason)
+        self.assertIn("name@X.Y.Z", reason)
+        (number, reason), = unpinned(["          python -m pip install pip-audit"])
+        self.assertIn("name==X.Y.Z", reason)
+
+    def test_pinned_installs_and_installs_that_name_no_registry_package_are_accepted(self):
+        for line in ("          python -m pip install pip-audit==2.10.1",
+                     '          python -m pip install "pip-audit==2.10.1"',
+                     "          python -m pip install pip-audit[extra]==2.10.1",
+                     "          python -m pip install -r requirements-dev.txt",
+                     "          python -m pip install -r requirements.txt -c constraints.txt",
+                     "          python -m pip install --require-hashes --no-deps -r requirements.txt",
+                     "          python -m pip install .",
+                     "          python -m pip install -e ./tools/helper",
+                     "          python -m pip install pip-audit==2.10.1 > install.log 2>&1",
+                     "          python -m pip install pip-audit==2.10.1  # a trailing comment",
+                     "          # python -m pip install pip-audit",
+                     "          python -m pip install pip-audit==2.10.1 && pip-audit -r requirements.txt",
+                     "          pip-audit -r requirements.txt 2>&1 | tee audit.txt",
+                     "          npm install --global @anthropic-ai/claude-code@2.1.326",
+                     "          npm i -g typescript@5.4.5",
+                     "          npm install --prefix ./tools left-pad@1.3.0",
+                     "          npm install",
+                     "          npm ci",
+                     '          echo "to install: pip install pip-audit"'):
+            with self.subTest(line=line.strip()):
+                self.assertEqual(unpinned([line]), [], line)
+
+    def test_a_floating_install_split_across_continuation_lines_is_still_seen(self):
+        lines = ["          python -m pip install \\",
+                 "              pip-audit"]
+        self.assertEqual([number for number, _ in unpinned(lines)], [1])
+        pinned = ["          python -m pip install \\",
+                  "              pip-audit==2.10.1"]
+        self.assertEqual(unpinned(pinned), [])
+
+    def test_a_comment_ending_in_a_backslash_does_not_hide_the_next_line(self):
+        lines = ["          # see the notes \\",
+                 "          python -m pip install pip-audit"]
+        self.assertEqual([number for number, _ in unpinned(lines)], [2])
+
+    def test_a_line_that_does_not_tokenise_is_scanned_not_skipped(self):
+        line = "          echo it's; python -m pip install pip-audit"             # unbalanced quote
+        self.assertTrue(unpinned([line]), line)
+
+    def test_commands_are_cut_at_operators_and_redirections_are_dropped(self):
+        self.assertEqual(shell_commands("a b && c | d ; e 2>&1 > out.txt # f"), [["a", "b"], ["c"], ["d"], ["e"]])
+        self.assertEqual(shell_commands("# only a comment"), [])
+
+
 class RepositoryWorkflowTests(unittest.TestCase):
     def test_workflows_exist_and_are_scanned(self):
         self.assertTrue(WORKFLOWS, "no workflow files found: the pin check would pass vacuously")
@@ -96,6 +279,10 @@ class RepositoryWorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(sum(1 for line in lines if USES.match(line)), 5)
         self.assertTrue(any(IMAGE_VARIABLE.match(line) for line in lines),
                         "the container-isolation job no longer declares WITHERHOARD_CONTAINER_TEST_IMAGE")
+        installed = {manager for _, manager, _ in named_installs(lines)}
+        self.assertEqual(installed, {"pip", "npm"},
+                         "the dependency-audit and agent-benchmark jobs install a tool by name; if the scan no longer "
+                         "sees a pip and an npm install it has stopped parsing them")
 
 
 if __name__ == "__main__":
